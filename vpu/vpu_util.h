@@ -1,12 +1,12 @@
 /*
- * Copyright 2004-2007 Freescale Semiconductor, Inc. All Rights Reserved.
- * 
+ * Copyright 2004-2008 Freescale Semiconductor, Inc. All Rights Reserved.
+ *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
 
 /*
- * The code contained herein is licensed under the GNU Lesser General 
- * Public License.  You may obtain a copy of the GNU Lesser General 
+ * The code contained herein is licensed under the GNU Lesser General
+ * Public License.  You may obtain a copy of the GNU Lesser General
  * Public License Version 2.1 or later at the following locations:
  *
  * http://www.opensource.org/licenses/lgpl-license.html
@@ -21,13 +21,28 @@
 
 #define MAX_NUM_INSTANCE		4
 
+#if defined(IMX37_3STACK)
+enum {
+	AVC_DEC = 0,
+	VC1_DEC = 1,
+	MP2_DEC = 2,
+	MP4_DEC = 3,
+	DV3_DEC = 4,
+	/* dumb */
+	AVC_ENC = 0x7F,
+	MP4_ENC = 0x80,
+} ;
+#else
 enum {
 	MP4_DEC = 0,
 	MP4_ENC = 1,
 	AVC_DEC = 2,
 	AVC_ENC = 3,
-	VC1_DEC = 4
+	VC1_DEC = 4,
+	MP2_DEC = 5,
+	DV3_DEC = 6
 };
+#endif
 
 enum {
 	SEQ_INIT = 1,
@@ -48,6 +63,9 @@ enum {
 #if defined(MXC30031ADS)
 #define MAX_ENC_PIC_WIDTH		352
 #define MAX_ENC_PIC_HEIGHT		288
+#elif defined(IMX37_3STACK)
+#define MAX_ENC_PIC_WIDTH		800
+#define MAX_ENC_PIC_HEIGHT		600
 #else
 #define MAX_ENC_PIC_WIDTH		720
 #define MAX_ENC_PIC_HEIGHT		576
