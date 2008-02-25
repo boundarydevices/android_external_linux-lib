@@ -1,12 +1,12 @@
 /*
- * Copyright 2004-2007 Freescale Semiconductor, Inc. All Rights Reserved.
- * 
+ * Copyright 2004-2008 Freescale Semiconductor, Inc. All Rights Reserved.
+ *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
 
 /*
- * The code contained herein is licensed under the GNU Lesser General 
- * Public License.  You may obtain a copy of the GNU Lesser General 
+ * The code contained herein is licensed under the GNU Lesser General
+ * Public License.  You may obtain a copy of the GNU Lesser General
  * Public License Version 2.1 or later at the following locations:
  *
  * http://www.opensource.org/licenses/lgpl-license.html
@@ -29,8 +29,10 @@ typedef unsigned long Uint32;
 typedef unsigned short Uint16;
 typedef Uint32 PhysicalAddress;
 
-#define IMAGE_ENDIAN			0
-#define STREAM_ENDIAN			0
+#define	USE_BIT_INTERNAL_BUF		0
+#define USE_IP_INTERNAL_BUF		0
+#define	USE_DBK_INTERNAL_BUF		0
+#define	USE_OVL_INTERNAL_BUF		0
 
 #define STREAM_FULL_EMPTY_CHECK_DISABLE 0
 
@@ -45,12 +47,15 @@ typedef Uint32 PhysicalAddress;
 #define PRJ_CODA_DX_6M			0xF100
 #define PRJ_CODA_DX_8			0xF306
 #define PRJ_BODA_DX_4V			0xF405
+#define PRJ_BODADX7X			0xF009
 
 typedef enum {
 	STD_MPEG4 = 0,
 	STD_H263,
 	STD_AVC,
-	STD_VC1
+	STD_VC1,
+	STD_MPEG2,
+	STD_DIV3
 } CodStd;
 
 typedef enum {
@@ -77,6 +82,8 @@ typedef enum {
 	DISABLE_ROTATION,
 	ENABLE_MIRRORING,
 	DISABLE_MIRRORING,
+	ENABLE_DERING,
+	DISABLE_DERING,
 	SET_MIRROR_DIRECTION,
 	SET_ROTATION_ANGLE,
 	SET_ROTATOR_OUTPUT,
@@ -106,6 +113,7 @@ typedef struct {
 	PhysicalAddress bufY;
 	PhysicalAddress bufCb;
 	PhysicalAddress bufCr;
+	PhysicalAddress bufMvCol;
 } FrameBuffer;
 
 typedef struct {
@@ -377,6 +385,7 @@ typedef struct {
 	int stride;
 	
 	int rotationEnable;
+	int deringEnable;
 	int mirrorEnable;
 	MirrorDirection mirrorDirection;
 	int rotationAngle;
@@ -420,10 +429,10 @@ typedef struct vpu_versioninfo {
 #define VPU_LIB_VERSION(major, minor, release)	 \
 	(((major) << 12) + ((minor) << 8) + (release))
 
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(2, 0, 0)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(3, 0, 0)
 
 RetCode vpu_Init(PhysicalAddress workBuf);
-RetCode vpu_GetVersionInfo();
+RetCode vpu_GetVersionInfo(vpu_versioninfo * verinfo);
 
 RetCode vpu_EncOpen(EncHandle *, EncOpenParam *);
 RetCode vpu_EncClose(EncHandle);
@@ -457,6 +466,7 @@ int platform_is_mx27(void);
 int platform_is_mx27to2(void);
 int platform_is_mx27to1(void);
 int platform_is_mx32(void);
+int platform_is_mx37(void);
 int platform_is_mxc30031(void);
 int vpu_WaitForInt(int timeout_in_ms);
 
