@@ -1,12 +1,12 @@
 /*
- * Copyright 2004-2007 Freescale Semiconductor, Inc. All Rights Reserved.
- * 
+ * Copyright 2004-2008 Freescale Semiconductor, Inc. All Rights Reserved.
+ *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
 
 /*
- * The code contained herein is licensed under the GNU Lesser General 
- * Public License.  You may obtain a copy of the GNU Lesser General 
+ * The code contained herein is licensed under the GNU Lesser General
+ * Public License.  You may obtain a copy of the GNU Lesser General
  * Public License Version 2.1 or later at the following locations:
  *
  * http://www.opensource.org/licenses/lgpl-license.html
@@ -44,6 +44,7 @@ static unsigned long vpu_reg_base;
 #define MX27TO2_VPU			2
 #define MX32_VPU			3
 #define MXC30031_VPU			4
+#define MX37_VPU			5
 
 static int vpu_platform;
 
@@ -65,6 +66,11 @@ int platform_is_mx27()
 int platform_is_mx32()
 {
 	return (vpu_platform == MX32_VPU);
+}
+
+int platform_is_mx37()
+{
+	return (vpu_platform == MX37_VPU);
 }
 
 int platform_is_mxc30031()
@@ -108,26 +114,36 @@ static int get_platform_name()
 	tmp = strstr(cpu, "MX32");
 	if (tmp != NULL) {
 		platform = MX32_VPU;
-	} else {
-		tmp = strstr(cpu, "MX27");
-		if (tmp != NULL) {
-			rev = strstr(buf, "Revision");
-			if (rev != NULL) {
-				tmp = strstr(rev, "020");
-				if (tmp != NULL) {
-					platform = MX27TO2_VPU;
-				} else {
-					platform = MX27TO1_VPU;
-				}
-			}
-		} else {
-			tmp = strstr(cpu, "MXC300-31");
-			if (tmp != NULL) {
-				platform = MXC30031_VPU;
-			}
-		}
+		goto out;
 	}
 
+	tmp = strstr(cpu, "MX27");
+	if (tmp != NULL) {
+		rev = strstr(buf, "Revision");
+		if (rev != NULL) {
+			tmp = strstr(rev, "020");
+			if (tmp != NULL) {
+				platform = MX27TO2_VPU;
+			} else {
+				platform = MX27TO1_VPU;
+			}
+		}
+		goto out;
+	}
+
+	tmp = strstr(cpu, "MXC300-31");
+	if (tmp != NULL) {
+		platform = MXC30031_VPU;
+		goto out;
+	}
+
+	tmp = strstr(cpu, "MX37");
+	if (tmp != NULL) {
+		platform = MX37_VPU;
+		goto out;
+	}
+	
+out:
 	return platform;
 }
 
@@ -139,10 +155,10 @@ inline unsigned long *reg_map(unsigned long offset)
 
 /*!
  * @brief IO system initialization.
- *  When user wants to start up the codec system, 
- *  this function call is needed, to open the codec device, 
- *  map the register into user space, 
- *  get the working buffer/code buffer/parameter buffer, 
+ *  When user wants to start up the codec system,
+ *  this function call is needed, to open the codec device,
+ *  map the register into user space,
+ *  get the working buffer/code buffer/parameter buffer,
  *  download the firmware, and then set up the interrupt signal path.
  *
  * @param callback vpu interrupt callback.
@@ -201,10 +217,10 @@ int IOSystemInit(void *callback)
 /*!
  * @brief IO system shut down.
  *
- * When user wants to stop the codec system, this 
- * function call is needed, to release the interrupt 
- * signal, free the working buffer/code buffer/parameter 
- * buffer, unmap the register into user space, and 
+ * When user wants to stop the codec system, this
+ * function call is needed, to release the interrupt
+ * signal, free the working buffer/code buffer/parameter
+ * buffer, unmap the register into user space, and
  * close the codec device.
  *
  * @param none
@@ -247,12 +263,12 @@ unsigned long VpuReadReg(unsigned long addr)
 
 /*!
  * @brief Allocated buffer of requested size
- * When user wants to get massive memory 
- * for the system, they needs to fill the required 
- * size in buff structure, and if this function 
- * succeeds in allocating memory and returns 0, 
- * the returned physical memory is filled in 
- * phy_addr of buff structure. If the function fails 
+ * When user wants to get massive memory
+ * for the system, they needs to fill the required
+ * size in buff structure, and if this function
+ * succeeds in allocating memory and returns 0,
+ * the returned physical memory is filled in
+ * phy_addr of buff structure. If the function fails
  * and return -1,  the phy_addr remains the same as before.
  * memory size is in byte.
  *
@@ -276,8 +292,8 @@ int IOGetPhyMem(vpu_mem_desc * buff)
 
 /*!
  * @brief Free specified memory
- * When user wants to free massive memory for the system, 
- * they needs to fill the physical address and size to be freed 
+ * When user wants to free massive memory for the system,
+ * they needs to fill the physical address and size to be freed
  * in buff structure.
  *
  * @param buff	the structure containing memory information to be freed;
@@ -324,7 +340,7 @@ int IOGetVirtMem(vpu_mem_desc * buff)
  *
  * @param	buff	the structure containing memory information to be unmapped;
  *
- * @return	
+ * @return
  * @li 0        Success
  * @li Others 	Failure
  */
