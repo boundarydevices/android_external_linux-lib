@@ -33,6 +33,7 @@
 #include <sys/errno.h>		/* fopen/fread */
 #include <sys/types.h>
 
+#include "vpu_debug.h"
 #include "vpu_reg.h"
 #include "vpu_io.h"
 #include "vpu_lib.h"
@@ -278,6 +279,7 @@ unsigned long VpuReadReg(unsigned long addr)
  * @li 0	          Allocation memory success.
  * @li -1		Allocation memory failure.
  */
+static unsigned int sz_alloc;
 int IOGetPhyMem(vpu_mem_desc * buff)
 {
 	if (ioctl(vpu_fd, VPU_IOC_PHYMEM_ALLOC, buff) < 0) {
@@ -286,6 +288,9 @@ int IOGetPhyMem(vpu_mem_desc * buff)
 		buff->cpu_addr = 0;
 		return -1;
 	}
+	sz_alloc += buff->size;
+	dprintf(3, "%s: phy addr = %08lx\n", __func__, buff->phy_addr);
+	dprintf(3, "%s: alloc=%d, total=%d\n", __func__, buff->size, sz_alloc);
 
 	return 0;
 }
@@ -305,6 +310,7 @@ int IOGetPhyMem(vpu_mem_desc * buff)
 int IOFreePhyMem(vpu_mem_desc * buff)
 {
 	if (buff->phy_addr != 0) {
+		dprintf(3, "%s: phy addr = %08lx\n", __func__, buff->phy_addr);
 		ioctl(vpu_fd, VPU_IOC_PHYMEM_FREE, buff);
 	}
 
