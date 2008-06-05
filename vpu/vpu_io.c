@@ -41,111 +41,47 @@
 static int vpu_fd = -1;
 static unsigned long vpu_reg_base;
 
-#define MX27TO1_VPU			1
-#define MX27TO2_VPU			2
-#define MX32_VPU			3
-#define MXC30031_VPU			4
-#define MX37_VPU			5
-
-static int vpu_platform;
-
-int platform_is_mx27to1()
-{
-	return (vpu_platform == MX27TO1_VPU);
-}
-
-int platform_is_mx27to2()
-{
-	return (vpu_platform == MX27TO2_VPU);
-}
-
-int platform_is_mx27()
-{
-	return (vpu_platform == MX27TO1_VPU || (vpu_platform == MX27TO2_VPU));
-}
-
-int platform_is_mx32()
-{
-	return (vpu_platform == MX32_VPU);
-}
-
-int platform_is_mx37()
-{
-	return (vpu_platform == MX37_VPU);
-}
-
-int platform_is_mxc30031()
-{
-	return (vpu_platform == MXC30031_VPU);
-}
+unsigned int system_rev;
 
 int isVpuInitialized(void)
 {
 	return VpuReadReg(BIT_CUR_PC) != 0;
 }
 
-static int get_platform_name()
+static int get_system_rev()
 {
 	FILE *fp;
 	char buf[1024];
 	int nread;
-	char *cpu, *tmp, *rev;
-	int platform = -1;
+	char *tmp, *rev;
+	int ret = -1;
 
 	fp = fopen("/proc/cpuinfo", "r");
 	if (fp == NULL) {
 		perror("/proc/cpuinfo\n");
-		return platform;
+		return ret;
 	}
 
 	nread = fread(buf, 1, sizeof(buf), fp);
 	fclose(fp);
 	if ((nread == 0) || (nread == sizeof(buf))) {
 		fclose(fp);
-		return platform;
+		return ret;
 	}
 
 	buf[nread] = '\0';
 
-	cpu = strstr(buf, "Hardware");
-	if (cpu == NULL) {
-		return platform;
-	}
-
-	tmp = strstr(cpu, "MX32");
+	tmp = strstr(buf, "Revision");
 	if (tmp != NULL) {
-		platform = MX32_VPU;
-		goto out;
-	}
-
-	tmp = strstr(cpu, "MX27");
-	if (tmp != NULL) {
-		rev = strstr(buf, "Revision");
+		rev = index(tmp, ':');
 		if (rev != NULL) {
-			tmp = strstr(rev, "020");
-			if (tmp != NULL) {
-				platform = MX27TO2_VPU;
-			} else {
-				platform = MX27TO1_VPU;
-			}
+			rev++;
+			system_rev = strtoul(rev, NULL, 16);
+			ret = 0;
 		}
-		goto out;
 	}
 
-	tmp = strstr(cpu, "MXC300-31");
-	if (tmp != NULL) {
-		platform = MXC30031_VPU;
-		goto out;
-	}
-
-	tmp = strstr(cpu, "MX37");
-	if (tmp != NULL) {
-		platform = MX37_VPU;
-		goto out;
-	}
-	
-out:
-	return platform;
+	return ret;
 }
 
 /* make consideration for both register and physical mem access */
@@ -170,9 +106,11 @@ inline unsigned long *reg_map(unsigned long offset)
  */
 int IOSystemInit(void *callback)
 {
-	vpu_platform = get_platform_name();
-	if (vpu_platform == -1) {
-		printf("Error: Unable to obtain platform information\n");
+	int ret;
+
+	ret = get_system_rev();
+	if (ret == -1) {
+		printf("Error: Unable to obtain system rev information\n");
 		return -1;
 	}
 
