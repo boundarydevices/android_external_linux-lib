@@ -77,7 +77,7 @@ RetCode CheckEncInstanceValidity(EncHandle handle)
 	CodecInst *pCodecInst;
 	RetCode ret;
 
-	if (platform_is_mx32()) {
+	if (cpu_is_mx32()) {
 		return RETCODE_NOT_SUPPORTED;
 	}
 
@@ -110,16 +110,16 @@ RetCode CheckDecInstanceValidity(DecHandle handle)
 		return RETCODE_INVALID_HANDLE;
 	}
 
-	if (platform_is_mx27()) {
+	if (cpu_is_mx27()) {
 		if (pCodecInst->codecMode != MP4_DEC &&
 		    pCodecInst->codecMode != AVC_DEC)
 		return RETCODE_INVALID_HANDLE;
-	} else if (platform_is_mx32() || platform_is_mxc30031()) {
+	} else if (cpu_is_mx32() || cpu_is_mxc30031()) {
 		if (pCodecInst->codecMode != MP4_DEC &&
 		    pCodecInst->codecMode != AVC_DEC &&
 		    pCodecInst->codecMode != VC1_DEC)
 		return RETCODE_INVALID_HANDLE;
-	} else if (platform_is_mx37()) {
+	} else if (cpu_is_mx37()) {
 		if (pCodecInst->codecMode != MP4_DEC &&
 		    pCodecInst->codecMode != AVC_DEC &&
 		    pCodecInst->codecMode != VC1_DEC &&
@@ -148,7 +148,7 @@ RetCode CheckEncOpenParam(EncOpenParam * pop)
 	int picWidth;
 	int picHeight;
 
-	if (platform_is_mx32() || platform_is_mx37()) {
+	if (cpu_is_mx32() || cpu_is_mx37()) {
 		return RETCODE_NOT_SUPPORTED;
 	}
 
@@ -380,18 +380,18 @@ RetCode CheckDecOpenParam(DecOpenParam * pop)
 	    pop->bitstreamBufferSize > 16383 * 1024) {
 		return RETCODE_INVALID_PARAM;
 	}
-	if (platform_is_mx27()) {
+	if (cpu_is_mx27()) {
 		if (pop->bitstreamFormat != STD_MPEG4 &&
 		    pop->bitstreamFormat != STD_H263 &&
 		    pop->bitstreamFormat != STD_AVC)
 		return RETCODE_INVALID_PARAM;
-	} else if (platform_is_mx32() || platform_is_mxc30031()) {
+	} else if (cpu_is_mx32() || cpu_is_mxc30031()) {
 		if (pop->bitstreamFormat != STD_MPEG4 &&
 		    pop->bitstreamFormat != STD_H263 &&
 		    pop->bitstreamFormat != STD_AVC &&
 		    pop->bitstreamFormat != STD_VC1)
 		return RETCODE_INVALID_PARAM;
-	} else if (platform_is_mx37()) {
+	} else if (cpu_is_mx37()) {
 		if (pop->bitstreamFormat != STD_MPEG4 &&
 		    pop->bitstreamFormat != STD_H263 &&
 		    pop->bitstreamFormat != STD_AVC &&
@@ -400,7 +400,7 @@ RetCode CheckDecOpenParam(DecOpenParam * pop)
 		    pop->bitstreamFormat != STD_DIV3)
 		return RETCODE_INVALID_PARAM;
 	}
-	if (platform_is_mx27()) {
+	if (cpu_is_mx27()) {
 		if (pop->bitstreamFormat == STD_MPEG4 ||
 		    pop->bitstreamFormat == STD_H263) {
 			if (pop->qpReport != 0 && pop->qpReport != 1) {
