@@ -431,6 +431,33 @@ typedef struct vpu_versioninfo {
 
 #define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(3, 0, 1)
 
+extern unsigned int system_rev;
+
+#define CHIP_REV_1_0            	0x10
+#define CHIP_REV_2_0			0x20
+#define CHIP_REV_2_1            	0x21
+
+#define mxc_cpu()               (system_rev >> 12)
+#define mxc_is_cpu(part)        ((mxc_cpu() == part) ? 1 : 0)
+#define mxc_cpu_rev()           (system_rev & 0xFF)
+#define mxc_cpu_is_rev(rev)     \
+        ((mxc_cpu_rev() == rev) ? 1 : ((mxc_cpu_rev() < rev) ? -1 : 2))
+#define MXC_REV(type)                           \
+static inline int type## _rev (int rev)         \
+{                                               \
+        return (type() ? mxc_cpu_is_rev(rev) : 0);      \
+}
+
+#define cpu_is_mxc30031()	mxc_is_cpu(0x92323)
+#define cpu_is_mx27()		mxc_is_cpu(0x27)
+#define cpu_is_mx32()		mxc_is_cpu(0x32)
+#define cpu_is_mx37()		mxc_is_cpu(0x37)
+
+MXC_REV(cpu_is_mxc30031);
+MXC_REV(cpu_is_mx27);
+MXC_REV(cpu_is_mx32);
+MXC_REV(cpu_is_mx37);
+
 RetCode vpu_Init(PhysicalAddress workBuf);
 RetCode vpu_GetVersionInfo(vpu_versioninfo * verinfo);
 
@@ -462,12 +489,6 @@ RetCode vpu_DecBitBufferFlush(DecHandle handle);
 RetCode vpu_DecGiveCommand(DecHandle handle, CodecCommand cmd, void *parameter);
 
 int vpu_IsBusy(void);
-int platform_is_mx27(void);
-int platform_is_mx27to2(void);
-int platform_is_mx27to1(void);
-int platform_is_mx32(void);
-int platform_is_mx37(void);
-int platform_is_mxc30031(void);
 int vpu_WaitForInt(int timeout_in_ms);
 
 void SaveQpReport(PhysicalAddress qpReportAddr, int picWidth, int picHeight,
