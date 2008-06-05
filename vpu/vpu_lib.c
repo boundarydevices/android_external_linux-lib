@@ -135,7 +135,7 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 					  WORK_BUF_SIZE);
 	
 	/* Copy full Microcode to Code Buffer allocated on SDRAM */
-	if (platform_is_mx27to2()) {
+	if (cpu_is_mx27_rev(CHIP_REV_2_0) > 0) {
 		for (i = 0; i < sizeof(bit_code2) / sizeof(bit_code2[0]);
 								i += 2) {
 			data = (unsigned int)((bit_code2[i] << 16) |
@@ -147,7 +147,7 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 								i += 2) {
 			data = (unsigned int)((bit_code[i] << 16) |
 							bit_code[i + 1]);
-			if (platform_is_mx37())
+			if (cpu_is_mx37())
 				data = swab32(data);
 
 			((unsigned int *)virt_codeBuf)[i / 2] = data;
@@ -158,7 +158,7 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 	VpuWriteReg(BIT_PARA_BUF_ADDR, paraBuffer);
 	VpuWriteReg(BIT_CODE_BUF_ADDR, codeBuffer);
 
-	if (!platform_is_mx27()) {
+	if (!cpu_is_mx27()) {
 		if (VpuReadReg(BIT_CUR_PC) != 0) {
 			/* IRQ is disabled during shutdown */
 			VpuWriteReg(BIT_INT_ENABLE, 8);
@@ -169,7 +169,7 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 	VpuWriteReg(BIT_CODE_RUN, 0);
 
 	/* Download BIT Microcode to Program Memory */
-	if (platform_is_mx27to2()) {
+	if (cpu_is_mx27_rev(CHIP_REV_2_0) > 0) {
 		for (i = 0; i < 2048; ++i) {
 			data = bit_code2[i];
 			VpuWriteReg(BIT_CODE_DOWN, (i << 16) | data);
@@ -187,7 +187,7 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 	VpuWriteReg(BIT_BIT_STREAM_CTRL, data);
 	VpuWriteReg(BIT_FRAME_MEM_CTRL, IMAGE_ENDIAN);
 
-	if (platform_is_mx37()) {
+	if (cpu_is_mx37()) {
 		VpuWriteReg(BIT_AXI_SRAM_USE, (USE_OVL_INTERNAL_BUF << 3) |
 					      (USE_DBK_INTERNAL_BUF << 2) |
 					       (USE_IP_INTERNAL_BUF << 1) |
@@ -223,11 +223,11 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 
 	VpuWriteReg(BIT_INT_ENABLE, 8);	/* PIC_RUN irq enable */
 
-	if (platform_is_mxc30031()) {
+	if (cpu_is_mxc30031()) {
 		VpuWriteReg(BIT_VPU_PIC_COUNT, 0); /* Init VPU PIC COUNT */
 	}
 
-	if (platform_is_mx27()) {
+	if (cpu_is_mx27()) {
 		ResetVpu();
 	}
 
@@ -556,7 +556,7 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 		
 	VpuWriteReg(CMD_ENC_SEQ_FMO, data); /* FIXME */
 
-	if (platform_is_mxc30031()) {
+	if (cpu_is_mxc30031()) {
 		VpuWriteReg(BIT_FRAME_MEM_CTRL,
 			    ((encOP.chromaInterleave << 1) | IMAGE_ENDIAN));
 	}
@@ -804,7 +804,7 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 	rotMirEnable = 0;
 	rotMirMode = 0;
 
-	if (!platform_is_mxc30031()) {
+	if (!cpu_is_mxc30031()) {
 		if (pEncInfo->rotationEnable) {
 			rotMirEnable = 0x10;	/* Enable rotator */
 			switch (pEncInfo->rotationAngle) {
@@ -864,7 +864,7 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 			    param->forceIPicture << 1 & 0x2);
 	}
 
-	if (platform_is_mxc30031()) {
+	if (cpu_is_mxc30031()) {
 		pEncInfo->vpuCountEnable = param->vpuCountEnable;
 
 		if (param->vpuCountEnable == 1) {
@@ -977,7 +977,7 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 		info->mbQpInfo = virt_paraBuf - PARA_BUF2_SIZE;
 	}
 
-	if (platform_is_mxc30031()) {
+	if (cpu_is_mxc30031()) {
 		if (pEncInfo->vpuCountEnable == 1) {
 			info->EncVpuCount = VpuReadReg(BIT_VPU_PIC_COUNT) &
 			    0x7FFFFFFF;
@@ -1016,7 +1016,7 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 		return RETCODE_FRAME_NOT_COMPLETE;
 	}
 
-	if (platform_is_mxc30031() && ((cmd == ENABLE_ROTATION) ||
+	if (cpu_is_mxc30031() && ((cmd == ENABLE_ROTATION) ||
 				       (cmd == DISABLE_ROTATION)
 				       || (cmd == ENABLE_MIRRORING)
 				       || (cmd == DISABLE_MIRRORING)
@@ -1178,7 +1178,7 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 
 			scRamParam = (SearchRamParam *) param;
 
-			if (platform_is_mxc30031()) {
+			if (cpu_is_mxc30031()) {
 				if (scRamParam->SearchRamSize !=
 				    ((((EncPicX + 15) & ~15 ) * 36) + 2048)) {
 					return RETCODE_INVALID_PARAM;
@@ -1388,7 +1388,7 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 
 	pDecInfo->openParam = *pop;
 
-	if (platform_is_mx27()) {
+	if (cpu_is_mx27()) {
 		pCodecInst->codecMode =
 		    pop->bitstreamFormat == STD_AVC ? AVC_DEC : MP4_DEC;
 	} else {
@@ -1424,7 +1424,7 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 
 	pDecInfo->filePlayEnable = pop->filePlayEnable;
 	if (pop->filePlayEnable == 1) {
-		if (platform_is_mx37()) {
+		if (cpu_is_mx37()) {
 			pDecInfo->picSrcSize = (pop->picWidth << 16) |
 						pop->picHeight;
 		} else {
@@ -1555,7 +1555,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		((pDecInfo->filePlayEnable << 2) & 0x4) |
 		((pDecInfo->openParam.reorderEnable << 1) & 0x2);
 	
-	if (platform_is_mx27()) {
+	if (cpu_is_mx27()) {
 		val |= (pDecInfo->openParam.qpReport & 0x1);
 	} else {
 		val |= (pDecInfo->openParam.mp4DeblkEnable & 0x1);
@@ -1563,7 +1563,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 
 	VpuWriteReg(CMD_DEC_SEQ_OPTION, val);
 
-	if (platform_is_mxc30031()) {
+	if (cpu_is_mxc30031()) {
 		VpuWriteReg(BIT_FRAME_MEM_CTRL,
 			    ((pDecInfo->openParam.chromaInterleave << 1) |
 			     IMAGE_ENDIAN));
@@ -1587,7 +1587,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	}
 
 	val = VpuReadReg(RET_DEC_SEQ_SRC_SIZE);
-	if (platform_is_mx37()) {
+	if (cpu_is_mx37()) {
 		info->picWidth = ((val >> 16) & 0xffff);
 		info->picHeight = (val & 0xffff);
 	} else {
@@ -1611,7 +1611,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	info->frameBufDelay = VpuReadReg(RET_DEC_SEQ_FRAME_DELAY);
 
 	/* Not for mxc30031.. */
-	if (!platform_is_mxc30031()) {
+	if (!cpu_is_mxc30031()) {
 		info->nextDecodedIdxNum =
 			VpuReadReg(RET_DEC_SEQ_NEXT_FRAME_NUM);
 	}
@@ -1710,7 +1710,7 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 
 	/* Let the codec know the addresses of the frame buffers. */
 	for (i = 0; i < num; ++i) {
-		if (platform_is_mx37()) {
+		if (cpu_is_mx37()) {
 			virt_paraBuf[i * 3] = swab32(bufArray[i].bufY);
 			virt_paraBuf[i * 3 + 1] = swab32(bufArray[i].bufCb);
 			virt_paraBuf[i * 3 + 2] =swab32(bufArray[i].bufCr);
@@ -1724,7 +1724,7 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 		}
 	}
 
-	if (platform_is_mx37()) {
+	if (cpu_is_mx37()) {
 		if (pDecInfo->openParam.bitstreamFormat == STD_VC1 ||
 			pDecInfo->openParam.bitstreamFormat == STD_MPEG4) {
 			virt_paraBuf[96] = swab32(bufArray[0].bufMvCol);
@@ -1735,7 +1735,7 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 	VpuWriteReg(CMD_SET_FRAME_BUF_NUM, num);
 	VpuWriteReg(CMD_SET_FRAME_BUF_STRIDE, stride);
 
-	if ((!platform_is_mxc30031()) && (pCodecInst->codecMode == AVC_DEC)) {
+	if ((!cpu_is_mxc30031()) && (pCodecInst->codecMode == AVC_DEC)) {
 		VpuWriteReg(CMD_SET_FRAME_SLICE_BB_START,
 				pBufInfo->avcSliceBufInfo.sliceSaveBuffer);
 		VpuWriteReg(CMD_SET_FRAME_SLICE_BB_SIZE,
@@ -1898,7 +1898,7 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		return RETCODE_WRONG_CALL_SEQUENCE;
 	}
 
-	if (!platform_is_mxc30031()) {
+	if (!cpu_is_mxc30031()) {
 		rotMir = 0;
 		if (pDecInfo->rotationEnable) {
 			rotMir |= 0x10;	/* Enable rotator */
@@ -1943,7 +1943,7 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 			}
 		}
 
-		if (platform_is_mx37() && pDecInfo->deringEnable) {
+		if (cpu_is_mx37() && pDecInfo->deringEnable) {
 			rotMir |= 0x20; /* Enable Dering Filter */
 		}
 
@@ -1961,7 +1961,7 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		VpuWriteReg(CMD_DEC_PIC_ROT_MODE, rotMir);
 	}
 
-	if (!platform_is_mx27() && !platform_is_mx37()) {
+	if (!cpu_is_mx27() && !cpu_is_mx37()) {
 		if (pCodecInst->codecMode == MP4_DEC &&
 		    pDecInfo->openParam.mp4DeblkEnable == 1) {
 			if (pDecInfo->deBlockingFilterOutputValid) {
@@ -1979,7 +1979,7 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		}
 	}
 
-	if (platform_is_mxc30031()) {
+	if (cpu_is_mxc30031()) {
 		pDecInfo->vpuCountEnable = param->vpuCountEnable;
 		if (param->vpuCountEnable == 1) {
 			VpuWriteReg(BIT_VPU_PIC_COUNT, VPU_PIC_COUNT_ENABLE);
@@ -2008,7 +2008,7 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		}
 	}
 
-	if (!platform_is_mx27() && (pCodecInst->codecMode == VC1_DEC)) {
+	if (!cpu_is_mx27() && (pCodecInst->codecMode == VC1_DEC)) {
 		if (pDecInfo->filePlayEnable == 1) {
 				VpuWriteReg(CMD_DEC_DISPLAY_REORDER,
 					param->dispReorderBuf << 1 |
@@ -2071,11 +2071,11 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		return RETCODE_INVALID_HANDLE;
 	}
 
-	if (platform_is_mx32()) {
+	if (cpu_is_mx32()) {
 		vl2cc_flush();
 	}
 	
-	if (!platform_is_mxc30031()) {
+	if (!cpu_is_mxc30031()) {
 		info->notSufficientPsBuffer =
 			(VpuReadReg(RET_DEC_PIC_SUCCESS) >> 3) & 0x1;
 		info->notSufficientSliceBuffer =
@@ -2093,7 +2093,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	info->numOfErrMBs = VpuReadReg(RET_DEC_PIC_ERR_MB);
 	info->prescanresult = VpuReadReg(RET_DEC_PIC_OPTION);
 
-	if (!platform_is_mxc30031()) {
+	if (!cpu_is_mxc30031()) {
 		int i;
 		val = VpuReadReg(RET_DEC_PIC_NEXT_IDX);
 		
@@ -2117,7 +2117,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		}
 	}
 	
-	if (platform_is_mx27()) {
+	if (cpu_is_mx27()) {
 		if (pCodecInst->codecMode == MP4_DEC &&
 		    pDecInfo->openParam.qpReport == 1) {
 			int widthInMB;
@@ -2150,7 +2150,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		}
 	}
 
-	if (platform_is_mxc30031() || platform_is_mx37()) {
+	if (cpu_is_mxc30031() || cpu_is_mx37()) {
 		if (pCodecInst->codecMode == VC1_DEC) {
 			val = VpuReadReg(RET_DEC_PIC_POST);
 			info->hScaleFlag = val >> 1 & 1;
@@ -2158,7 +2158,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		}
 	}
 
-	if (platform_is_mxc30031()) {
+	if (cpu_is_mxc30031()) {
 		if (pDecInfo->vpuCountEnable == 1) {
 			info->DecVpuCount = (VpuReadReg(BIT_VPU_PIC_COUNT)) &
 								    0x7FFFFFFF;
@@ -2229,7 +2229,7 @@ RetCode vpu_DecGiveCommand(DecHandle handle, CodecCommand cmd, void *param)
 		return RETCODE_FRAME_NOT_COMPLETE;
 	}
 
-	if (platform_is_mxc30031() && ((cmd == ENABLE_ROTATION) ||
+	if (cpu_is_mxc30031() && ((cmd == ENABLE_ROTATION) ||
 				       (cmd == DISABLE_ROTATION)
 				       || (cmd == ENABLE_MIRRORING)
 				       || (cmd == DISABLE_MIRRORING)
@@ -2240,7 +2240,7 @@ RetCode vpu_DecGiveCommand(DecHandle handle, CodecCommand cmd, void *param)
 		return RETCODE_NOT_SUPPORTED;
 	}
 
-	if (platform_is_mx27() && (cmd == DEC_SET_DEBLOCK_OUTPUT)) {
+	if (cpu_is_mx27() && (cmd == DEC_SET_DEBLOCK_OUTPUT)) {
 		return RETCODE_NOT_SUPPORTED;
 	}
 
