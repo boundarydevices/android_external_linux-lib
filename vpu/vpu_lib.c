@@ -195,7 +195,7 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 
 /* the following size is enough for worst case */
 #define	DBK_USE_SIZE	(0x6400 * (USE_DBK_INTERNAL_BUF != 0))
-#define	OVL_USE_SIZE	(0x1000 * (USE_OVL_INTERNAL_BUF != 0))
+#define	OVL_USE_SIZE	(0x2000 * (USE_OVL_INTERNAL_BUF != 0))
 #define IP_USE_SIZE	(0x1900 * (USE_IP_INTERNAL_BUF != 0))
 #define BIT_USE_SIZE	(0x1900 * (USE_BIT_INTERNAL_BUF != 0))
 
