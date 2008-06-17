@@ -187,40 +187,6 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 	VpuWriteReg(BIT_BIT_STREAM_CTRL, data);
 	VpuWriteReg(BIT_FRAME_MEM_CTRL, IMAGE_ENDIAN);
 
-	if (cpu_is_mx37()) {
-		VpuWriteReg(BIT_AXI_SRAM_USE, (USE_OVL_INTERNAL_BUF << 3) |
-					      (USE_DBK_INTERNAL_BUF << 2) |
-					       (USE_IP_INTERNAL_BUF << 1) |
-						      USE_BIT_INTERNAL_BUF);
-
-/* the following size is enough for worst case */
-#define	DBK_USE_SIZE	(0x6400 * (USE_DBK_INTERNAL_BUF != 0))
-#define	OVL_USE_SIZE	(0x2000 * (USE_OVL_INTERNAL_BUF != 0))
-#define IP_USE_SIZE	(0x1900 * (USE_IP_INTERNAL_BUF != 0))
-#define BIT_USE_SIZE	(0x1900 * (USE_BIT_INTERNAL_BUF != 0))
-
-#define IRAM_BASE_ADDR	0x10000000
-#define IRAM_END_ADDR	0x10012000
-
-#define DBK_USE_IRAM_ADDR	(IRAM_END_ADDR - DBK_USE_SIZE)
-#define OVL_USE_IRAM_ADDR	(DBK_USE_IRAM_ADDR - OVL_USE_SIZE)
-#define	IP_USE_IRAM_ADDR	(OVL_USE_IRAM_ADDR - IP_USE_SIZE)
-#define BIT_USE_IRAM_ADDR	(IP_USE_IRAM_ADDR - BIT_USE_SIZE)
-
-#if USE_DBK_INTERNAL_BUF != 0
-		VpuWriteReg(BIT_DBK_USE_SRAM_BASE, DBK_USE_IRAM_ADDR);
-#endif
-#if USE_OVL_INTERNAL_BUF != 0
-		VpuWriteReg(BIT_OVL_USE_SRAM_BASE, OVL_USE_IRAM_ADDR);
-#endif
-#if USE_IP_INTERNAL_BUF != 0
-		VpuWriteReg(BIT_IP_USE_SRAM_BASE, IP_USE_IRAM_ADDR);
-#endif
-#if USE_BIT_INTERNAL_BUF != 0
-		VpuWriteReg(BIT_BIT_USE_SRAM_BASE, BIT_USE_IRAM_ADDR);
-#endif
-	}
-
 	VpuWriteReg(BIT_INT_ENABLE, 8);	/* PIC_RUN irq enable */
 
 	if (cpu_is_mxc30031()) {
