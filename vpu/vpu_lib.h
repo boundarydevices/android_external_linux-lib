@@ -29,11 +29,6 @@ typedef unsigned long Uint32;
 typedef unsigned short Uint16;
 typedef Uint32 PhysicalAddress;
 
-#define	USE_BIT_INTERNAL_BUF		1
-#define USE_IP_INTERNAL_BUF		1
-#define	USE_DBK_INTERNAL_BUF		1
-#define	USE_OVL_INTERNAL_BUF		1
-
 #define STREAM_FULL_EMPTY_CHECK_DISABLE 0
 
 #define BIT_REG_MARGIN			0x1000
@@ -429,7 +424,7 @@ typedef struct vpu_versioninfo {
 #define VPU_LIB_VERSION(major, minor, release)	 \
 	(((major) << 12) + ((minor) << 8) + (release))
 
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(3, 0, 1)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(3, 0, 2)
 
 extern unsigned int system_rev;
 
