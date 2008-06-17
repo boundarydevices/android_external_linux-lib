@@ -34,6 +34,11 @@ typedef struct vpu_mem_desc {
 	unsigned long virt_uaddr;	/*!virtual user space address */
 } vpu_mem_desc;
 
+typedef struct iram_t {
+        unsigned long start;
+        unsigned long end;
+} iram_t;
+
 #define	VPU_IOC_MAGIC		'V'
 
 #define	VPU_IOC_PHYMEM_ALLOC	_IO(VPU_IOC_MAGIC, 0)
@@ -42,6 +47,7 @@ typedef struct vpu_mem_desc {
 #define	VPU_IOC_PHYMEM_DUMP	_IO(VPU_IOC_MAGIC, 3)
 #define	VPU_IOC_REG_DUMP	_IO(VPU_IOC_MAGIC, 4)
 #define	VPU_IOC_VL2CC_FLUSH	_IO(VPU_IOC_MAGIC, 5)
+#define	VPU_IOC_IRAM_BASE	_IO(VPU_IOC_MAGIC, 6)
 
 typedef void (*vpu_callback) (int status);
 
@@ -54,6 +60,7 @@ int IOFreePhyMem(vpu_mem_desc * buff);
 int IOGetVirtMem(vpu_mem_desc * buff);
 int IOFreeVirtMem(vpu_mem_desc * buff);
 int IOWaitForInt(int timeout_in_ms);
+int IOGetIramBase(iram_t * iram);
 
 unsigned long VpuWriteReg(unsigned long addr, unsigned int data);
 unsigned long VpuReadReg(unsigned long addr);
