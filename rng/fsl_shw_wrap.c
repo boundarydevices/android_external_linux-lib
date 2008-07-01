@@ -1,5 +1,5 @@
 /*
- * Copyright 2005-2006 Freescale Semiconductor, Inc. All rights reserved.
+ * Copyright 2005-2008 Freescale Semiconductor, Inc. All rights reserved.
  */
 
 /*
@@ -15,8 +15,8 @@
  * User Space library to access the Security hardware
  */
 
-/*!
- * @file lib/rng/fsl_shw_wrap.c
+/**
+ * @file fsl_shw_wrap.c
  *
  * This file implements Key-Wrap (Black Key) functions of the FSL SHW API.
  *
@@ -72,6 +72,7 @@
 
 #include "shw_driver.h"
 
+
 #define ICV_LENGTH 16
 #define T_LENGTH 16
 #define KEK_LENGTH 16
@@ -85,7 +86,8 @@
 #define ALGORITHM_OFFSET (LENGTH_OFFSET + LENGTH_LENGTH)
 #define KEY_PRIME_OFFSET (ALGORITHM_OFFSET + ALGORITHM_LENGTH)
 
-/*!
+
+/**
  * Place a key into a protected location for use only by cryptographic
  * algorithms.
  *
@@ -107,7 +109,7 @@
  * modes.
  *
  * @param      user_ctx         A user context from #fsl_shw_register_user().
- * @param      key_info      The information about the key to be which will
+ * @param[in,out] key_info      The information about the key to be which will
  *                              be established.  In the create case, the key
  *                              length must be set.
  * @param      establish_type   How @a key will be interpreted to establish a
@@ -121,23 +123,25 @@
  *
  * @return    A return code of type #fsl_shw_return_t.
  */
-fsl_shw_return_t fsl_shw_establish_key(fsl_shw_uco_t * user_ctx,
-				       fsl_shw_sko_t * key_info,
-				       fsl_shw_key_wrap_t establish_type,
-				       const uint8_t * key)
+fsl_shw_return_t fsl_shw_establish_key(
+                                       fsl_shw_uco_t* user_ctx,
+                                       fsl_shw_sko_t* key_info,
+                                       fsl_shw_key_wrap_t establish_type,
+                                       const uint8_t* key)
 {
-	fsl_shw_return_t ret = FSL_RETURN_ERROR_S;
+    fsl_shw_return_t ret = FSL_RETURN_ERROR_S;
 
-	/* Unused */
-	(void)user_ctx;
-	(void)key_info;
-	(void)establish_type;
-	(void)key;
+    /* Unused */
+    (void)user_ctx;
+    (void)key_info;
+    (void)establish_type;
+    (void)key;
 
-	return ret;
+    return ret;
 }
 
-/*!
+
+/**
  * Wrap a key and retrieve the wrapped value.
  *
  * A wrapped key is a key that has been cryptographically obscured.  It is
@@ -151,27 +155,29 @@ fsl_shw_return_t fsl_shw_establish_key(fsl_shw_uco_t * user_ctx,
  *
  * @param      user_ctx         A user context from #fsl_shw_register_user().
  * @param      key_info         The information about the key to be deleted.
- * @param      covered_key      The location to store the 48-octet wrapped key.
+ * @param[out] covered_key      The location to store the 48-octet wrapped key.
  *                              (This size is based upon the maximum key size
  *                              of 32 octets).
  *
  * @return    A return code of type #fsl_shw_return_t.
  */
-fsl_shw_return_t fsl_shw_extract_key(fsl_shw_uco_t * user_ctx,
-				     fsl_shw_sko_t * key_info,
-				     uint8_t * covered_key)
+fsl_shw_return_t fsl_shw_extract_key(fsl_shw_uco_t* user_ctx,
+                                     fsl_shw_sko_t* key_info,
+                                     uint8_t* covered_key)
 {
-	fsl_shw_return_t ret = FSL_RETURN_ERROR_S;
+    fsl_shw_return_t ret = FSL_RETURN_ERROR_S;
 
-	/* Unused */
-	(void)user_ctx;
-	(void)key_info;
-	(void)covered_key;
 
-	return ret;
+    /* Unused */
+    (void)user_ctx;
+    (void)key_info;
+    (void)covered_key;
+
+    return ret;
 }
 
-/*!
+
+/**
  * De-establish a key so that it can no longer be accessed.
  *
  * The key will need to be re-established before it can again be used.
@@ -184,14 +190,15 @@ fsl_shw_return_t fsl_shw_extract_key(fsl_shw_uco_t * user_ctx,
  *
  * @return    A return code of type #fsl_shw_return_t.
  */
-fsl_shw_return_t fsl_shw_release_key(fsl_shw_uco_t * user_ctx,
-				     fsl_shw_sko_t * key_info)
+fsl_shw_return_t fsl_shw_release_key(
+                             fsl_shw_uco_t* user_ctx,
+                             fsl_shw_sko_t* key_info)
 {
-	fsl_shw_return_t ret = FSL_RETURN_ERROR_S;
+    fsl_shw_return_t ret = FSL_RETURN_ERROR_S;
 
-	/* Unused */
-	(void)user_ctx;
-	(void)key_info;
+    /* Unused */
+    (void)user_ctx;
+    (void)key_info;
 
-	return ret;
+    return ret;
 }
