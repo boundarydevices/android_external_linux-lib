@@ -1,6 +1,6 @@
 /*
  * User Space library to access the Security hardware
- * Copyright (C) 2005-2006 written by Freescale Semiconductor
+ * Copyright (C) 2005-2008 written by Freescale Semiconductor
  *
  * This library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -17,8 +17,10 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301
  * USA
  */
-/*!
- * @file lib/rng/fsl_shw_auth.c
+
+
+/**
+ * @file fsl_shw_auth.c
  *
  * This file contains the routines which do the combined encrypt+authentication
  * functions.  For now, only AES-CCM is supported.
@@ -26,7 +28,8 @@
 
 #include "shw_driver.h"
 
-/*!
+
+/**
  * Compute the size, in bytes, of the encoded auth length
  *
  * @param l    The actual auth length
@@ -44,7 +47,7 @@
     val;                                                                      \
 })
 
-/*!
+/**
  * Store the encoded Auth Length into the Auth Data
  *
  * @param l    The actual Auth Length
@@ -70,7 +73,8 @@
     }                                                                         \
 }
 
-/*!
+
+/**
  * @brief Generate a (CCM) auth code and encrypt the payload.
  *
  *
@@ -82,39 +86,43 @@
  * @param auth_data        Any auth-only data
  * @param payload_length   Length in bytes of @a payload
  * @param payload          The data to encrypt
- * @param ct          The location to store encrypted data
- * @param auth_value  The location to store authentication code
+ * @param[out] ct          The location to store encrypted data
+ * @param[out] auth_value  The location to store authentication code
  *
  * @return    A return code of type #fsl_shw_return_t.
  */
-fsl_shw_return_t fsl_shw_gen_encrypt(fsl_shw_uco_t * user_ctx,
-				     fsl_shw_acco_t * auth_ctx,
-				     fsl_shw_sko_t * cipher_key_info,
-				     fsl_shw_sko_t * auth_key_info,
-				     uint32_t auth_data_length,
-				     const uint8_t * auth_data,
-				     uint32_t payload_length,
-				     const uint8_t * payload,
-				     uint8_t * ct, uint8_t * auth_value)
+fsl_shw_return_t fsl_shw_gen_encrypt(
+                                fsl_shw_uco_t* user_ctx,
+                                fsl_shw_acco_t* auth_ctx,
+                                fsl_shw_sko_t* cipher_key_info,
+                                fsl_shw_sko_t* auth_key_info,
+                                uint32_t auth_data_length,
+                                const uint8_t* auth_data,
+                                uint32_t payload_length,
+                                const uint8_t* payload,
+                                uint8_t* ct,
+                                uint8_t* auth_value)
 {
-	volatile fsl_shw_return_t status = FSL_RETURN_ERROR_S;
+    volatile fsl_shw_return_t status = FSL_RETURN_ERROR_S;
 
-	/* Unused */
-	(void)user_ctx;
-	(void)auth_ctx;
-	(void)cipher_key_info;
-	(void)auth_key_info;
-	(void)auth_data_length;
-	(void)auth_data;
-	(void)payload_length;
-	(void)payload;
-	(void)ct;
-	(void)auth_value;
 
-	return status;
+    /* Unused */
+    (void)user_ctx;
+    (void)auth_ctx;
+    (void)cipher_key_info;
+    (void)auth_key_info;
+    (void)auth_data_length;
+    (void)auth_data;
+    (void)payload_length;
+    (void)payload;
+    (void)ct;
+    (void)auth_value;
+
+    return status;
 }
 
-/*!
+
+/**
  * @brief Authenticate and decrypt a (CCM) stream.
  *
  * @param user_ctx         The user's context
@@ -126,34 +134,36 @@ fsl_shw_return_t fsl_shw_gen_encrypt(fsl_shw_uco_t * user_ctx,
  * @param payload_length   Length in bytes of @a payload
  * @param ct               The encrypted data
  * @param auth_value       The authentication code to validate
- * @param payload     The location to store decrypted data
+ * @param[out] payload     The location to store decrypted data
  *
  * @return    A return code of type #fsl_shw_return_t.
  */
-fsl_shw_return_t fsl_shw_auth_decrypt(fsl_shw_uco_t * user_ctx,
-				      fsl_shw_acco_t * auth_ctx,
-				      fsl_shw_sko_t * cipher_key_info,
-				      fsl_shw_sko_t * auth_key_info,
-				      uint32_t auth_data_length,
-				      const uint8_t * auth_data,
-				      uint32_t payload_length,
-				      const uint8_t * ct,
-				      const uint8_t * auth_value,
-				      uint8_t * payload)
+fsl_shw_return_t fsl_shw_auth_decrypt(
+                                fsl_shw_uco_t* user_ctx,
+                                fsl_shw_acco_t* auth_ctx,
+                                fsl_shw_sko_t* cipher_key_info,
+                                fsl_shw_sko_t* auth_key_info,
+                                uint32_t auth_data_length,
+                                const uint8_t* auth_data,
+                                uint32_t payload_length,
+                                const uint8_t* ct,
+                                const uint8_t* auth_value,
+                                uint8_t* payload)
 {
-	volatile fsl_shw_return_t status = FSL_RETURN_ERROR_S;
+    volatile fsl_shw_return_t status = FSL_RETURN_ERROR_S;
 
-	/* Unused */
-	(void)user_ctx;
-	(void)auth_ctx;
-	(void)cipher_key_info;
-	(void)auth_key_info;
-	(void)auth_data_length;
-	(void)auth_data;
-	(void)payload_length;
-	(void)ct;
-	(void)auth_value;
-	(void)payload;
 
-	return status;
+    /* Unused */
+    (void)user_ctx;
+    (void)auth_ctx;
+    (void)cipher_key_info;
+    (void)auth_key_info;
+    (void)auth_data_length;
+    (void)auth_data;
+    (void)payload_length;
+    (void)ct;
+    (void)auth_value;
+    (void)payload;
+
+    return status;
 }
