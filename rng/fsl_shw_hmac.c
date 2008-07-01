@@ -1,6 +1,6 @@
 /*
  * User Space library to access the Security hardware
- * Copyright (C) 2005-2006 written by Freescale Semiconductor
+ * Copyright (C) 2005-2008 written by Freescale Semiconductor
  *
  * This library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -17,8 +17,10 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301
  * USA
  */
-/*!
- * @file lib/rng/fsl_shw_hmac.c
+
+
+/**
+ * @file fsl_shw_hmac.c
  *
  * This file implements Hashed Message Authentication Code functions of the FSL
  * SHW API.
@@ -26,8 +28,9 @@
 
 #include "shw_driver.h"
 
+
 /* REQ-S2LRD-PINTFC-API-BASIC-HMAC-001 */
-/*!
+/**
  * Get the precompute information
  *
  *
@@ -37,22 +40,25 @@
  *
  * @return    A return code of type #fsl_shw_return_t.
  */
-fsl_shw_return_t fsl_shw_hmac_precompute(fsl_shw_uco_t * user_ctx,
-					 fsl_shw_sko_t * key_info,
-					 fsl_shw_hmco_t * hmac_ctx)
+fsl_shw_return_t fsl_shw_hmac_precompute(
+                                fsl_shw_uco_t* user_ctx,
+                                fsl_shw_sko_t* key_info,
+                                fsl_shw_hmco_t* hmac_ctx)
 {
-	fsl_shw_return_t status = FSL_RETURN_ERROR_S;
+    fsl_shw_return_t status = FSL_RETURN_ERROR_S;
 
-	/* Unused */
-	(void)user_ctx;
-	(void)key_info;
-	(void)hmac_ctx;
 
-	return status;
+    /* Unused */
+    (void)user_ctx;
+    (void)key_info;
+    (void)hmac_ctx;
+
+    return status;
 }
 
+
 /* REQ-S2LRD-PINTFC-API-BASIC-HMAC-002 */
-/*!
+/**
  * Get the hmac
  *
  *
@@ -66,23 +72,27 @@ fsl_shw_return_t fsl_shw_hmac_precompute(fsl_shw_uco_t * user_ctx,
  *
  * @return    A return code of type #fsl_shw_return_t.
  */
-fsl_shw_return_t fsl_shw_hmac(fsl_shw_uco_t * user_ctx,
-			      fsl_shw_sko_t * key_info,
-			      fsl_shw_hmco_t * hmac_ctx,
-			      const uint8_t * msg,
-			      uint32_t length,
-			      uint8_t * result, uint32_t result_len)
+fsl_shw_return_t fsl_shw_hmac(
+                                fsl_shw_uco_t* user_ctx,
+                                fsl_shw_sko_t* key_info,
+                                fsl_shw_hmco_t* hmac_ctx,
+                                const uint8_t* msg,
+                                uint32_t length,
+                                uint8_t* result,
+                                uint32_t result_len)
 {
-	fsl_shw_return_t status = FSL_RETURN_ERROR_S;
+    fsl_shw_return_t status = FSL_RETURN_ERROR_S;
 
-	/* Unused */
-	(void)user_ctx;
-	(void)key_info;
-	(void)hmac_ctx;
-	(void)msg;
-	(void)length;
-	(void)result;
-	(void)result_len;
 
-	return status;
+    /* Unused */
+    (void)user_ctx;
+    (void)key_info;
+    (void)hmac_ctx;
+    (void)msg;
+    (void)length;
+    (void)result;
+    (void)result_len;
+
+    return status;
 }
+

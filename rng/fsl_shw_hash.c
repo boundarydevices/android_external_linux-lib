@@ -1,6 +1,6 @@
 /*
  * User Space library to access the Security hardware
- * Copyright (C) 2005-2006 written by Freescale Semiconductor
+ * Copyright (C) 2005-2008 written by Freescale Semiconductor
  *
  * This library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -17,8 +17,10 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301
  * USA
  */
-/*!
- * @file lib/rng/fsl_shw_hash.c
+
+
+/**
+ * @file fsl_shw_hash.c
  *
  * This file implements Cryptographic Hashing functions of the FSL SHW API
  * for Sahara.  This does not include HMAC.
@@ -26,8 +28,9 @@
 
 #include "shw_driver.h"
 
+
 /* REQ-S2LRD-PINTFC-API-BASIC-HASH-005 */
-/*!
+/**
  * Hash a stream of data with a cryptographic hash algorithm.
  *
  * The flags in the @a hash_ctx control the operation of this function.
@@ -60,30 +63,33 @@
  * 64 octets.
  *
  * @param      user_ctx  A user context from #fsl_shw_register_user().
- * @param      hash_ctx Hashing algorithm and state of the cipher.
+ * @param[in,out] hash_ctx Hashing algorithm and state of the cipher.
  * @param      msg       Pointer to the data to be hashed.
  * @param      length    Length, in octets, of the @a msg.
- * @param      result    If not null, pointer to where to store the hash
+ * @param[out] result    If not null, pointer to where to store the hash
  *                       digest.
  * @param      result_len Number of octets to store in @a result.
  *
  * @return    A return code of type #fsl_shw_return_t.
  */
-fsl_shw_return_t fsl_shw_hash(fsl_shw_uco_t * user_ctx,
-			      fsl_shw_hco_t * hash_ctx,
-			      const uint8_t * msg,
-			      uint32_t length,
-			      uint8_t * result, uint32_t result_len)
+fsl_shw_return_t fsl_shw_hash(
+                                fsl_shw_uco_t* user_ctx,
+                                fsl_shw_hco_t* hash_ctx,
+                                const uint8_t* msg,
+                                uint32_t length,
+                                uint8_t* result,
+                                uint32_t result_len)
 {
-	fsl_shw_return_t ret = FSL_RETURN_ERROR_S;
+    fsl_shw_return_t ret = FSL_RETURN_ERROR_S;
 
-	/* Unused */
-	(void)user_ctx;
-	(void)hash_ctx;
-	(void)msg;
-	(void)length;
-	(void)result;
-	(void)result_len;
 
-	return ret;
+    /* Unused */
+    (void)user_ctx;
+    (void)hash_ctx;
+    (void)msg;
+    (void)length;
+    (void)result;
+    (void)result_len;
+
+    return ret;
 }
