@@ -159,7 +159,6 @@ typedef struct {
 
 	int minFrameBufferCount;
 	int frameBufDelay;
-	int nextDecodedIdxNum;
 	int normalSliceSize;
 	int worstSliceSize;
 } DecInitialInfo;
@@ -202,9 +201,11 @@ typedef struct {
 	int hScaleFlag;
 	int vScaleFlag;
 	int prescanresult;
-	int indexFrameNextDecoded[3];
 	int notSufficientPsBuffer;
 	int notSufficientSliceBuffer;
+	int decodingSuccess;
+	int interlacedFrame;
+	int mp4PackedPBframe;
 } DecOutputInfo;
 
 typedef struct {
@@ -372,13 +373,14 @@ typedef struct {
 	PhysicalAddress streamWrPtrRegAddr;
 	PhysicalAddress streamBufStartAddr;
 	PhysicalAddress streamBufEndAddr;
+	PhysicalAddress	frameDisplayFlagRegAddr;
 	int streamBufSize;
-	
+
 	FrameBuffer *frameBufPool;
 	int numFrameBuffers;
 	FrameBuffer *recFrame;
 	int stride;
-	
+
 	int rotationEnable;
 	int deringEnable;
 	int mirrorEnable;
@@ -388,10 +390,10 @@ typedef struct {
 	int rotatorStride;
 	int rotatorOutputValid;
 	int initialInfoObtained;
-	
+
 	FrameBuffer deBlockingFilterOutput;
 	int deBlockingFilterOutputValid;
-	
+
 	int vpuCountEnable;
 	int filePlayEnable;
 	int picSrcSize;
@@ -409,6 +411,14 @@ typedef struct CodecInst {
 	} CodecInfo;
 } CodecInst;
 
+/*
+ * The firmware version is retrieved from bitcode table.
+ *
+ * The library version convention:
+ * lib_major increases when a new platform support is added
+ * lib_minor increases when one firmware is upgraded
+ * lib_release increases when bug fixes, excluding the above cases
+ */
 typedef struct vpu_versioninfo {
 	int fw_major;		/* firmware major version */
 	int fw_minor;		/* firmware minor version */
@@ -424,7 +434,7 @@ typedef struct vpu_versioninfo {
 #define VPU_LIB_VERSION(major, minor, release)	 \
 	(((major) << 12) + ((minor) << 8) + (release))
 
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(3, 0, 2)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(3, 2, 0)
 
 extern unsigned int system_rev;
 
@@ -481,6 +491,7 @@ RetCode vpu_DecUpdateBitstreamBuffer(DecHandle handle, Uint32 size);
 RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param);
 RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info);
 RetCode vpu_DecBitBufferFlush(DecHandle handle);
+RetCode vpu_DecClrDispFlag(DecHandle handle, int index);
 RetCode vpu_DecGiveCommand(DecHandle handle, CodecCommand cmd, void *parameter);
 
 int vpu_IsBusy(void);
