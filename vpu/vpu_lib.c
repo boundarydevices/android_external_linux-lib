@@ -30,6 +30,7 @@
 #include "vpu_lib.h"
 #include "vpu_util.h"
 #include "vpu_io.h"
+#include "vpu_debug.h"
 
 #if defined(IMX27ADS)
 #include "vpu_codetable_mx27.h"
@@ -75,6 +76,13 @@ static PhysicalAddress wrPtrRegAddr[] = {
 	BIT_WR_PTR_3
 };
 
+static PhysicalAddress disFlagRegAddr[] = {
+	BIT_FRM_DIS_FLG_0,
+	BIT_FRM_DIS_FLG_1,
+	BIT_FRM_DIS_FLG_2,
+	BIT_FRM_DIS_FLG_3
+};
+
 /* If a frame is started, pendingInst is set to the proper instance. */
 static CodecInst *pendingInst;
 
@@ -98,11 +106,15 @@ extern vpu_mem_desc bit_work_addr;
  */
 int vpu_IsBusy()
 {
+	ENTER_FUNC();
+
 	return VpuReadReg(BIT_BUSY_FLAG) != 0;
 }
 
 int vpu_WaitForInt(int timeout_in_ms)
 {
+	ENTER_FUNC();
+
 	return IOWaitForInt(timeout_in_ms);
 }
 
@@ -123,6 +135,8 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 	volatile Uint32 data;
 	Uint32 virt_codeBuf;
 	CodecInst *pCodecInst;
+
+	ENTER_FUNC();
 
 	codeBuffer = workBuf;
 	workBuffer = codeBuffer + CODE_BUF_SIZE;
@@ -157,6 +171,7 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 	VpuWriteReg(BIT_WORK_BUF_ADDR, workBuffer);
 	VpuWriteReg(BIT_PARA_BUF_ADDR, paraBuffer);
 	VpuWriteReg(BIT_CODE_BUF_ADDR, codeBuffer);
+	VpuWriteReg(BIT_RESET_CTRL, 0);
 
 	if (!cpu_is_mx27()) {
 		if (VpuReadReg(BIT_CUR_PC) != 0) {
@@ -205,6 +220,7 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 		pCodecInst->inUse = 0;
 	}
 
+	EXIT_FUNC();
 	return RETCODE_SUCCESS;
 }
 
@@ -217,6 +233,8 @@ RetCode vpu_GetVersionInfo(vpu_versioninfo * verinfo)
 	Uint16 pn, version;
 	RetCode ret = RETCODE_SUCCESS;
 	char productstr[18] = { 0 };
+
+	ENTER_FUNC();
 
 	if (!isVpuInitialized()) {
 		return RETCODE_NOT_INITIALIZED;
@@ -259,7 +277,7 @@ RetCode vpu_GetVersionInfo(vpu_versioninfo * verinfo)
 		strcpy(productstr, "i.MX37");
 		break;
 	default:
-		printf("Unknown VPU\n");
+		err_msg("Unknown VPU\n");
 		ret = RETCODE_FAILURE;
 		break;
 	}
@@ -272,7 +290,7 @@ RetCode vpu_GetVersionInfo(vpu_versioninfo * verinfo)
 		verinfo->lib_major = (VPU_LIB_VERSION_CODE >> (12)) & 0x0f;
 		verinfo->lib_minor = (VPU_LIB_VERSION_CODE >> (8)) & 0x0f;
 		verinfo->lib_release = (VPU_LIB_VERSION_CODE) & 0xff;
-		printf("Product Info: %s\n", productstr);
+		info_msg("Product Info: %s\n", productstr);
 	}
 
 	return ret;
@@ -303,6 +321,8 @@ RetCode vpu_EncOpen(EncHandle * pHandle, EncOpenParam * pop)
 	int instIdx;
 	RetCode ret;
 	Uint32 val;
+
+	ENTER_FUNC();
 
 	if (!isVpuInitialized()) {
 		return RETCODE_NOT_INITIALIZED;
@@ -377,6 +397,8 @@ RetCode vpu_EncClose(EncHandle handle)
 	EncInfo *pEncInfo;
 	RetCode ret;
 
+	ENTER_FUNC();
+
 	ret = CheckEncInstanceValidity(handle);
 	if (ret != RETCODE_SUCCESS)
 		return ret;
@@ -422,6 +444,8 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 	int picHeight;
 	Uint32 data;
 	RetCode ret;
+
+	ENTER_FUNC();
 
 	ret = CheckEncInstanceValidity(handle);
 	if (ret != RETCODE_SUCCESS)
@@ -569,6 +593,8 @@ RetCode vpu_EncRegisterFrameBuffer(EncHandle handle,
 	int i;
 	RetCode ret;
 
+	ENTER_FUNC();
+
 	ret = CheckEncInstanceValidity(handle);
 	if (ret != RETCODE_SUCCESS)
 		return ret;
@@ -634,6 +660,8 @@ RetCode vpu_EncGetBitstreamBuffer(EncHandle handle,
 	Uint32 room;
 	RetCode ret;
 
+	ENTER_FUNC();
+
 	ret = CheckEncInstanceValidity(handle);
 	if (ret != RETCODE_SUCCESS)
 		return ret;
@@ -676,6 +704,8 @@ RetCode vpu_EncUpdateBitstreamBuffer(EncHandle handle, Uint32 size)
 	PhysicalAddress rdPtr;
 	RetCode ret;
 	int room = 0;
+
+	ENTER_FUNC();
 
 	ret = CheckEncInstanceValidity(handle);
 	if (ret != RETCODE_SUCCESS)
@@ -734,6 +764,8 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 	Uint32 rotMirEnable;
 	Uint32 rotMirMode;
 	RetCode ret;
+
+	ENTER_FUNC();
 
 	/* When doing pre-rotation, mirroring is applied first and rotation
 	 * later, vice versa when doing post-rotation.
@@ -874,6 +906,8 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 	PhysicalAddress rdPtr;
 	PhysicalAddress wrPtr;
 
+	ENTER_FUNC();
+
 	ret = CheckEncInstanceValidity(handle);
 	if (ret != RETCODE_SUCCESS)
 		return ret;
@@ -972,6 +1006,8 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 	CodecInst *pCodecInst;
 	EncInfo *pEncInfo;
 	RetCode ret;
+
+	ENTER_FUNC();
 
 	ret = CheckEncInstanceValidity(handle);
 	if (ret != RETCODE_SUCCESS) {
@@ -1308,7 +1344,7 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 		}
 
 	default:
-		printf("Invalid encoder command\n");
+		err_msg("Invalid encoder command\n");
 		return RETCODE_INVALID_COMMAND;
 	}
 
@@ -1332,6 +1368,8 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 	DecInfo *pDecInfo;
 	int instIdx;
 	RetCode ret;
+
+	ENTER_FUNC();
 
 	if (!isVpuInitialized()) {
 		return RETCODE_NOT_INITIALIZED;
@@ -1375,6 +1413,7 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 	pDecInfo->streamWrPtr = pop->bitstreamBuffer;
 	pDecInfo->streamRdPtrRegAddr = rdPtrRegAddr[instIdx];
 	pDecInfo->streamWrPtrRegAddr = wrPtrRegAddr[instIdx];
+	pDecInfo->frameDisplayFlagRegAddr = disFlagRegAddr[instIdx];
 	pDecInfo->streamBufStartAddr = pop->bitstreamBuffer;
 	pDecInfo->streamBufSize = pop->bitstreamBufferSize;
 	pDecInfo->streamBufEndAddr =
@@ -1425,6 +1464,8 @@ RetCode vpu_DecClose(DecHandle handle)
 	DecInfo *pDecInfo;
 	RetCode ret;
 
+	ENTER_FUNC();
+
 	ret = CheckDecInstanceValidity(handle);
 	if (ret != RETCODE_SUCCESS)
 		return ret;
@@ -1451,6 +1492,8 @@ RetCode vpu_DecSetEscSeqInit(DecHandle handle, int escape)
 	CodecInst *pCodecInst;
 	DecInfo *pDecInfo;
 	RetCode ret;
+
+	ENTER_FUNC();
 
 	ret = CheckDecInstanceValidity(handle);
 	if (ret != RETCODE_SUCCESS)
@@ -1484,6 +1527,8 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	DecInfo *pDecInfo;
 	Uint32 val, val2;
 	RetCode ret;
+
+	ENTER_FUNC();
 
 	ret = CheckDecInstanceValidity(handle);
 	if (ret != RETCODE_SUCCESS) {
@@ -1576,12 +1621,6 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	info->minFrameBufferCount = VpuReadReg(RET_DEC_SEQ_FRAME_NEED);
 	info->frameBufDelay = VpuReadReg(RET_DEC_SEQ_FRAME_DELAY);
 
-	/* Not for mxc30031.. */
-	if (!cpu_is_mxc30031()) {
-		info->nextDecodedIdxNum =
-			VpuReadReg(RET_DEC_SEQ_NEXT_FRAME_NUM);
-	}
-
 	if (pCodecInst->codecMode == AVC_DEC) {
 		val = VpuReadReg(RET_DEC_SEQ_CROP_LEFT_RIGHT);
 		val2 = VpuReadReg(RET_DEC_SEQ_CROP_TOP_BOTTOM);
@@ -1638,6 +1677,8 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 	DecInfo *pDecInfo;
 	int i;
 	RetCode ret;
+
+	ENTER_FUNC();
 
 	ret = CheckDecInstanceValidity(handle);
 	if (ret != RETCODE_SUCCESS)
@@ -1740,6 +1781,8 @@ RetCode vpu_DecGetBitstreamBuffer(DecHandle handle,
 	Uint32 room;
 	RetCode ret;
 
+	ENTER_FUNC();
+
 	ret = CheckDecInstanceValidity(handle);
 	if (ret != RETCODE_SUCCESS)
 		return ret;
@@ -1787,6 +1830,8 @@ RetCode vpu_DecUpdateBitstreamBuffer(DecHandle handle, Uint32 size)
 	PhysicalAddress rdPtr;
 	RetCode ret;
 	int room = 0, val = 0;
+
+	ENTER_FUNC();
 
 	ret = CheckDecInstanceValidity(handle);
 	if (ret != RETCODE_SUCCESS)
@@ -1847,6 +1892,8 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 	Uint32 rotMir;
 	Uint32 val;
 	RetCode ret;
+
+	ENTER_FUNC();
 
 	ret = CheckDecInstanceValidity(handle);
 	if (ret != RETCODE_SUCCESS)
@@ -2018,6 +2065,8 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	RetCode ret;
 	Uint32 val = 0;
 
+	ENTER_FUNC();
+
 	ret = CheckDecInstanceValidity(handle);
 	if (ret != RETCODE_SUCCESS)
 		return ret;
@@ -2040,38 +2089,25 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	if (cpu_is_mx32()) {
 		vl2cc_flush();
 	}
-	
-	if (!cpu_is_mxc30031()) {
-		info->notSufficientPsBuffer =
-			(VpuReadReg(RET_DEC_PIC_SUCCESS) >> 3) & 0x1;
-		info->notSufficientSliceBuffer =
-			(VpuReadReg(RET_DEC_PIC_SUCCESS) >> 2) & 0x1;
-	}
-		
-	if ((VpuReadReg(RET_DEC_PIC_SUCCESS) & 0x01) == 0) {
-		pendingInst = 0;
-		return RETCODE_FAILURE;
+
+	val = VpuReadReg(RET_DEC_PIC_SUCCESS);
+	info->decodingSuccess = (val & 0x01);
+	if (pCodecInst->codecMode == AVC_DEC) {
+		info->notSufficientPsBuffer = (val >> 3) & 0x1;
+		info->notSufficientSliceBuffer = (val >> 2) & 0x1;
+	} else if (pCodecInst->codecMode == MP4_DEC) {
+		info->mp4PackedPBframe = ((val >> 16) & 0x01);
 	}
 
-	info->indexFrameDisplay = VpuReadReg(RET_DEC_PIC_FRAME_IDX);
-	info->indexFrameDecoded = VpuReadReg(RET_DEC_PIC_CUR_IDX);
-	info->picType = VpuReadReg(RET_DEC_PIC_TYPE);
+	val = VpuReadReg(RET_DEC_PIC_TYPE);
+	info->picType = val & 0xff;
+	info->interlacedFrame = (val >> 16) & 0x1;
+
 	info->numOfErrMBs = VpuReadReg(RET_DEC_PIC_ERR_MB);
 	info->prescanresult = VpuReadReg(RET_DEC_PIC_OPTION);
 
-	if (!cpu_is_mxc30031()) {
-		int i;
-		val = VpuReadReg(RET_DEC_PIC_NEXT_IDX);
-		
-		for (i = 0 ; i < 3 ; i++) {
-			if (i < pDecInfo->initialInfo.nextDecodedIdxNum) {
-					info->indexFrameNextDecoded[i] =
-						((val >> (i * 5)) & 0x1f);
-				} else {
-					info->indexFrameNextDecoded[i] = -1;
-			}
-		}
-	}
+	info->indexFrameDisplay = VpuReadReg(RET_DEC_PIC_FRAME_IDX);
+	info->indexFrameDecoded = VpuReadReg(RET_DEC_PIC_CUR_IDX);
 
 	if (pCodecInst->codecMode == VC1_DEC && info->indexFrameDisplay != -3) {
 		if (pDecInfo->vc1BframeDisplayValid == 0) {
@@ -2082,7 +2118,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 			}
 		}
 	}
-	
+
 	if (cpu_is_mx27()) {
 		if (pCodecInst->codecMode == MP4_DEC &&
 		    pDecInfo->openParam.qpReport == 1) {
@@ -2141,6 +2177,8 @@ RetCode vpu_DecBitBufferFlush(DecHandle handle)
 	DecInfo *pDecInfo;
 	RetCode ret;
 
+	ENTER_FUNC();
+
 	ret = CheckDecInstanceValidity(handle);
 	if (ret != RETCODE_SUCCESS)
 		return ret;
@@ -2169,6 +2207,34 @@ RetCode vpu_DecBitBufferFlush(DecHandle handle)
 	return RETCODE_SUCCESS;
 }
 
+RetCode vpu_DecClrDispFlag(DecHandle handle, int index)
+{
+	CodecInst * pCodecInst;
+	DecInfo * pDecInfo;
+	RetCode ret;
+	int val;
+
+	ret = CheckDecInstanceValidity(handle);
+	if (ret != RETCODE_SUCCESS)
+		return ret;
+
+	pCodecInst = handle;
+	pDecInfo = &pCodecInst->CodecInfo.decInfo;
+
+	/* This means frame buffers have not been registered. */
+	if (pDecInfo->frameBufPool == 0) {
+		return RETCODE_WRONG_CALL_SEQUENCE;
+	}
+
+	if ((index < 0) || (index > (pDecInfo->numFrameBuffers - 1)))
+		return	RETCODE_INVALID_PARAM;
+
+	val = (~(1 << index) & VpuReadReg(pDecInfo->frameDisplayFlagRegAddr));
+	VpuWriteReg(pDecInfo->frameDisplayFlagRegAddr, val);
+
+	return RETCODE_SUCCESS;
+}
+
 /*!
  * @brief Give command to the decoder.
  *
@@ -2186,6 +2252,8 @@ RetCode vpu_DecGiveCommand(DecHandle handle, CodecCommand cmd, void *param)
 	CodecInst *pCodecInst;
 	DecInfo *pDecInfo;
 	RetCode ret;
+
+	ENTER_FUNC();
 
 	ret = CheckDecInstanceValidity(handle);
 	if (ret != RETCODE_SUCCESS)
@@ -2407,6 +2475,8 @@ void SaveGetEncodeHeader(EncHandle handle, int encHeaderType, char *filename)
 	Uint32 *pBuf;
 	Uint32 byteSize;
 
+	ENTER_FUNC();
+
 	if (filename == NULL)
 		return;
 
@@ -2449,13 +2519,15 @@ void SaveQpReport(PhysicalAddress qpReportAddr, int picWidth, int picHeight,
 	Uint32 qp;
 	Uint8 lastQp[4];
 
+	ENTER_FUNC();
+
 	if (frameIdx == 0)
 		fp = fopen(fileName, "wb");
 	else
 		fp = fopen(fileName, "a+b");
 
 	if (!fp) {
-		printf("Can't open %s in SaveQpReport\n", fileName);
+		err_msg("Can't open %s in SaveQpReport\n", fileName);
 		return;
 	}
 
