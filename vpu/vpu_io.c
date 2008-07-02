@@ -43,6 +43,12 @@ static unsigned long vpu_reg_base;
 
 unsigned int system_rev;
 
+/*
+ * Note: the order does not correspond to the bit order in BIT_AXI_SRAM_USE
+ * register, but correspond to the items in use_iram_table array.
+ * So if there's any IRAM size change in use_iram_table array, may consider
+ * change this enumeration accordingly.
+ */
 enum {
 	USE_DBK_INTERNAL_BUF,	/* MPEG-4 and MPEG-2 output deblocking */
 	USE_OVL_INTERNAL_BUF,	/* overlap filter */
@@ -50,82 +56,77 @@ enum {
 	USE_BIT_INTERNAL_BUF,	/* MB prediction */
 };
 
-Uint32 use_iram_table[] = {
-	0x6400,
-	0x2000,
-	0x1900,
-	0x1900,
+/* MX37 MAX Resolution: D1 */
+#define NR_ENTRY	3
+Uint32 use_iram_table[][NR_ENTRY] = {
+	/*
+	 * NOTE: Sorted in the descending order of IRAM usage in bytes.
+	 *
+	 * The effect of each option is in proportion to the necessary
+	 * SRAM size of each option. Currently VPU will get the free space of
+	 * IRAM from kernel via ioctl interface, and set the corresponding one
+	 * (to satisfy the bigger one first, since it'll impact VPU performance
+	 * most).
+	 *
+	 * {VPU Register Address Offset, IRAM Size, Flag indicating used or not}
+	 */
+	{0x158, 0x5A00, 0},
+	{0x15C, 0x1C20, 0},
+	{0x154, 0x1680, 0},
+	{0x150, 0x1680, 0},
 };
 
-int get_iram_setting(struct iram_t iram, Uint32 array[], int array_size,
-			int *use_iram_bits)
+int get_iram_setting(struct iram_t iram, Uint32 array[][NR_ENTRY],
+						int array_size)
 {
 	int i;
 	int total = iram.end - iram.start + 1;
 
+	dprintf(3, "VPU uses IRAM starting @ 0x%08lx\n", iram.start);
+
+	/* Clear the Flag first */
+	for (i = 0; i < array_size; i++)
+		use_iram_table[i][2] = 0;
+
 	i = array_size - 1;
-	if (total < array[i])
+	if (total < array[i][1])
 		return  -1;
 
-	while (total > array[i]) {
+	while ((total > array[i][1]) && i > 0) {
 		i--;
 	}
-	i++;
 
-	*use_iram_bits = 0;
-	while (total > array[i] && i < array_size) {
-		if (i == USE_DBK_INTERNAL_BUF) {
-			*use_iram_bits |= 1 << 2;
-		}
+	while (total > array[i][1] && i < array_size) {
+		use_iram_table[i][2] = 1;
 
-		if (i == USE_OVL_INTERNAL_BUF) {
-			*use_iram_bits |= 1 << 3;
-		}
-
-		if (i == USE_IP_INTERNAL_BUF) {
-			*use_iram_bits |= 1 << 1;
-		}
-
-		if (i == USE_BIT_INTERNAL_BUF) {
-			*use_iram_bits |= 1 << 0;
-		}
-
-		total -= array[i];
+		total -= array[i][1];
 		i++;
 	}
 
 	return 0;
 }
 
-int set_iram(struct iram_t iram, Uint32 array[], int array_size,
-			int use_iram_bits)
+int set_iram(struct iram_t iram, Uint32 array[][NR_ENTRY], int array_size)
 {
-	static int dbk_use_size, ovl_use_size, ip_use_size;
+	int i, j, offset;
+	int use_iram_bits;
 
-	dprintf(3, "use iram_bits:%08x\n", use_iram_bits);
+	use_iram_bits = array[USE_OVL_INTERNAL_BUF][2] << 3 |
+			array[USE_DBK_INTERNAL_BUF][2] << 2 |
+			array[USE_IP_INTERNAL_BUF][2] << 1 |
+			array[USE_BIT_INTERNAL_BUF][2];
 	VpuWriteReg(BIT_AXI_SRAM_USE, use_iram_bits);
+	dprintf(3, "use iram_bits:%08x\n", use_iram_bits);
 
+	for (i = 0; i < array_size; i++) {
+		offset = 0;
+		for (j = 0; j < i; j++)
+			offset += array[j][1];
 
-	if ((use_iram_bits & 0x8) == 0x8) {
-		VpuWriteReg(BIT_OVL_USE_SRAM_BASE, iram.start);
-		ovl_use_size = array[USE_OVL_INTERNAL_BUF];
-	}
-
-	if ((use_iram_bits & 0x4) == 0x4) {
-		VpuWriteReg(BIT_DBK_USE_SRAM_BASE, iram.start +
-				ovl_use_size);
-		dbk_use_size = array[USE_DBK_INTERNAL_BUF];
-	}
-
-	if ((use_iram_bits & 0x2) == 0x2) {
-		VpuWriteReg(BIT_IP_USE_SRAM_BASE, iram.start +
-				ovl_use_size + dbk_use_size);
-		ip_use_size = array[USE_IP_INTERNAL_BUF];
-	}
-
-	if ((use_iram_bits & 0x1) == 0x1) {
-		VpuWriteReg(BIT_BIT_USE_SRAM_BASE, iram.start +
-				ovl_use_size + dbk_use_size + ip_use_size);
+		/* Set the corresponding IRAM address in VPU register */
+		if (array[i][2]) {
+			VpuWriteReg(array[i][0], iram.start + offset);
+		}
 	}
 
 	return 0;
@@ -196,11 +197,10 @@ int IOSystemInit(void *callback)
 {
 	struct iram_t iram;
 	int ret;
-	static int use_iram_bits;
 
 	ret = get_system_rev();
 	if (ret == -1) {
-		printf("Error: Unable to obtain system rev information\n");
+		err_msg("Error: Unable to obtain system rev information\n");
 		return -1;
 	}
 
@@ -210,7 +210,7 @@ int IOSystemInit(void *callback)
 
 	vpu_fd = open("/dev/mxc_vpu", O_RDWR);
 	if (vpu_fd < 0) {
-		printf("Can't open /dev/mxc_vpu\n");
+		err_msg("Can't open /dev/mxc_vpu\n");
 		return -1;
 	}
 
@@ -219,7 +219,7 @@ int IOSystemInit(void *callback)
 					   MAP_SHARED, vpu_fd, 0);
 
 	if ((void *)vpu_reg_base == MAP_FAILED) {
-		printf("Can't map register\n");
+		err_msg("Can't map register\n");
 		close(vpu_fd);
 		vpu_fd = -1;
 		return -1;
@@ -237,15 +237,15 @@ int IOSystemInit(void *callback)
 	vpu_Init(bit_work_addr.phy_addr);
 	if (cpu_is_mx37()) {
 		IOGetIramBase(&iram);
-		ret = get_iram_setting(iram, use_iram_table, 4, &use_iram_bits);
+		ret = get_iram_setting(iram, use_iram_table, 4);
 		if (ret != -1)
-			set_iram(iram, use_iram_table, 4, use_iram_bits);
+			set_iram(iram, use_iram_table, 4);
 	}
 
 	return 0;
 
       err:
-	printf("Error in IOSystemInit()");
+	err_msg("Error in IOSystemInit()");
 	IOSystemShutdown();
 	return -1;
 }
@@ -273,7 +273,7 @@ int IOSystemShutdown(void)
 	VpuWriteReg(BIT_INT_ENABLE, 0);	/* PIC_RUN irq disable */
 
 	if (munmap((void *)vpu_reg_base, BIT_REG_MARGIN) != 0)
-		printf("munmap failed\n");
+		err_msg("munmap failed\n");
 
 	if (vpu_fd >= 0) {
 		close(vpu_fd);
@@ -318,7 +318,7 @@ static unsigned int sz_alloc;
 int IOGetPhyMem(vpu_mem_desc * buff)
 {
 	if (ioctl(vpu_fd, VPU_IOC_PHYMEM_ALLOC, buff) < 0) {
-		printf("mem allocation failed!\n");
+		err_msg("mem allocation failed!\n");
 		buff->phy_addr = 0;
 		buff->cpu_addr = 0;
 		return -1;
@@ -389,7 +389,7 @@ int IOFreeVirtMem(vpu_mem_desc * buff)
 {
 	if (buff->virt_uaddr != 0) {
 		if (munmap((void *)buff->virt_uaddr, buff->size) != 0)
-			printf("munmap failed\n");
+			err_msg("munmap failed\n");
 	}
 
 	buff->virt_uaddr = 0;
@@ -400,7 +400,7 @@ int IOWaitForInt(int timeout_in_ms)
 {
 	int ret = 0;
 	if (timeout_in_ms < 0) {
-		printf("invalid timeout\n");
+		err_msg("invalid timeout\n");
 		return -1;
 	}
 
