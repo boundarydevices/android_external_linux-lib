@@ -47,6 +47,8 @@
 #define BIT_BIT_STREAM_PARAM		0x114
 #define BIT_VPU_PIC_COUNT		0x118
 
+#define	BIT_RESET_CTRL			0x11C
+
 #define BIT_RD_PTR_0			0x120
 #define BIT_WR_PTR_0			0x124
 #define BIT_RD_PTR_1			0x128
@@ -55,10 +57,16 @@
 #define BIT_WR_PTR_2			0x134
 #define BIT_RD_PTR_3			0x138
 #define BIT_WR_PTR_3			0x13C
-#define BIT_AXI_SRAM_USE		0x140 /* MX37 */
+
 #define BIT_SEARCH_RAM_BASE_ADDR	0x140
 #define BIT_SEARCH_RAM_SIZE		0x144
-#define BIT_MX37_IRAM_BASE_ADDR		0x144
+
+#define	BIT_FRM_DIS_FLG_0		0x140
+#define BIT_FRM_DIS_FLG_1		0x144
+#define	BIT_FRM_DIS_FLG_2		0x148
+#define	BIT_FRM_DIS_FLG_3		0x14C
+
+#define	BIT_AXI_SRAM_USE		0x178
 
 #define BIT_BIT_USE_SRAM_BASE		0x150
 #define BIT_IP_USE_SRAM_BASE		0x154
