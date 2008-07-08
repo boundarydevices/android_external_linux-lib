@@ -1565,7 +1565,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	val = ((pDecInfo->dynamicAllocEnable << 3) & 0x8) |
 		((pDecInfo->filePlayEnable << 2) & 0x4) |
 		((pDecInfo->openParam.reorderEnable << 1) & 0x2);
-	
+
 	if (cpu_is_mx27()) {
 		val |= (pDecInfo->openParam.qpReport & 0x1);
 	} else {
@@ -1574,18 +1574,16 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 
 	VpuWriteReg(CMD_DEC_SEQ_OPTION, val);
 
-	if (cpu_is_mxc30031()) {
-		VpuWriteReg(BIT_FRAME_MEM_CTRL,
+	if (pCodecInst->codecMode == AVC_DEC) {
+		VpuWriteReg(CMD_DEC_SEQ_PS_BB_START,
+				pDecInfo->openParam.psSaveBuffer);
+		VpuWriteReg(CMD_DEC_SEQ_PS_BB_SIZE,
+			(pDecInfo->openParam.psSaveBufferSize / 1024));
+	}
+
+	VpuWriteReg(BIT_FRAME_MEM_CTRL,
 			    ((pDecInfo->openParam.chromaInterleave << 1) |
 			     IMAGE_ENDIAN));
-	} else {
-		if (pCodecInst->codecMode == AVC_DEC) {
-			VpuWriteReg(CMD_DEC_SEQ_PS_BB_START,
-					pDecInfo->openParam.psSaveBuffer);
-			VpuWriteReg(CMD_DEC_SEQ_PS_BB_SIZE,
-				(pDecInfo->openParam.psSaveBufferSize / 1024));
-		}
-	}
 
 	VpuWriteReg(CMD_DEC_SEQ_SRC_SIZE, pDecInfo->picSrcSize);
 
