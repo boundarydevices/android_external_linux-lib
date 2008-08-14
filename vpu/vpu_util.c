@@ -113,19 +113,28 @@ RetCode CheckDecInstanceValidity(DecHandle handle)
 	if (cpu_is_mx27()) {
 		if (pCodecInst->codecMode != MP4_DEC &&
 		    pCodecInst->codecMode != AVC_DEC)
-		return RETCODE_INVALID_HANDLE;
+			return RETCODE_INVALID_HANDLE;
 	} else if (cpu_is_mx32() || cpu_is_mxc30031()) {
 		if (pCodecInst->codecMode != MP4_DEC &&
 		    pCodecInst->codecMode != AVC_DEC &&
 		    pCodecInst->codecMode != VC1_DEC)
-		return RETCODE_INVALID_HANDLE;
+			return RETCODE_INVALID_HANDLE;
 	} else if (cpu_is_mx37()) {
 		if (pCodecInst->codecMode != MP4_DEC &&
 		    pCodecInst->codecMode != AVC_DEC &&
 		    pCodecInst->codecMode != VC1_DEC &&
 		    pCodecInst->codecMode != MP2_DEC &&
 		    pCodecInst->codecMode != DV3_DEC)
-		return RETCODE_INVALID_HANDLE;
+			return RETCODE_INVALID_HANDLE;
+	} else if (cpu_is_mx51()) {
+		if (pCodecInst->codecMode != MP4_DEC &&
+		    pCodecInst->codecMode != AVC_DEC &&
+		    pCodecInst->codecMode != VC1_DEC &&
+		    pCodecInst->codecMode != MP2_DEC &&
+		    pCodecInst->codecMode != DV3_DEC &&
+		    pCodecInst->codecMode != RV_DEC &&
+		    pCodecInst->codecMode != MJPG_DEC)
+			return RETCODE_INVALID_PARAM;
 	}
 
 	return RETCODE_SUCCESS;
@@ -138,6 +147,7 @@ void FreeCodecInstance(CodecInst * pCodecInst)
 
 void BitIssueCommand(int instIdx, int cdcMode, int cmd)
 {
+	VpuWriteReg(BIT_BUSY_FLAG, 0x1);
 	VpuWriteReg(BIT_RUN_INDEX, instIdx);
 	VpuWriteReg(BIT_RUN_COD_STD, cdcMode);
 	VpuWriteReg(BIT_RUN_COMMAND, cmd);
@@ -191,7 +201,7 @@ RetCode CheckEncOpenParam(EncOpenParam * pop)
 	}
 	if (pop->slicemode.sliceMode == 1) {
 		if (pop->slicemode.sliceSizeMode != 0 &&
-				pop->slicemode.sliceSizeMode != 1) {
+		    pop->slicemode.sliceSizeMode != 1) {
 			return RETCODE_INVALID_PARAM;
 		}
 		if (pop->slicemode.sliceSize == 0) {
@@ -280,8 +290,7 @@ RetCode CheckEncOpenParam(EncOpenParam * pop)
 			return RETCODE_INVALID_PARAM;
 		}
 		if (param->avc_fmoEnable == 1) {
-			if (param->avc_fmoType != 0 &&
-					param->avc_fmoType != 1) {
+			if (param->avc_fmoType != 0 && param->avc_fmoType != 1) {
 				return RETCODE_INVALID_PARAM;
 			}
 			if (param->avc_fmoSliceNum < 2 ||
@@ -347,14 +356,13 @@ void EncodeHeader(EncHandle handle, EncHeaderParam * encHeaderParam)
 		VpuWriteReg(CMD_ENC_HEADER_BB_START, encHeaderParam->buf);
 		VpuWriteReg(CMD_ENC_HEADER_BB_SIZE, encHeaderParam->size);
 	}
-
 	// 0: SPS, 1: PPS
 	VpuWriteReg(CMD_ENC_HEADER_CODE, encHeaderParam->headerType);
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
 			ENCODE_HEADER);
 
-	while (VpuReadReg(BIT_BUSY_FLAG));
-	
+	while (VpuReadReg(BIT_BUSY_FLAG)) ;
+
 	if (pEncInfo->dynamicAllocEnable == 1) {
 		rdPtr = VpuReadReg(CMD_ENC_HEADER_BB_START);
 		wrPtr = VpuReadReg(pEncInfo->streamWrPtrRegAddr);
@@ -384,13 +392,13 @@ RetCode CheckDecOpenParam(DecOpenParam * pop)
 		if (pop->bitstreamFormat != STD_MPEG4 &&
 		    pop->bitstreamFormat != STD_H263 &&
 		    pop->bitstreamFormat != STD_AVC)
-		return RETCODE_INVALID_PARAM;
+			return RETCODE_INVALID_PARAM;
 	} else if (cpu_is_mx32() || cpu_is_mxc30031()) {
 		if (pop->bitstreamFormat != STD_MPEG4 &&
 		    pop->bitstreamFormat != STD_H263 &&
 		    pop->bitstreamFormat != STD_AVC &&
 		    pop->bitstreamFormat != STD_VC1)
-		return RETCODE_INVALID_PARAM;
+			return RETCODE_INVALID_PARAM;
 	} else if (cpu_is_mx37()) {
 		if (pop->bitstreamFormat != STD_MPEG4 &&
 		    pop->bitstreamFormat != STD_H263 &&
@@ -398,7 +406,17 @@ RetCode CheckDecOpenParam(DecOpenParam * pop)
 		    pop->bitstreamFormat != STD_VC1 &&
 		    pop->bitstreamFormat != STD_MPEG2 &&
 		    pop->bitstreamFormat != STD_DIV3)
-		return RETCODE_INVALID_PARAM;
+			return RETCODE_INVALID_PARAM;
+	} else if (cpu_is_mx51()) {
+		if (pop->bitstreamFormat != STD_MPEG4 &&
+		    pop->bitstreamFormat != STD_H263 &&
+		    pop->bitstreamFormat != STD_AVC &&
+		    pop->bitstreamFormat != STD_VC1 &&
+		    pop->bitstreamFormat != STD_MPEG2 &&
+		    pop->bitstreamFormat != STD_DIV3 &&
+		    pop->bitstreamFormat != STD_RV &&
+		    pop->bitstreamFormat != STD_MJPG)
+			return RETCODE_INVALID_PARAM;
 	}
 	if (cpu_is_mx27()) {
 		if (pop->bitstreamFormat == STD_MPEG4 ||
@@ -453,29 +471,37 @@ void SetParaSet(DecHandle handle, int paraSetType, DecParamSet * para)
 	int i;
 	Uint32 *src;
 	int byteSize;
-	
+
 	pCodecInst = handle;
 	pDecInfo = &pCodecInst->CodecInfo.decInfo;
 
 	src = para->paraSet;
 	byteSize = para->size / 4;
-	
+
 	for (i = 0; i < byteSize; i += 1) {
 		virt_paraBuf[i] = *src++;
 	}
-	
+
 	VpuWriteReg(CMD_DEC_PARA_SET_TYPE, paraSetType);
 	VpuWriteReg(CMD_DEC_PARA_SET_SIZE, para->size);
+
+	if (cpu_is_mx51()) {
+		if (pDecInfo->openParam.bitstreamFormat == STD_DIV3)
+			VpuWriteReg(BIT_RUN_AUX_STD, 1);
+		else
+			VpuWriteReg(BIT_RUN_AUX_STD, 0);
+	}
+
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
 			DEC_PARA_SET);
-	
+
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 }
 
 // Following are not for MX32 and MX27 TO1
-RetCode SetGopNumber(EncHandle handle, Uint32 *pGopNumber)
+RetCode SetGopNumber(EncHandle handle, Uint32 * pGopNumber)
 {
-	CodecInst * pCodecInst;
+	CodecInst *pCodecInst;
 	int data = 0;
 	Uint32 gopNumber = *pGopNumber;
 
@@ -485,15 +511,15 @@ RetCode SetGopNumber(EncHandle handle, Uint32 *pGopNumber)
 	VpuWriteReg(CMD_ENC_SEQ_PARA_RC_GOP, gopNumber);
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
 			RC_CHANGE_PARAMETER);
-	
-	while (VpuReadReg(BIT_BUSY_FLAG));
-	
+
+	while (VpuReadReg(BIT_BUSY_FLAG)) ;
+
 	return RETCODE_SUCCESS;
 }
 
-RetCode SetIntraQp(EncHandle handle, Uint32 *pIntraQp)
+RetCode SetIntraQp(EncHandle handle, Uint32 * pIntraQp)
 {
-	CodecInst * pCodecInst;
+	CodecInst *pCodecInst;
 	int data = 0;
 	Uint32 intraQp = *pIntraQp;
 
@@ -503,14 +529,14 @@ RetCode SetIntraQp(EncHandle handle, Uint32 *pIntraQp)
 	VpuWriteReg(CMD_ENC_SEQ_PARA_RC_INTRA_QP, intraQp);
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
 			RC_CHANGE_PARAMETER);
-	
-	while (VpuReadReg(BIT_BUSY_FLAG));
+
+	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	return RETCODE_SUCCESS;
 }
 
-RetCode SetBitrate(EncHandle handle, Uint32 *pBitrate)
+RetCode SetBitrate(EncHandle handle, Uint32 * pBitrate)
 {
-	CodecInst * pCodecInst;
+	CodecInst *pCodecInst;
 	int data = 0;
 	Uint32 bitrate = *pBitrate;
 
@@ -520,14 +546,14 @@ RetCode SetBitrate(EncHandle handle, Uint32 *pBitrate)
 	VpuWriteReg(CMD_ENC_SEQ_PARA_RC_BITRATE, bitrate);
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
 			RC_CHANGE_PARAMETER);
-	
-	while (VpuReadReg(BIT_BUSY_FLAG));
+
+	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	return RETCODE_SUCCESS;
 }
 
-RetCode SetFramerate(EncHandle handle, Uint32 *pFramerate)
+RetCode SetFramerate(EncHandle handle, Uint32 * pFramerate)
 {
-	CodecInst * pCodecInst;
+	CodecInst *pCodecInst;
 	int data = 0;
 	Uint32 framerate = *pFramerate;
 
@@ -537,15 +563,15 @@ RetCode SetFramerate(EncHandle handle, Uint32 *pFramerate)
 	VpuWriteReg(CMD_ENC_SEQ_PARA_RC_FRAME_RATE, framerate);
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
 			RC_CHANGE_PARAMETER);
-	
-	while (VpuReadReg(BIT_BUSY_FLAG));
+
+	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
 	return RETCODE_SUCCESS;
 }
 
-RetCode SetIntraRefreshNum(EncHandle handle, Uint32 *pIntraRefreshNum)
+RetCode SetIntraRefreshNum(EncHandle handle, Uint32 * pIntraRefreshNum)
 {
-	CodecInst * pCodecInst;
+	CodecInst *pCodecInst;
 	Uint32 intraRefreshNum = *pIntraRefreshNum;
 	int data = 0;
 	pCodecInst = handle;
@@ -554,20 +580,20 @@ RetCode SetIntraRefreshNum(EncHandle handle, Uint32 *pIntraRefreshNum)
 	VpuWriteReg(CMD_ENC_SEQ_PARA_INTRA_MB_NUM, intraRefreshNum);
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
 			RC_CHANGE_PARAMETER);
-	
-	while (VpuReadReg(BIT_BUSY_FLAG));
+
+	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
 	return RETCODE_SUCCESS;
 }
 
-RetCode SetSliceMode(EncHandle handle, EncSliceMode *pSliceMode)
+RetCode SetSliceMode(EncHandle handle, EncSliceMode * pSliceMode)
 {
-	CodecInst * pCodecInst;
+	CodecInst *pCodecInst;
 	Uint32 data = 0;
 	int data2 = 0;
-	
-	data = pSliceMode->sliceSize<<2 | pSliceMode->sliceSizeMode<<1 |
-		pSliceMode->sliceMode;
+
+	data = pSliceMode->sliceSize << 2 | pSliceMode->sliceSizeMode << 1 |
+	    pSliceMode->sliceMode;
 	pCodecInst = handle;
 
 	data2 = 1 << 5;
@@ -575,27 +601,26 @@ RetCode SetSliceMode(EncHandle handle, EncSliceMode *pSliceMode)
 	VpuWriteReg(CMD_ENC_SEQ_PARA_SLICE_MODE, data);
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
 			RC_CHANGE_PARAMETER);
-	
-	while (VpuReadReg(BIT_BUSY_FLAG));
+
+	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
 	return RETCODE_SUCCESS;
 }
 
 RetCode SetHecMode(EncHandle handle, int mode)
 {
-	CodecInst * pCodecInst;
+	CodecInst *pCodecInst;
 	Uint32 HecMode = mode;
 	int data = 0;
 	pCodecInst = handle;
-	
+
 	data = 1 << 6;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_HEC_MODE, HecMode);
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
 			RC_CHANGE_PARAMETER);
-	
-	while (VpuReadReg(BIT_BUSY_FLAG));
+
+	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
 	return RETCODE_SUCCESS;
 }
-
