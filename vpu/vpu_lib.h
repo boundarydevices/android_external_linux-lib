@@ -30,6 +30,8 @@ typedef unsigned short Uint16;
 typedef Uint32 PhysicalAddress;
 
 #define STREAM_FULL_EMPTY_CHECK_DISABLE 0
+#define BUF_PIC_FLUSH			1
+#define BUF_PIC_RESET			0
 
 #define BIT_REG_MARGIN			0x1000
 
@@ -43,6 +45,7 @@ typedef Uint32 PhysicalAddress;
 #define PRJ_CODA_DX_8			0xF306
 #define PRJ_BODA_DX_4V			0xF405
 #define PRJ_BODADX7X			0xF009
+#define	PRJ_CODAHX_14			0xF00A
 
 typedef enum {
 	STD_MPEG4 = 0,
@@ -50,7 +53,9 @@ typedef enum {
 	STD_AVC,
 	STD_VC1,
 	STD_MPEG2,
-	STD_DIV3
+	STD_DIV3,
+	STD_RV,
+	STD_MJPG
 } CodStd;
 
 typedef enum {
@@ -142,6 +147,7 @@ typedef struct {
 	int picHeight;
 	int dynamicAllocEnable;
 	int streamStartByteOffset;
+	int mjpg_thumbNailDecEnable;
 	PhysicalAddress psSaveBuffer;
 	int psSaveBufferSize;
 } DecOpenParam;
@@ -159,8 +165,11 @@ typedef struct {
 
 	int minFrameBufferCount;
 	int frameBufDelay;
+	int nextDecodedIdxNum;
 	int normalSliceSize;
 	int worstSliceSize;
+	int mjpg_thumbNailEnable;
+	int mjpg_sourceFormat;
 } DecInitialInfo;
 
 typedef struct {
@@ -193,19 +202,21 @@ typedef struct {
 
 typedef struct {
 	int indexFrameDisplay;
-	int indexFrameDecoded;
+	int indexFrameDecoded[2];
 	int picType;
-	int numOfErrMBs;
+	int numOfErrMBs[2];
 	PhysicalAddress qpInfo;
 	int DecVpuCount;
 	int hScaleFlag;
 	int vScaleFlag;
 	int prescanresult;
+	int indexFrameNextDecoded[3];
 	int notSufficientPsBuffer;
 	int notSufficientSliceBuffer;
 	int decodingSuccess;
 	int interlacedFrame;
 	int mp4PackedPBframe;
+        int mp4PackedMode;
 } DecOutputInfo;
 
 typedef struct {
@@ -244,6 +255,16 @@ typedef struct {
 } EncAvcParam;
 
 typedef struct {
+	int mjpg_sourceFormat;
+	int mjpg_restartInterval;
+	int mjpg_thumbNailEnable;
+	int mjpg_thumbNailWidth;
+	int mjpg_thumbNailHeight;
+	Uint8 * mjpg_hufTable;
+	Uint8 * mjpg_qMatTable;
+} EncMjpgParam;
+
+typedef struct {
 	PhysicalAddress bitstreamBuffer;
 	Uint32 bitstreamBufferSize;
 	CodStd bitstreamFormat;
@@ -272,6 +293,7 @@ typedef struct {
 		EncMp4Param mp4Param;
 		EncH263Param h263Param;
 		EncAvcParam avcParam;
+                EncMjpgParam mjpgParam;
 	} EncStdParam;
 } EncOpenParam;
 
@@ -434,7 +456,7 @@ typedef struct vpu_versioninfo {
 #define VPU_LIB_VERSION(major, minor, release)	 \
 	(((major) << 12) + ((minor) << 8) + (release))
 
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(3, 2, 0)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 0, 1)
 
 extern unsigned int system_rev;
 
@@ -457,11 +479,13 @@ static inline int type## _rev (int rev)         \
 #define cpu_is_mx27()		mxc_is_cpu(0x27)
 #define cpu_is_mx32()		mxc_is_cpu(0x32)
 #define cpu_is_mx37()		mxc_is_cpu(0x37)
+#define cpu_is_mx51()		mxc_is_cpu(0x51)
 
 MXC_REV(cpu_is_mxc30031);
 MXC_REV(cpu_is_mx27);
 MXC_REV(cpu_is_mx32);
 MXC_REV(cpu_is_mx37);
+MXC_REV(cpu_is_mx51);
 
 RetCode vpu_Init(PhysicalAddress workBuf);
 RetCode vpu_GetVersionInfo(vpu_versioninfo * verinfo);

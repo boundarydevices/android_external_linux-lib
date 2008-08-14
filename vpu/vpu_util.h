@@ -28,9 +28,24 @@ enum {
 	MP2_DEC = 2,
 	MP4_DEC = 3,
 	DV3_DEC = 4,
-	/* dumb */
+	/* dummy */
 	AVC_ENC = 0x7F,
 	MP4_ENC = 0x80,
+	RV_DEC = 0x81,
+	MJPG_DEC = 0x82
+};
+#elif defined(IMX51_3STACK)
+enum {
+	AVC_DEC = 0,
+	VC1_DEC = 1,
+	MP2_DEC = 2,
+	MP4_DEC = 3,
+	DV3_DEC = 3,
+	RV_DEC = 4,
+	MJPG_DEC = 5,
+	AVC_ENC = 8,
+	MP4_ENC = 11,
+	MJPG_ENC = 13
 } ;
 #else
 enum {
@@ -40,7 +55,10 @@ enum {
 	AVC_ENC = 3,
 	VC1_DEC = 4,
 	MP2_DEC = 5,
-	DV3_DEC = 6
+	DV3_DEC = 6,
+	/* dummy */
+	RV_DEC = 0x81,
+	MJPG_DEC = 0x82
 };
 #endif
 
