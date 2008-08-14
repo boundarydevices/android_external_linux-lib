@@ -2,7 +2,7 @@ CC=$(CROSS_COMPILE)gcc
 AR=$(CROSS_COMPILE)ar
 
 # list of platforms which did not want this test case
-INCLUDE_LIST:= IMX27ADS IMX31ADS IMX32ADS IMX37_3STACK
+INCLUDE_LIST:= IMX27ADS IMX31ADS IMX32ADS IMX37_3STACK IMX51_3STACK
 
 OBJ = vpu_io.o vpu_util.o vpu_lib.o
 
