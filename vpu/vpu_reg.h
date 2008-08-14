@@ -58,6 +58,18 @@
 #define BIT_RD_PTR_3			0x138
 #define BIT_WR_PTR_3			0x13C
 
+#ifdef IMX51_3STACK
+#define BIT_AXI_SRAM_USE                0x140
+#define BIT_SEARCH_RAM_BASE_ADDR	0x144
+#define BIT_SEARCH_RAM_SIZE		0x148
+
+#define BIT_FRM_DIS_FLG_0               0x150
+#define BIT_FRM_DIS_FLG_1               0x154
+#define BIT_FRM_DIS_FLG_2               0x158
+#define BIT_FRM_DIS_FLG_3               0x15C
+
+#else
+#define	BIT_AXI_SRAM_USE		0x178
 #define BIT_SEARCH_RAM_BASE_ADDR	0x140
 #define BIT_SEARCH_RAM_SIZE		0x144
 
@@ -65,14 +77,12 @@
 #define BIT_FRM_DIS_FLG_1		0x144
 #define	BIT_FRM_DIS_FLG_2		0x148
 #define	BIT_FRM_DIS_FLG_3		0x14C
-
-#define	BIT_AXI_SRAM_USE		0x178
+#endif
 
 #define BIT_BIT_USE_SRAM_BASE		0x150
 #define BIT_IP_USE_SRAM_BASE		0x154
 #define	BIT_DBK_USE_SRAM_BASE		0x158
 #define	BIT_OVL_USE_SRAM_BASE		0x15C
-
 
 #define BIT_BUSY_FLAG			0x160
 #define BIT_RUN_COMMAND			0x164
@@ -80,6 +90,8 @@
 #define BIT_RUN_COD_STD			0x16C
 #define BIT_INT_ENABLE			0x170
 #define BIT_INT_REASON			0x174
+
+#define BIT_RUN_AUX_STD                 0x178
 
 #define BIT_CMD_0			0x1E0
 #define BIT_CMD_1			0x1E4
@@ -99,6 +111,8 @@
 #define CMD_DEC_SEQ_START_BYTE		0x190
 #define CMD_DEC_SEQ_PS_BB_START     	0x194
 #define CMD_DEC_SEQ_PS_BB_SIZE      	0x198
+#define CMD_DEC_SEQ_JPG_THUMB_EN        0x19C
+
 #define CMD_DEC_SEQ_INIT_ESCAPE		0x114
 
 #define RET_DEC_SEQ_SUCCESS		0x1C0
@@ -110,6 +124,9 @@
 #define RET_DEC_SEQ_INFO		0x1D4
 #define RET_DEC_SEQ_CROP_LEFT_RIGHT	0x1D8
 #define RET_DEC_SEQ_CROP_TOP_BOTTOM	0x1DC
+#define	RET_DEC_SEQ_JPG_PARA		0x1E4
+#define RET_DEC_SEQ_JPG_THUMB_IND	0x1E8
+
 #ifdef	IMX37_3STACK
 #define RET_DEC_SEQ_NEXT_FRAME_NUM	0x1BC
 #else
@@ -136,6 +153,12 @@
 #define CMD_ENC_SEQ_INTRA_REFRESH	0x1B4
 #define CMD_ENC_SEQ_FMO			0x1B8
 #define CMD_ENC_SEQ_INTRA_QP		0x1BC
+
+#define CMD_ENC_SEQ_JPG_PARA	        0x198
+#define CMD_ENC_SEQ_JPG_RST_INTERVAL	0x19C
+#define CMD_ENC_SEQ_JPG_THUMB_EN	0x1A0
+#define CMD_ENC_SEQ_JPG_THUMB_SIZE	0x1A4
+#define CMD_ENC_SEQ_JPG_THUMB_OFFSET	0x1A8
 
 #define RET_ENC_SEQ_SUCCESS		0x1C0
 
@@ -273,6 +296,12 @@
 	#define WORK_BUF_SIZE			(512 * 1024)
 	#define PARA_BUF2_SIZE			(0) /* Not used */
 	#define PARA_BUF_SIZE			(10 * 1024)
+#elif defined(IMX51_3STACK)
+        #define CODE_BUF_SIZE			( 132 * 1024 )
+        #define FMO_SLICE_SAVE_BUF_SIZE	        ( 32 )
+        #define WORK_BUF_SIZE			( 512 * 1024 ) + ( FMO_SLICE_SAVE_BUF_SIZE * 1024 * 8 )
+        #define PARA_BUF2_SIZE			( 2 * 1024 )
+        #define PARA_BUF_SIZE			( 10 * 1024 )
 #elif defined(MXC30031ADS)
 	#define CODE_BUF_SIZE			(96 * 1024)
 	#define FMO_SLICE_SAVE_BUF_SIZE		(16)
