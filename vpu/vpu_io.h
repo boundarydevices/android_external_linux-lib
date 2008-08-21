@@ -39,6 +39,13 @@ typedef struct iram_t {
         unsigned long end;
 } iram_t;
 
+#ifndef	true
+#define true	1
+#endif
+#ifndef	false
+#define false	0
+#endif
+
 #define	VPU_IOC_MAGIC		'V'
 
 #define	VPU_IOC_PHYMEM_ALLOC	_IO(VPU_IOC_MAGIC, 0)
@@ -48,6 +55,7 @@ typedef struct iram_t {
 #define	VPU_IOC_REG_DUMP	_IO(VPU_IOC_MAGIC, 4)
 #define	VPU_IOC_VL2CC_FLUSH	_IO(VPU_IOC_MAGIC, 5)
 #define	VPU_IOC_IRAM_BASE	_IO(VPU_IOC_MAGIC, 6)
+#define	VPU_IOC_CLKGATE_SETTING	_IO(VPU_IOC_MAGIC, 7)
 
 typedef void (*vpu_callback) (int status);
 
@@ -61,6 +69,7 @@ int IOGetVirtMem(vpu_mem_desc * buff);
 int IOFreeVirtMem(vpu_mem_desc * buff);
 int IOWaitForInt(int timeout_in_ms);
 int IOGetIramBase(iram_t * iram);
+int IOClkGateSet(int on);
 
 unsigned long VpuWriteReg(unsigned long addr, unsigned int data);
 unsigned long VpuReadReg(unsigned long addr);
