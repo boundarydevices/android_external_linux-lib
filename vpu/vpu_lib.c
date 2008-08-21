@@ -108,9 +108,15 @@ extern vpu_mem_desc bit_work_addr;
  */
 int vpu_IsBusy()
 {
+	int vpu_busy;
+
 	ENTER_FUNC();
 
-	return VpuReadReg(BIT_BUSY_FLAG) != 0;
+	IOClkGateSet(true);
+	vpu_busy = VpuReadReg(BIT_BUSY_FLAG);
+	IOClkGateSet(false);
+
+	return vpu_busy != 0;
 }
 
 int vpu_WaitForInt(int timeout_in_ms)
@@ -176,6 +182,7 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 		}
 	}
 
+	IOClkGateSet(true);
 	VpuWriteReg(BIT_WORK_BUF_ADDR, workBuffer);
 	VpuWriteReg(BIT_PARA_BUF_ADDR, paraBuffer);
 	VpuWriteReg(BIT_CODE_BUF_ADDR, codeBuffer);
@@ -187,6 +194,7 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 		if (VpuReadReg(BIT_CUR_PC) != 0) {
 			/* IRQ is disabled during shutdown */
 			VpuWriteReg(BIT_INT_ENABLE, 8);
+			IOClkGateSet(false);
 			return RETCODE_SUCCESS;
 		}
 	}
@@ -233,6 +241,7 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 	}
 
 	VpuWriteReg(BIT_CODE_RUN, 1);
+	IOClkGateSet(false);
 
 	pCodecInst = &codecInstPool[0];
 	for (i = 0; i < MAX_NUM_INSTANCE; ++i, ++pCodecInst) {
@@ -264,6 +273,7 @@ RetCode vpu_GetVersionInfo(vpu_versioninfo * verinfo)
 		return RETCODE_FRAME_NOT_COMPLETE;
 	}
 
+	IOClkGateSet(true);
 	VpuWriteReg(RET_VER_NUM, 0);
 
 	BitIssueCommand(0, 0, FIRMWARE_GET);
@@ -271,6 +281,7 @@ RetCode vpu_GetVersionInfo(vpu_versioninfo * verinfo)
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
 	ver = VpuReadReg(RET_VER_NUM);
+	IOClkGateSet(false);
 
 	if (ver == 0)
 		return RETCODE_FAILURE;
@@ -388,6 +399,7 @@ RetCode vpu_EncOpen(EncHandle * pHandle, EncOpenParam * pop)
 	pEncInfo->dynamicAllocEnable = pop->dynamicAllocEnable;
 	pEncInfo->ringBufferEnable = pop->ringBufferEnable;
 
+	IOClkGateSet(true);
 	VpuWriteReg(pEncInfo->streamRdPtrRegAddr, pEncInfo->streamRdPtr);
 	VpuWriteReg(pEncInfo->streamWrPtrRegAddr, pEncInfo->streamBufStartAddr);
 
@@ -399,6 +411,7 @@ RetCode vpu_EncOpen(EncHandle * pHandle, EncOpenParam * pop)
 	}
 
 	VpuWriteReg(BIT_BIT_STREAM_CTRL, val);
+	IOClkGateSet(false);
 
 	return RETCODE_SUCCESS;
 }
@@ -432,9 +445,11 @@ RetCode vpu_EncClose(EncHandle handle)
 	pCodecInst = handle;
 	pEncInfo = &pCodecInst->CodecInfo.encInfo;
 	if (pEncInfo->initialInfoObtained) {
+		IOClkGateSet(true);
 		BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
 				SEQ_END);
 		while (VpuReadReg(BIT_BUSY_FLAG)) ;
+		IOClkGateSet(false);
 	}
 
 	FreeCodecInstance(pCodecInst);
@@ -491,6 +506,7 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 	picWidth = encOP.picWidth;
 	picHeight = encOP.picHeight;
 
+	IOClkGateSet(true);
 	data = (picWidth << 10) | picHeight;
 	VpuWriteReg(CMD_ENC_SEQ_SRC_SIZE, data);
 	VpuWriteReg(CMD_ENC_SEQ_SRC_F_RATE, encOP.frameRateInfo);
@@ -576,8 +592,10 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
 	if (VpuReadReg(RET_ENC_SEQ_SUCCESS) == 0) {
+		IOClkGateSet(false);
 		return RETCODE_FAILURE;
 	}
+	IOClkGateSet(false);
 
 	/* reconstructed frame + reference frame */
 	info->minFrameBufferCount = 2;
@@ -657,6 +675,8 @@ RetCode vpu_EncRegisterFrameBuffer(EncHandle handle,
 		virt_paraBuf[i * 3 + 2] = bufArray[i].bufCr;
 	}
 
+	IOClkGateSet(true);
+
 	/* Tell the codec how much frame buffers were allocated. */
 	VpuWriteReg(CMD_SET_FRAME_BUF_NUM, num);
 	VpuWriteReg(CMD_SET_FRAME_BUF_STRIDE, stride);
@@ -665,6 +685,8 @@ RetCode vpu_EncRegisterFrameBuffer(EncHandle handle,
 			SET_FRAME_BUF);
 
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
+	IOClkGateSet(false);
+
 	return RETCODE_SUCCESS;
 }
 
@@ -692,7 +714,9 @@ RetCode vpu_EncGetBitstreamBuffer(EncHandle handle,
 	pCodecInst = handle;
 	pEncInfo = &pCodecInst->CodecInfo.encInfo;
 	rdPtr = pEncInfo->streamRdPtr;
+	IOClkGateSet(true);
 	wrPtr = VpuReadReg(pEncInfo->streamWrPtrRegAddr);
+	IOClkGateSet(false);
 
 	if (pEncInfo->ringBufferEnable == 1) {
 		if (wrPtr >= rdPtr) {
@@ -734,7 +758,9 @@ RetCode vpu_EncUpdateBitstreamBuffer(EncHandle handle, Uint32 size)
 	pEncInfo = &pCodecInst->CodecInfo.encInfo;
 	rdPtr = pEncInfo->streamRdPtr;
 
+	IOClkGateSet(true);
 	wrPtr = VpuReadReg(pEncInfo->streamWrPtrRegAddr);
+	IOClkGateSet(false);
 	if (rdPtr < wrPtr) {
 		if (rdPtr + size > wrPtr)
 			return RETCODE_INVALID_PARAM;
@@ -756,7 +782,9 @@ RetCode vpu_EncUpdateBitstreamBuffer(EncHandle handle, Uint32 size)
 
 	pEncInfo->streamRdPtr = rdPtr;
 
+	IOClkGateSet(true);
 	VpuWriteReg(pEncInfo->streamRdPtrRegAddr, rdPtr);
+	IOClkGateSet(false);
 	return RETCODE_SUCCESS;
 }
 
@@ -820,6 +848,8 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 	pSrcFrame = param->sourceFrame;
 	rotMirEnable = 0;
 	rotMirMode = 0;
+
+	IOClkGateSet(true);
 
 	if (!cpu_is_mxc30031()) {
 		if (pEncInfo->rotationEnable) {
@@ -1001,6 +1031,8 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 			    0x7FFFFFFF;
 		}
 	}
+
+	IOClkGateSet(false);
 
 	pendingInst = 0;
 
@@ -1198,6 +1230,7 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 
 			scRamParam = (SearchRamParam *) param;
 
+			IOClkGateSet(true);
 			if (cpu_is_mxc30031()) {
 				if (scRamParam->SearchRamSize !=
 				    ((((EncPicX + 15) & ~15) * 36) + 2048)) {
@@ -1210,6 +1243,8 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 
 			VpuWriteReg(BIT_SEARCH_RAM_BASE_ADDR,
 				    scRamParam->searchRamAddr);
+			IOClkGateSet(false);
+
 			break;
 		}
 
@@ -1464,8 +1499,10 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 	pDecInfo->initialInfoObtained = 0;
 	pDecInfo->vc1BframeDisplayValid = 0;
 
+	IOClkGateSet(true);
 	VpuWriteReg(pDecInfo->streamRdPtrRegAddr, pDecInfo->streamBufStartAddr);
 	VpuWriteReg(pDecInfo->streamWrPtrRegAddr, pDecInfo->streamWrPtr);
+	IOClkGateSet(false);
 
 	return RETCODE_SUCCESS;
 }
@@ -1499,6 +1536,7 @@ RetCode vpu_DecClose(DecHandle handle)
 	pCodecInst = handle;
 	pDecInfo = &pCodecInst->CodecInfo.decInfo;
 
+	IOClkGateSet(true);
 	if (pDecInfo->initialInfoObtained) {
 		if (cpu_is_mx51()) {
 			if (pDecInfo->openParam.bitstreamFormat == STD_DIV3)
@@ -1510,6 +1548,7 @@ RetCode vpu_DecClose(DecHandle handle)
 				SEQ_END);
 		while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	}
+	IOClkGateSet(false);
 	FreeCodecInstance(pCodecInst);
 	return RETCODE_SUCCESS;
 }
@@ -1529,7 +1568,9 @@ RetCode vpu_DecSetEscSeqInit(DecHandle handle, int escape)
 	pCodecInst = handle;
 	pDecInfo = &pCodecInst->CodecInfo.decInfo;
 
+	IOClkGateSet(true);
 	VpuWriteReg(CMD_DEC_SEQ_INIT_ESCAPE, (escape & 0x01));
+	IOClkGateSet(false);
 
 	return RETCODE_SUCCESS;
 }
@@ -1577,7 +1618,9 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		return RETCODE_CALLED_BEFORE;
 	}
 
+	IOClkGateSet(true);
 	if (DecBitstreamBufEmpty(pDecInfo)) {
+		IOClkGateSet(false);
 		return RETCODE_WRONG_CALL_SEQUENCE;
 	}
 
@@ -1588,6 +1631,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		VpuWriteReg(CMD_DEC_SEQ_START_BYTE,
 			    pDecInfo->openParam.streamStartByteOffset);
 	}
+	IOClkGateSet(false);
 
 	val = ((pDecInfo->dynamicAllocEnable << 3) & 0x8) |
 	    ((pDecInfo->filePlayEnable << 2) & 0x4) |
@@ -1599,6 +1643,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		val |= (pDecInfo->openParam.mp4DeblkEnable & 0x1);
 	}
 
+	IOClkGateSet(true);
 	VpuWriteReg(CMD_DEC_SEQ_OPTION, val);
 
 	if (pCodecInst->codecMode == AVC_DEC) {
@@ -1635,6 +1680,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
 	if (VpuReadReg(RET_DEC_SEQ_SUCCESS) == 0) {
+		IOClkGateSet(false);
 		return RETCODE_FAILURE;
 	}
 
@@ -1661,10 +1707,13 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 
 	info->minFrameBufferCount = VpuReadReg(RET_DEC_SEQ_FRAME_NEED);
 	info->frameBufDelay = VpuReadReg(RET_DEC_SEQ_FRAME_DELAY);
+	IOClkGateSet(false);
 
 	if (pCodecInst->codecMode == AVC_DEC) {
+		IOClkGateSet(true);
 		val = VpuReadReg(RET_DEC_SEQ_CROP_LEFT_RIGHT);
 		val2 = VpuReadReg(RET_DEC_SEQ_CROP_TOP_BOTTOM);
+		IOClkGateSet(false);
 		if (val == 0 && val2 == 0) {
 			info->picCropRect.left = 0;
 			info->picCropRect.right = 0;
@@ -1828,6 +1877,7 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 		}
 	}
 
+	IOClkGateSet(true);
 	/* Tell the decoder how much frame buffers were allocated. */
 	VpuWriteReg(CMD_SET_FRAME_BUF_NUM, num);
 	VpuWriteReg(CMD_SET_FRAME_BUF_STRIDE, stride);
@@ -1850,6 +1900,7 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 			SET_FRAME_BUF);
 
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
+	IOClkGateSet(false);
 
 	return RETCODE_SUCCESS;
 }
@@ -1890,7 +1941,9 @@ RetCode vpu_DecGetBitstreamBuffer(DecHandle handle,
 	pCodecInst = handle;
 	pDecInfo = &pCodecInst->CodecInfo.decInfo;
 
+	IOClkGateSet(true);
 	rdPtr = VpuReadReg(pDecInfo->streamRdPtrRegAddr);
+	IOClkGateSet(false);
 	wrPtr = pDecInfo->streamWrPtr;
 
 	if (wrPtr < rdPtr) {
@@ -1938,16 +1991,22 @@ RetCode vpu_DecUpdateBitstreamBuffer(DecHandle handle, Uint32 size)
 	wrPtr = pDecInfo->streamWrPtr;
 
 	if (size == 0) {
+		IOClkGateSet(true);
 		val = VpuReadReg(BIT_BIT_STREAM_PARAM);
 		val |= 1 << (pCodecInst->instIndex + 2);
 		VpuWriteReg(BIT_BIT_STREAM_PARAM, val);
+		IOClkGateSet(false);
 		return RETCODE_SUCCESS;
 	}
 
+	IOClkGateSet(true);
+
 	rdPtr = VpuReadReg(pDecInfo->streamRdPtrRegAddr);
 	if (wrPtr < rdPtr) {
-		if (rdPtr <= wrPtr + size)
+		if (rdPtr <= wrPtr + size) {
+			IOClkGateSet(false);
 			return RETCODE_INVALID_PARAM;
+		}
 	}
 
 	wrPtr += size;
@@ -1966,6 +2025,8 @@ RetCode vpu_DecUpdateBitstreamBuffer(DecHandle handle, Uint32 size)
 
 	pDecInfo->streamWrPtr = wrPtr;
 	VpuWriteReg(pDecInfo->streamWrPtrRegAddr, wrPtr);
+
+	IOClkGateSet(false);
 
 	return RETCODE_SUCCESS;
 }
@@ -2007,6 +2068,7 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		return RETCODE_WRONG_CALL_SEQUENCE;
 	}
 
+	IOClkGateSet(true);
 	if (!cpu_is_mxc30031()) {
 		rotMir = 0;
 		if (pDecInfo->rotationEnable) {
@@ -2083,8 +2145,10 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 				VpuWriteReg(CMD_DEC_PIC_DBK_ADDR_CR,
 					    pDecInfo->deBlockingFilterOutput.
 					    bufCr);
-			} else
+			} else {
+				IOClkGateSet(false);
 				return RETCODE_DEBLOCKING_OUTPUT_NOT_SET;
+			}
 		}
 	}
 
@@ -2288,6 +2352,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 			    0x7FFFFFFF;
 		}
 	}
+	IOClkGateSet(false);
 
 	pendingInst = 0;
 	return RETCODE_SUCCESS;
@@ -2324,6 +2389,7 @@ RetCode vpu_DecBitBufferFlush(DecHandle handle)
 			VpuWriteReg(BIT_RUN_AUX_STD, 0);
 	}
 
+	IOClkGateSet(true);
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
 			DEC_BUF_FLUSH);
 
@@ -2331,6 +2397,7 @@ RetCode vpu_DecBitBufferFlush(DecHandle handle)
 
 	pDecInfo->streamWrPtr = pDecInfo->streamBufStartAddr;
 	VpuWriteReg(pDecInfo->streamWrPtrRegAddr, pDecInfo->streamBufStartAddr);
+	IOClkGateSet(false);
 
 	return RETCODE_SUCCESS;
 }
@@ -2357,8 +2424,10 @@ RetCode vpu_DecClrDispFlag(DecHandle handle, int index)
 	if ((index < 0) || (index > (pDecInfo->numFrameBuffers - 1)))
 		return RETCODE_INVALID_PARAM;
 
+	IOClkGateSet(true);
 	val = (~(1 << index) & VpuReadReg(pDecInfo->frameDisplayFlagRegAddr));
 	VpuWriteReg(pDecInfo->frameDisplayFlagRegAddr, val);
+	IOClkGateSet(false);
 
 	return RETCODE_SUCCESS;
 }
@@ -2660,6 +2729,8 @@ void SaveQpReport(PhysicalAddress qpReportAddr, int picWidth, int picHeight,
 		return;
 	}
 
+	IOClkGateSet(true);
+
 	MBx = picWidth / 16;
 	MBxof1 = MBx % 4;
 	MBxof4 = MBx - MBxof1;
@@ -2691,6 +2762,7 @@ void SaveQpReport(PhysicalAddress qpReportAddr, int picWidth, int picHeight,
 				MBx * i + j + MBxof4, lastQp[j]);
 		}
 	}
+	IOClkGateSet(false);
 
 	fclose(fp);
 }

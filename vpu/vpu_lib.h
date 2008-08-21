@@ -456,6 +456,10 @@ typedef struct vpu_versioninfo {
 #define VPU_LIB_VERSION(major, minor, release)	 \
 	(((major) << 12) + ((minor) << 8) + (release))
 
+/*
+ * Revision History:
+ * v4.0.2 add the IOClkGateSet() for power saving.
+ */
 #define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 0, 1)
 
 extern unsigned int system_rev;

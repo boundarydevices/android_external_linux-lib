@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <signal.h>		/* SIGIO */
 #include <fcntl.h>		/* fcntl */
+#include <pthread.h>
 #include <sys/mman.h>		/* mmap */
 #include <sys/ioctl.h>		/* fopen/fread */
 #include <sys/errno.h>		/* fopen/fread */
@@ -40,6 +41,8 @@
 
 static int vpu_fd = -1;
 static unsigned long vpu_reg_base;
+static pthread_mutex_t powermutex = PTHREAD_MUTEX_INITIALIZER;
+int power_refcount;
 
 unsigned int system_rev;
 
@@ -115,6 +118,7 @@ int set_iram(struct iram_t iram, Uint32 array[][NR_ENTRY], int array_size)
 			array[USE_DBK_INTERNAL_BUF][2] << 2 |
 			array[USE_IP_INTERNAL_BUF][2] << 1 |
 			array[USE_BIT_INTERNAL_BUF][2];
+	IOClkGateSet(true);
 	VpuWriteReg(BIT_AXI_SRAM_USE, use_iram_bits);
 	dprintf(3, "use iram_bits:%08x\n", use_iram_bits);
 
@@ -128,13 +132,20 @@ int set_iram(struct iram_t iram, Uint32 array[][NR_ENTRY], int array_size)
 			VpuWriteReg(array[i][0], iram.start + offset);
 		}
 	}
+	IOClkGateSet(false);
 
 	return 0;
 }
 
 int isVpuInitialized(void)
 {
-	return VpuReadReg(BIT_CUR_PC) != 0;
+	int val;
+
+	IOClkGateSet(true);
+	val = VpuReadReg(BIT_CUR_PC);
+	IOClkGateSet(false);
+
+	return val != 0;
 }
 
 static int get_system_rev()
@@ -270,7 +281,9 @@ int IOSystemShutdown(void)
 	IOFreeVirtMem(&bit_work_addr);
 	IOFreePhyMem(&bit_work_addr);
 
+	IOClkGateSet(true);
 	VpuWriteReg(BIT_INT_ENABLE, 0);	/* PIC_RUN irq disable */
+	IOClkGateSet(false);
 
 	if (munmap((void *)vpu_reg_base, BIT_REG_MARGIN) != 0)
 		err_msg("munmap failed\n");
@@ -419,6 +432,38 @@ int IOGetIramBase(iram_t * iram)
 void vl2cc_flush()
 {
 	ioctl(vpu_fd, VPU_IOC_VL2CC_FLUSH, NULL);
+}
+
+/*!
+ * @brief turn off(/on) the VPU core clock and serial clock to save power
+ *
+ * @param  on 1 - turn on, 0 - turn off (save power)
+ *
+ * @return
+ * @li 0        Success
+ * @li Others 	Failure
+ */
+int IOClkGateSet(int on)
+{
+	int ret = 0;
+
+	pthread_mutex_lock(&powermutex);
+
+	if (on) {
+		if (++power_refcount == 1)
+			ret = ioctl(vpu_fd, VPU_IOC_CLKGATE_SETTING, &on);
+
+		dprintf(3, "on power_refcount = %d\n", power_refcount);
+
+	} else {
+		if (power_refcount > 0 && !(--power_refcount))
+			ret = ioctl(vpu_fd, VPU_IOC_CLKGATE_SETTING, &on);
+		dprintf(3, "off power_refcount = %d\n", power_refcount);
+	}
+
+	pthread_mutex_unlock(&powermutex);
+
+	return ret;
 }
 
 /*!
