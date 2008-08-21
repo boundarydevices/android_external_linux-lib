@@ -147,10 +147,14 @@ void FreeCodecInstance(CodecInst * pCodecInst)
 
 void BitIssueCommand(int instIdx, int cdcMode, int cmd)
 {
+	IOClkGateSet(true);
+
 	VpuWriteReg(BIT_BUSY_FLAG, 0x1);
 	VpuWriteReg(BIT_RUN_INDEX, instIdx);
 	VpuWriteReg(BIT_RUN_COD_STD, cdcMode);
 	VpuWriteReg(BIT_RUN_COMMAND, cmd);
+
+	IOClkGateSet(false);
 }
 
 RetCode CheckEncOpenParam(EncOpenParam * pop)
@@ -352,6 +356,7 @@ void EncodeHeader(EncHandle handle, EncHeaderParam * encHeaderParam)
 	pCodecInst = handle;
 	pEncInfo = &pCodecInst->CodecInfo.encInfo;
 
+	IOClkGateSet(true);
 	if (pEncInfo->dynamicAllocEnable == 1) {
 		VpuWriteReg(CMD_ENC_HEADER_BB_START, encHeaderParam->buf);
 		VpuWriteReg(CMD_ENC_HEADER_BB_SIZE, encHeaderParam->size);
@@ -370,6 +375,7 @@ void EncodeHeader(EncHandle handle, EncHeaderParam * encHeaderParam)
 		rdPtr = VpuReadReg(pEncInfo->streamRdPtrRegAddr);
 		wrPtr = VpuReadReg(pEncInfo->streamWrPtrRegAddr);
 	}
+	IOClkGateSet(false);
 
 	encHeaderParam->buf = rdPtr;
 	encHeaderParam->size = wrPtr - rdPtr;
@@ -442,8 +448,17 @@ RetCode CheckDecOpenParam(DecOpenParam * pop)
 
 int DecBitstreamBufEmpty(DecInfo * pDecInfo)
 {
-	return VpuReadReg(pDecInfo->streamRdPtrRegAddr) ==
-	    VpuReadReg(pDecInfo->streamWrPtrRegAddr);
+	PhysicalAddress rdPtr;
+	PhysicalAddress wrPtr;
+
+	IOClkGateSet(true);
+
+	rdPtr = VpuReadReg(pDecInfo->streamRdPtrRegAddr);
+	wrPtr = VpuReadReg(pDecInfo->streamWrPtrRegAddr);
+
+	IOClkGateSet(false);
+
+	return rdPtr == wrPtr;
 }
 
 void GetParaSet(EncHandle handle, int paraSetType, EncParamSet * para)
@@ -454,6 +469,8 @@ void GetParaSet(EncHandle handle, int paraSetType, EncParamSet * para)
 	pCodecInst = handle;
 	pEncInfo = &pCodecInst->CodecInfo.encInfo;
 
+	IOClkGateSet(true);
+
 	/* SPS: 0, PPS: 1, VOS: 1, VO: 2, VOL: 0 */
 	VpuWriteReg(CMD_ENC_PARA_SET_TYPE, paraSetType);
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
@@ -462,6 +479,8 @@ void GetParaSet(EncHandle handle, int paraSetType, EncParamSet * para)
 
 	para->paraSet = virt_paraBuf;
 	para->size = VpuReadReg(RET_ENC_PARA_SET_SIZE);
+
+	IOClkGateSet(false);
 }
 
 void SetParaSet(DecHandle handle, int paraSetType, DecParamSet * para)
@@ -482,6 +501,8 @@ void SetParaSet(DecHandle handle, int paraSetType, DecParamSet * para)
 		virt_paraBuf[i] = *src++;
 	}
 
+	IOClkGateSet(true);
+
 	VpuWriteReg(CMD_DEC_PARA_SET_TYPE, paraSetType);
 	VpuWriteReg(CMD_DEC_PARA_SET_SIZE, para->size);
 
@@ -496,6 +517,8 @@ void SetParaSet(DecHandle handle, int paraSetType, DecParamSet * para)
 			DEC_PARA_SET);
 
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
+
+	IOClkGateSet(false);
 }
 
 // Following are not for MX32 and MX27 TO1
@@ -507,12 +530,14 @@ RetCode SetGopNumber(EncHandle handle, Uint32 * pGopNumber)
 
 	pCodecInst = handle;
 	data = 1;
+	IOClkGateSet(true);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_RC_GOP, gopNumber);
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
 			RC_CHANGE_PARAMETER);
 
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
+	IOClkGateSet(false);
 
 	return RETCODE_SUCCESS;
 }
@@ -523,6 +548,8 @@ RetCode SetIntraQp(EncHandle handle, Uint32 * pIntraQp)
 	int data = 0;
 	Uint32 intraQp = *pIntraQp;
 
+	IOClkGateSet(true);
+
 	pCodecInst = handle;
 	data = 1 << 1;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
@@ -531,6 +558,8 @@ RetCode SetIntraQp(EncHandle handle, Uint32 * pIntraQp)
 			RC_CHANGE_PARAMETER);
 
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
+	IOClkGateSet(false);
+
 	return RETCODE_SUCCESS;
 }
 
@@ -540,6 +569,8 @@ RetCode SetBitrate(EncHandle handle, Uint32 * pBitrate)
 	int data = 0;
 	Uint32 bitrate = *pBitrate;
 
+	IOClkGateSet(true);
+
 	pCodecInst = handle;
 	data = 1 << 2;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
@@ -548,6 +579,8 @@ RetCode SetBitrate(EncHandle handle, Uint32 * pBitrate)
 			RC_CHANGE_PARAMETER);
 
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
+	IOClkGateSet(false);
+
 	return RETCODE_SUCCESS;
 }
 
@@ -557,6 +590,8 @@ RetCode SetFramerate(EncHandle handle, Uint32 * pFramerate)
 	int data = 0;
 	Uint32 framerate = *pFramerate;
 
+	IOClkGateSet(true);
+
 	pCodecInst = handle;
 	data = 1 << 3;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
@@ -565,6 +600,7 @@ RetCode SetFramerate(EncHandle handle, Uint32 * pFramerate)
 			RC_CHANGE_PARAMETER);
 
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
+	IOClkGateSet(false);
 
 	return RETCODE_SUCCESS;
 }
@@ -574,6 +610,9 @@ RetCode SetIntraRefreshNum(EncHandle handle, Uint32 * pIntraRefreshNum)
 	CodecInst *pCodecInst;
 	Uint32 intraRefreshNum = *pIntraRefreshNum;
 	int data = 0;
+
+	IOClkGateSet(true);
+
 	pCodecInst = handle;
 	data = 1 << 4;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
@@ -582,6 +621,7 @@ RetCode SetIntraRefreshNum(EncHandle handle, Uint32 * pIntraRefreshNum)
 			RC_CHANGE_PARAMETER);
 
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
+	IOClkGateSet(false);
 
 	return RETCODE_SUCCESS;
 }
@@ -596,6 +636,8 @@ RetCode SetSliceMode(EncHandle handle, EncSliceMode * pSliceMode)
 	    pSliceMode->sliceMode;
 	pCodecInst = handle;
 
+	IOClkGateSet(true);
+
 	data2 = 1 << 5;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data2);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_SLICE_MODE, data);
@@ -603,6 +645,7 @@ RetCode SetSliceMode(EncHandle handle, EncSliceMode * pSliceMode)
 			RC_CHANGE_PARAMETER);
 
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
+	IOClkGateSet(false);
 
 	return RETCODE_SUCCESS;
 }
@@ -614,6 +657,8 @@ RetCode SetHecMode(EncHandle handle, int mode)
 	int data = 0;
 	pCodecInst = handle;
 
+	IOClkGateSet(true);
+
 	data = 1 << 6;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_HEC_MODE, HecMode);
@@ -621,6 +666,7 @@ RetCode SetHecMode(EncHandle handle, int mode)
 			RC_CHANGE_PARAMETER);
 
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
+	IOClkGateSet(false);
 
 	return RETCODE_SUCCESS;
 }
