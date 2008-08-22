@@ -62,6 +62,8 @@
 		(((Uint32)(x) & (Uint32)0x00ff0000UL) >>  8) | \
 		(((Uint32)(x) & (Uint32)0xff000000UL) >> 24) ))
 
+#define ARRAY_SIZE(x)	(sizeof(x) / sizeof((x)[0]))
+
 extern CodecInst codecInstPool[MAX_NUM_INSTANCE];
 
 static PhysicalAddress rdPtrRegAddr[] = {
@@ -158,21 +160,20 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 
 	/* Copy full Microcode to Code Buffer allocated on SDRAM */
 	if (cpu_is_mx27_rev(CHIP_REV_2_0) > 0) {
-		for (i = 0; i < sizeof(bit_code2) / sizeof(bit_code2[0]);
-		     i += 2) {
+		for (i = 0; i < ARRAY_SIZE(bit_code2); i += 2) {
 			data = (unsigned int)((bit_code2[i] << 16) |
 					      bit_code2[i + 1]);
 			((unsigned int *)virt_codeBuf)[i / 2] = data;
 		}
 	} else if (cpu_is_mx51()) {
-		for (i = 0; i < sizeof(bit_code) / sizeof(bit_code[0]); i += 4) {
+		for (i = 0; i < ARRAY_SIZE(bit_code); i += 4) {
 			data = (bit_code[i + 0] << 16) | bit_code[i + 1];
 			((unsigned int *)virt_codeBuf)[i / 2 + 1] = data;
 			data = (bit_code[i + 2] << 16) | bit_code[i + 3];
 			((unsigned int *)virt_codeBuf)[i / 2] = data;
 		}
 	} else {
-		for (i = 0; i < sizeof(bit_code) / sizeof(bit_code[0]); i += 2) {
+		for (i = 0; i < ARRAY_SIZE(bit_code); i += 2) {
 			data = (unsigned int)((bit_code[i] << 16) |
 					      bit_code[i + 1]);
 			if (cpu_is_mx37())
@@ -1502,6 +1503,7 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 	IOClkGateSet(true);
 	VpuWriteReg(pDecInfo->streamRdPtrRegAddr, pDecInfo->streamBufStartAddr);
 	VpuWriteReg(pDecInfo->streamWrPtrRegAddr, pDecInfo->streamWrPtr);
+	VpuWriteReg(pDecInfo->frameDisplayFlagRegAddr, 0);
 	IOClkGateSet(false);
 
 	return RETCODE_SUCCESS;
@@ -1742,9 +1744,9 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 			}
 		}
 
-		val = (info->picWidth * info->picHeight * 3 / 2) / 1024;
-		info->normalSliceSize = val / 4;
-		info->worstSliceSize = val / 2;
+		val = info->picWidth * info->picHeight;
+		info->normalSliceSize = (val * 3 / 2) / 1024 / 4;
+		info->worstSliceSize = (val / 256) * 3200 / 8 / 1024;
 	}
 
 	if (pCodecInst->codecMode == MJPG_DEC) {
