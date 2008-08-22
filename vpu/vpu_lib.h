@@ -157,7 +157,7 @@ typedef struct {
 	int picHeight;		// {(PicY+15)/16} * 16
 	Uint32 frameRateInfo;
 	Rect picCropRect;
-	
+
 	int mp4_dataPartitionEnable;
 	int mp4_reversibleVlcEnable;
 	int mp4_shortVideoHeader;
@@ -216,7 +216,7 @@ typedef struct {
 	int decodingSuccess;
 	int interlacedFrame;
 	int mp4PackedPBframe;
-        int mp4PackedMode;
+	int mp4PackedMode;
 } DecOutputInfo;
 
 typedef struct {
@@ -260,8 +260,8 @@ typedef struct {
 	int mjpg_thumbNailEnable;
 	int mjpg_thumbNailWidth;
 	int mjpg_thumbNailHeight;
-	Uint8 * mjpg_hufTable;
-	Uint8 * mjpg_qMatTable;
+	Uint8 *mjpg_hufTable;
+	Uint8 *mjpg_qMatTable;
 } EncMjpgParam;
 
 typedef struct {
@@ -277,7 +277,7 @@ typedef struct {
 	int vbvBufferSize;
 	int enableAutoSkip;
 	int gopSize;
-	
+
 	EncSliceMode slicemode;
 	int intraRefresh;
 
@@ -293,7 +293,7 @@ typedef struct {
 		EncMp4Param mp4Param;
 		EncH263Param h263Param;
 		EncAvcParam avcParam;
-                EncMjpgParam mjpgParam;
+		EncMjpgParam mjpgParam;
 	} EncStdParam;
 } EncOpenParam;
 
@@ -370,16 +370,16 @@ typedef struct {
 	PhysicalAddress streamBufStartAddr;
 	PhysicalAddress streamBufEndAddr;
 	int streamBufSize;
-	
+
 	FrameBuffer *frameBufPool;
 	int numFrameBuffers;
 	int stride;
-	
+
 	int rotationEnable;
 	int mirrorEnable;
 	MirrorDirection mirrorDirection;
 	int rotationAngle;
-	
+
 	int initialInfoObtained;
 	int vpuCountEnable;
 	int dynamicAllocEnable;
@@ -395,7 +395,7 @@ typedef struct {
 	PhysicalAddress streamWrPtrRegAddr;
 	PhysicalAddress streamBufStartAddr;
 	PhysicalAddress streamBufEndAddr;
-	PhysicalAddress	frameDisplayFlagRegAddr;
+	PhysicalAddress frameDisplayFlagRegAddr;
 	int streamBufSize;
 
 	FrameBuffer *frameBufPool;
@@ -458,9 +458,10 @@ typedef struct vpu_versioninfo {
 
 /*
  * Revision History:
- * v4.0.2 add the IOClkGateSet() for power saving.
+ * v4.1.2 [2008.08.22] update MX37 VPU firmware to V1.0.5
+ * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 0, 1)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 1, 2)
 
 extern unsigned int system_rev;
 
@@ -512,7 +513,7 @@ RetCode vpu_DecSetEscSeqInit(DecHandle handle, int escape);
 RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info);
 RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 				   FrameBuffer * bufArray, int num, int stride,
-				   DecBufInfo *pBufInfo);
+				   DecBufInfo * pBufInfo);
 RetCode vpu_DecGetBitstreamBuffer(DecHandle handle, PhysicalAddress * paRdPtr,
 				  PhysicalAddress * paWrPtr, Uint32 * size);
 RetCode vpu_DecUpdateBitstreamBuffer(DecHandle handle, Uint32 size);
