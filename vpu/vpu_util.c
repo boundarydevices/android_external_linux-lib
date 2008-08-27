@@ -114,7 +114,7 @@ RetCode CheckDecInstanceValidity(DecHandle handle)
 		if (pCodecInst->codecMode != MP4_DEC &&
 		    pCodecInst->codecMode != AVC_DEC)
 			return RETCODE_INVALID_HANDLE;
-	} else if (cpu_is_mx32() || cpu_is_mxc30031()) {
+	} else if (cpu_is_mx32()) {
 		if (pCodecInst->codecMode != MP4_DEC &&
 		    pCodecInst->codecMode != AVC_DEC &&
 		    pCodecInst->codecMode != VC1_DEC)
@@ -399,7 +399,7 @@ RetCode CheckDecOpenParam(DecOpenParam * pop)
 		    pop->bitstreamFormat != STD_H263 &&
 		    pop->bitstreamFormat != STD_AVC)
 			return RETCODE_INVALID_PARAM;
-	} else if (cpu_is_mx32() || cpu_is_mxc30031()) {
+	} else if (cpu_is_mx32()) {
 		if (pop->bitstreamFormat != STD_MPEG4 &&
 		    pop->bitstreamFormat != STD_H263 &&
 		    pop->bitstreamFormat != STD_AVC &&

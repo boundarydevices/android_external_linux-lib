@@ -36,8 +36,6 @@
 #include "vpu_codetable_mx27.h"
 #elif defined(IMX31ADS)
 #include "vpu_codetable_mx32.h"
-#elif defined(MXC30031ADS)
-#include "vpu_codetable_mxc30031.h"
 #elif defined(IMX37_3STACK)
 #include "vpu_codetable_mx37.h"
 #elif defined(IMX51_3STACK)
@@ -232,10 +230,6 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 
 	VpuWriteReg(BIT_FRAME_MEM_CTRL, IMAGE_ENDIAN);
 	VpuWriteReg(BIT_INT_ENABLE, 8);	/* PIC_RUN irq enable */
-
-	if (cpu_is_mxc30031()) {
-		VpuWriteReg(BIT_VPU_PIC_COUNT, 0);	/* Init VPU PIC COUNT */
-	}
 
 	if (cpu_is_mx27()) {
 		ResetVpu();
@@ -584,11 +578,6 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 
 	VpuWriteReg(CMD_ENC_SEQ_FMO, data);	/* FIXME */
 
-	if (cpu_is_mxc30031()) {
-		VpuWriteReg(BIT_FRAME_MEM_CTRL,
-			    ((encOP.chromaInterleave << 1) | IMAGE_ENDIAN));
-	}
-
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode, SEQ_INIT);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
@@ -852,52 +841,50 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 
 	IOClkGateSet(true);
 
-	if (!cpu_is_mxc30031()) {
-		if (pEncInfo->rotationEnable) {
-			rotMirEnable = 0x10;	/* Enable rotator */
-			switch (pEncInfo->rotationAngle) {
-			case 0:
-				rotMirMode |= 0x0;
-				break;
+	if (pEncInfo->rotationEnable) {
+		rotMirEnable = 0x10;	/* Enable rotator */
+		switch (pEncInfo->rotationAngle) {
+		case 0:
+			rotMirMode |= 0x0;
+			break;
 
-			case 90:
-				rotMirMode |= 0x1;
-				break;
+		case 90:
+			rotMirMode |= 0x1;
+			break;
 
-			case 180:
-				rotMirMode |= 0x2;
-				break;
+		case 180:
+			rotMirMode |= 0x2;
+			break;
 
-			case 270:
-				rotMirMode |= 0x3;
-				break;
-			}
+		case 270:
+			rotMirMode |= 0x3;
+			break;
 		}
-		if (pEncInfo->mirrorEnable) {
-			rotMirEnable = 0x10;	/* Enable mirror */
-			switch (pEncInfo->mirrorDirection) {
-			case MIRDIR_NONE:
-				rotMirMode |= 0x0;
-				break;
-
-			case MIRDIR_VER:
-				rotMirMode |= 0x4;
-				break;
-
-			case MIRDIR_HOR:
-				rotMirMode |= 0x8;
-				break;
-
-			case MIRDIR_HOR_VER:
-				rotMirMode |= 0xc;
-				break;
-
-			}
-		}
-		rotMirMode = rotatorModeConversion[rotMirMode];
-		rotMirMode |= rotMirEnable;
-		VpuWriteReg(CMD_ENC_PIC_ROT_MODE, rotMirMode);
 	}
+	if (pEncInfo->mirrorEnable) {
+		rotMirEnable = 0x10;	/* Enable mirror */
+		switch (pEncInfo->mirrorDirection) {
+		case MIRDIR_NONE:
+			rotMirMode |= 0x0;
+			break;
+
+		case MIRDIR_VER:
+			rotMirMode |= 0x4;
+			break;
+
+		case MIRDIR_HOR:
+			rotMirMode |= 0x8;
+			break;
+
+		case MIRDIR_HOR_VER:
+			rotMirMode |= 0xc;
+			break;
+
+		}
+	}
+	rotMirMode = rotatorModeConversion[rotMirMode];
+	rotMirMode |= rotMirEnable;
+	VpuWriteReg(CMD_ENC_PIC_ROT_MODE, rotMirMode);
 
 	VpuWriteReg(CMD_ENC_PIC_QS, param->quantParam);
 
@@ -910,16 +897,6 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 
 		VpuWriteReg(CMD_ENC_PIC_OPTION,
 			    param->forceIPicture << 1 & 0x2);
-	}
-
-	if (cpu_is_mxc30031()) {
-		pEncInfo->vpuCountEnable = param->vpuCountEnable;
-
-		if (param->vpuCountEnable == 1) {
-			VpuWriteReg(BIT_VPU_PIC_COUNT, VPU_PIC_COUNT_ENABLE);
-		} else {
-			VpuWriteReg(BIT_VPU_PIC_COUNT, VPU_PIC_COUNT_DISABLE);
-		}
 	}
 
 	if (pEncInfo->dynamicAllocEnable == 1) {
@@ -1026,13 +1003,6 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 		info->mbQpInfo = virt_paraBuf - PARA_BUF2_SIZE;
 	}
 
-	if (cpu_is_mxc30031()) {
-		if (pEncInfo->vpuCountEnable == 1) {
-			info->EncVpuCount = VpuReadReg(BIT_VPU_PIC_COUNT) &
-			    0x7FFFFFFF;
-		}
-	}
-
 	IOClkGateSet(false);
 
 	pendingInst = 0;
@@ -1067,15 +1037,6 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 
 	if (pendingInst) {
 		return RETCODE_FRAME_NOT_COMPLETE;
-	}
-
-	if (cpu_is_mxc30031() && ((cmd == ENABLE_ROTATION) ||
-				  (cmd == DISABLE_ROTATION)
-				  || (cmd == ENABLE_MIRRORING)
-				  || (cmd == DISABLE_MIRRORING)
-				  || (cmd == SET_MIRROR_DIRECTION)
-				  || (cmd == SET_ROTATION_ANGLE))) {
-		return RETCODE_NOT_SUPPORTED;
 	}
 
 	pCodecInst = handle;
@@ -1232,16 +1193,6 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 			scRamParam = (SearchRamParam *) param;
 
 			IOClkGateSet(true);
-			if (cpu_is_mxc30031()) {
-				if (scRamParam->SearchRamSize !=
-				    ((((EncPicX + 15) & ~15) * 36) + 2048)) {
-					return RETCODE_INVALID_PARAM;
-				}
-
-				VpuWriteReg(BIT_SEARCH_RAM_SIZE,
-					    scRamParam->SearchRamSize);
-			}
-
 			VpuWriteReg(BIT_SEARCH_RAM_BASE_ADDR,
 				    scRamParam->searchRamAddr);
 			IOClkGateSet(false);
@@ -1620,11 +1571,11 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		return RETCODE_CALLED_BEFORE;
 	}
 
-	IOClkGateSet(true);
 	if (DecBitstreamBufEmpty(pDecInfo)) {
-		IOClkGateSet(false);
 		return RETCODE_WRONG_CALL_SEQUENCE;
 	}
+
+	IOClkGateSet(true);
 
 	VpuWriteReg(CMD_DEC_SEQ_BB_START, pDecInfo->streamBufStartAddr);
 	VpuWriteReg(CMD_DEC_SEQ_BB_SIZE, pDecInfo->streamBufSize / 1024);
@@ -1633,7 +1584,6 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		VpuWriteReg(CMD_DEC_SEQ_START_BYTE,
 			    pDecInfo->openParam.streamStartByteOffset);
 	}
-	IOClkGateSet(false);
 
 	val = ((pDecInfo->dynamicAllocEnable << 3) & 0x8) |
 	    ((pDecInfo->filePlayEnable << 2) & 0x4) |
@@ -1645,7 +1595,6 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		val |= (pDecInfo->openParam.mp4DeblkEnable & 0x1);
 	}
 
-	IOClkGateSet(true);
 	VpuWriteReg(CMD_DEC_SEQ_OPTION, val);
 
 	if (pCodecInst->codecMode == AVC_DEC) {
@@ -1709,13 +1658,10 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 
 	info->minFrameBufferCount = VpuReadReg(RET_DEC_SEQ_FRAME_NEED);
 	info->frameBufDelay = VpuReadReg(RET_DEC_SEQ_FRAME_DELAY);
-	IOClkGateSet(false);
 
 	if (pCodecInst->codecMode == AVC_DEC) {
-		IOClkGateSet(true);
 		val = VpuReadReg(RET_DEC_SEQ_CROP_LEFT_RIGHT);
 		val2 = VpuReadReg(RET_DEC_SEQ_CROP_TOP_BOTTOM);
-		IOClkGateSet(false);
 		if (val == 0 && val2 == 0) {
 			info->picCropRect.left = 0;
 			info->picCropRect.right = 0;
@@ -1758,6 +1704,8 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 			if (info->mjpg_thumbNailEnable == 0)
 				return RETCODE_FAILURE;
 	}
+
+	IOClkGateSet(false);
 
 	pDecInfo->initialInfo = *info;
 	pDecInfo->initialInfoObtained = 1;
@@ -1884,7 +1832,7 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 	VpuWriteReg(CMD_SET_FRAME_BUF_NUM, num);
 	VpuWriteReg(CMD_SET_FRAME_BUF_STRIDE, stride);
 
-	if ((!cpu_is_mxc30031()) && (pCodecInst->codecMode == AVC_DEC)) {
+	if (pCodecInst->codecMode == AVC_DEC) {
 		VpuWriteReg(CMD_SET_FRAME_SLICE_BB_START,
 			    pBufInfo->avcSliceBufInfo.sliceSaveBuffer);
 		VpuWriteReg(CMD_SET_FRAME_SLICE_BB_SIZE,
@@ -2071,68 +2019,67 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 	}
 
 	IOClkGateSet(true);
-	if (!cpu_is_mxc30031()) {
-		rotMir = 0;
-		if (pDecInfo->rotationEnable) {
-			rotMir |= 0x10;	/* Enable rotator */
-			switch (pDecInfo->rotationAngle) {
-			case 0:
-				rotMir |= 0x0;
-				break;
 
-			case 90:
-				rotMir |= 0x1;
-				break;
+	rotMir = 0;
+	if (pDecInfo->rotationEnable) {
+		rotMir |= 0x10;	/* Enable rotator */
+		switch (pDecInfo->rotationAngle) {
+		case 0:
+			rotMir |= 0x0;
+			break;
 
-			case 180:
-				rotMir |= 0x2;
-				break;
+		case 90:
+			rotMir |= 0x1;
+			break;
 
-			case 270:
-				rotMir |= 0x3;
-				break;
-			}
+		case 180:
+			rotMir |= 0x2;
+			break;
+
+		case 270:
+			rotMir |= 0x3;
+			break;
 		}
-
-		if (pDecInfo->mirrorEnable) {
-			rotMir |= 0x10;	/* Enable mirror */
-			switch (pDecInfo->mirrorDirection) {
-			case MIRDIR_NONE:
-				rotMir |= 0x0;
-				break;
-
-			case MIRDIR_VER:
-				rotMir |= 0x4;
-				break;
-
-			case MIRDIR_HOR:
-				rotMir |= 0x8;
-				break;
-
-			case MIRDIR_HOR_VER:
-				rotMir |= 0xc;
-				break;
-
-			}
-		}
-
-		if ((cpu_is_mx37() || cpu_is_mx51()) && pDecInfo->deringEnable) {
-			rotMir |= 0x20;	/* Enable Dering Filter */
-		}
-
-		if (rotMir & 0x30) {	/* rotator or dering enabled */
-			VpuWriteReg(CMD_DEC_PIC_ROT_ADDR_Y,
-				    pDecInfo->rotatorOutput.bufY);
-			VpuWriteReg(CMD_DEC_PIC_ROT_ADDR_CB,
-				    pDecInfo->rotatorOutput.bufCb);
-			VpuWriteReg(CMD_DEC_PIC_ROT_ADDR_CR,
-				    pDecInfo->rotatorOutput.bufCr);
-			VpuWriteReg(CMD_DEC_PIC_ROT_STRIDE,
-				    pDecInfo->rotatorStride);
-		}
-
-		VpuWriteReg(CMD_DEC_PIC_ROT_MODE, rotMir);
 	}
+
+	if (pDecInfo->mirrorEnable) {
+		rotMir |= 0x10;	/* Enable mirror */
+		switch (pDecInfo->mirrorDirection) {
+		case MIRDIR_NONE:
+			rotMir |= 0x0;
+			break;
+
+		case MIRDIR_VER:
+			rotMir |= 0x4;
+			break;
+
+		case MIRDIR_HOR:
+			rotMir |= 0x8;
+			break;
+
+		case MIRDIR_HOR_VER:
+			rotMir |= 0xc;
+			break;
+
+		}
+	}
+
+	if ((cpu_is_mx37() || cpu_is_mx51()) && pDecInfo->deringEnable) {
+		rotMir |= 0x20;	/* Enable Dering Filter */
+	}
+
+	if (rotMir & 0x30) {	/* rotator or dering enabled */
+		VpuWriteReg(CMD_DEC_PIC_ROT_ADDR_Y,
+			    pDecInfo->rotatorOutput.bufY);
+		VpuWriteReg(CMD_DEC_PIC_ROT_ADDR_CB,
+			    pDecInfo->rotatorOutput.bufCb);
+		VpuWriteReg(CMD_DEC_PIC_ROT_ADDR_CR,
+			    pDecInfo->rotatorOutput.bufCr);
+		VpuWriteReg(CMD_DEC_PIC_ROT_STRIDE,
+			    pDecInfo->rotatorStride);
+	}
+
+	VpuWriteReg(CMD_DEC_PIC_ROT_MODE, rotMir);
 
 	if (!cpu_is_mx27() && !cpu_is_mx37() && !cpu_is_mx51()) {
 		if (pCodecInst->codecMode == MP4_DEC &&
@@ -2151,15 +2098,6 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 				IOClkGateSet(false);
 				return RETCODE_DEBLOCKING_OUTPUT_NOT_SET;
 			}
-		}
-	}
-
-	if (cpu_is_mxc30031()) {
-		pDecInfo->vpuCountEnable = param->vpuCountEnable;
-		if (param->vpuCountEnable == 1) {
-			VpuWriteReg(BIT_VPU_PIC_COUNT, VPU_PIC_COUNT_ENABLE);
-		} else {
-			VpuWriteReg(BIT_VPU_PIC_COUNT, VPU_PIC_COUNT_DISABLE);
 		}
 	}
 
@@ -2340,7 +2278,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		}
 	}
 
-	if (cpu_is_mxc30031() || cpu_is_mx37() || cpu_is_mx51()) {
+	if (cpu_is_mx37() || cpu_is_mx51()) {
 		if (pCodecInst->codecMode == VC1_DEC) {
 			val = VpuReadReg(RET_DEC_PIC_POST);
 			info->hScaleFlag = val >> 1 & 1;
@@ -2348,12 +2286,6 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		}
 	}
 
-	if (cpu_is_mxc30031()) {
-		if (pDecInfo->vpuCountEnable == 1) {
-			info->DecVpuCount = (VpuReadReg(BIT_VPU_PIC_COUNT)) &
-			    0x7FFFFFFF;
-		}
-	}
 	IOClkGateSet(false);
 
 	pendingInst = 0;
@@ -2460,17 +2392,6 @@ RetCode vpu_DecGiveCommand(DecHandle handle, CodecCommand cmd, void *param)
 
 	if (pendingInst) {
 		return RETCODE_FRAME_NOT_COMPLETE;
-	}
-
-	if (cpu_is_mxc30031() && ((cmd == ENABLE_ROTATION) ||
-				  (cmd == DISABLE_ROTATION)
-				  || (cmd == ENABLE_MIRRORING)
-				  || (cmd == DISABLE_MIRRORING)
-				  || (cmd == SET_MIRROR_DIRECTION)
-				  || (cmd == SET_ROTATION_ANGLE)
-				  || (cmd == SET_ROTATOR_OUTPUT)
-				  || (cmd == SET_ROTATOR_STRIDE))) {
-		return RETCODE_NOT_SUPPORTED;
 	}
 
 	if (cpu_is_mx27() && (cmd == DEC_SET_DEBLOCK_OUTPUT)) {
