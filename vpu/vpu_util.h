@@ -75,9 +75,6 @@ enum {
 	FIRMWARE_GET = 0xf
 };
 
-#define VPU_PIC_COUNT_ENABLE		0x80000000
-#define VPU_PIC_COUNT_DISABLE		0x0
-
 #if defined(MXC30031ADS)
 #define MAX_ENC_PIC_WIDTH		352
 #define MAX_ENC_PIC_HEIGHT		288
