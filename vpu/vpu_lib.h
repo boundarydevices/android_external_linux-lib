@@ -206,7 +206,6 @@ typedef struct {
 	int picType;
 	int numOfErrMBs[2];
 	PhysicalAddress qpInfo;
-	int DecVpuCount;
 	int hScaleFlag;
 	int vScaleFlag;
 	int prescanresult;
@@ -322,7 +321,6 @@ typedef struct {
 	int numOfSlices;
 	Uint32 *sliceInfo;
 	Uint32 *mbInfo;
-	int EncVpuCount;
 	Uint32 *mbQpInfo;
 } EncOutputInfo;
 
@@ -480,13 +478,11 @@ static inline int type## _rev (int rev)         \
         return (type() ? mxc_cpu_is_rev(rev) : 0);      \
 }
 
-#define cpu_is_mxc30031()	mxc_is_cpu(0x92323)
 #define cpu_is_mx27()		mxc_is_cpu(0x27)
 #define cpu_is_mx32()		mxc_is_cpu(0x32)
 #define cpu_is_mx37()		mxc_is_cpu(0x37)
 #define cpu_is_mx51()		mxc_is_cpu(0x51)
 
-MXC_REV(cpu_is_mxc30031);
 MXC_REV(cpu_is_mx27);
 MXC_REV(cpu_is_mx32);
 MXC_REV(cpu_is_mx37);
