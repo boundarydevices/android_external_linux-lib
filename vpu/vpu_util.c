@@ -77,7 +77,7 @@ RetCode CheckEncInstanceValidity(EncHandle handle)
 	CodecInst *pCodecInst;
 	RetCode ret;
 
-	if (cpu_is_mx32()) {
+	if (cpu_is_mx32() || cpu_is_mx37()) {
 		return RETCODE_NOT_SUPPORTED;
 	}
 
@@ -89,9 +89,16 @@ RetCode CheckEncInstanceValidity(EncHandle handle)
 	if (!pCodecInst->inUse) {
 		return RETCODE_INVALID_HANDLE;
 	}
-	if (pCodecInst->codecMode != MP4_ENC &&
-	    pCodecInst->codecMode != AVC_ENC) {
-		return RETCODE_INVALID_HANDLE;
+
+	if (cpu_is_mx27()) {
+		if (pCodecInst->codecMode != MP4_ENC &&
+		    pCodecInst->codecMode != AVC_ENC)
+			return RETCODE_INVALID_HANDLE;
+	} else if (cpu_is_mx51()) {
+		if (pCodecInst->codecMode != MP4_ENC &&
+		    pCodecInst->codecMode != AVC_ENC &&
+		    pCodecInst->codecMode != MJPG_ENC)
+			return RETCODE_INVALID_HANDLE;
 	}
 	return RETCODE_SUCCESS;
 }
@@ -181,7 +188,8 @@ RetCode CheckEncOpenParam(EncOpenParam * pop)
 	}
 	if (pop->bitstreamFormat != STD_MPEG4 &&
 	    pop->bitstreamFormat != STD_H263 &&
-	    pop->bitstreamFormat != STD_AVC) {
+	    pop->bitstreamFormat != STD_AVC &&
+	    pop->bitstreamFormat != STD_MJPG) {
 		return RETCODE_INVALID_PARAM;
 	}
 	if (pop->bitRate > 32767 || pop->bitRate < 0) {
