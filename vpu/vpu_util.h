@@ -75,16 +75,8 @@ enum {
 	FIRMWARE_GET = 0xf
 };
 
-#if defined(MXC30031ADS)
-#define MAX_ENC_PIC_WIDTH		352
-#define MAX_ENC_PIC_HEIGHT		288
-#elif defined(IMX37_3STACK)
-#define MAX_ENC_PIC_WIDTH		800
-#define MAX_ENC_PIC_HEIGHT		600
-#else
 #define MAX_ENC_PIC_WIDTH		720
 #define MAX_ENC_PIC_HEIGHT		576
-#endif
 
 void BitIssueCommand(int instIdx, int cdcMode, int cmd);
 
