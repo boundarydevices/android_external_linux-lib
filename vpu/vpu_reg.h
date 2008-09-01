@@ -150,8 +150,15 @@
 #define CMD_ENC_SEQ_RC_PARA		0x1AC
 #define CMD_ENC_SEQ_RC_BUF_SIZE		0x1B0
 #define CMD_ENC_SEQ_INTRA_REFRESH	0x1B4
+#define CMD_ENC_SEARCH_BASE		0x1B8
+#define CMD_ENC_SEARCH_SIZE		0x1BC
+
 #define CMD_ENC_SEQ_FMO			0x1B8
+#if defined(IMX27ADS)
 #define CMD_ENC_SEQ_INTRA_QP		0x1BC
+#else
+#define CMD_ENC_SEQ_INTRA_QP		0x1C4
+#endif
 
 #define CMD_ENC_SEQ_JPG_PARA	        0x198
 #define CMD_ENC_SEQ_JPG_RST_INTERVAL	0x19C
@@ -301,15 +308,34 @@
         #define WORK_BUF_SIZE			( 512 * 1024 ) + ( FMO_SLICE_SAVE_BUF_SIZE * 1024 * 8 )
         #define PARA_BUF2_SIZE			( 2 * 1024 )
         #define PARA_BUF_SIZE			( 10 * 1024 )
-#elif defined(MXC30031ADS)
-	#define CODE_BUF_SIZE			(96 * 1024)
-	#define FMO_SLICE_SAVE_BUF_SIZE		(16)
-	#define WORK_BUF_SIZE			((512 * 1024) + (FMO_SLICE_SAVE_BUF_SIZE * 1024 * 8))
-	#define PARA_BUF2_SIZE			(1728)
-	#define PARA_BUF_SIZE			(10 * 1024)
 #else
 #error  you must define PLATFORM properly
 #endif
 
+/*----------------------------------------------------------------------------
+ * REGISTER BIT FIELD
+ *---------------------------------------------------------------------------*/
+#if defined(IMX51_3STACK)
+#define BIT_SEL_BE			0
+#define BIT_SEL_64BITS_ENDIAN		1
+#define BIT_BUF_CHECK_DIS		2
+#define BIT_BUF_PIC_FLUSH		3
+#define BIT_BUF_PIC_RESET		4
+#define BIT_ENC_DYN_BUFALLOC_EN		5
+#define BITS_STREAMCTRL_MASK		0x03F
+#else
+#define BIT_SEL_BE			0
+#define BIT_BUF_CHECK_DIS		1
+#define BIT_BUF_PIC_FLUSH		2
+#define BIT_BUF_PIC_RESET		3
+#define BIT_ENC_DYN_BUFALLOC_EN		4
+#define BITS_STREAMCTRL_MASK		0x01F
 #endif
 
+#if defined(IMX51_3STACK) || defined(IMX37_3STACK)
+#define BIT_PIC_WIDTH_OFFSET		16
+#else
+#define BIT_PIC_WIDTH_OFFSET		10
+#endif
+
+#endif
