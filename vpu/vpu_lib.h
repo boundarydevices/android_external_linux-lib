@@ -251,6 +251,7 @@ typedef struct {
 	int avc_fmoEnable;
 	int avc_fmoSliceNum;
 	int avc_fmoType;
+	int avc_fmoSliceSaveBufSize;
 } EncAvcParam;
 
 typedef struct {
@@ -456,6 +457,7 @@ typedef struct vpu_versioninfo {
 
 /*
  * Revision History:
+ * v4.2.2 [2008.09.03] support encoder in MX51
  * v4.1.2 [2008.08.22] update MX37 VPU firmware to V1.0.5
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
