@@ -32,7 +32,8 @@ enum {
 	AVC_ENC = 0x7F,
 	MP4_ENC = 0x80,
 	RV_DEC = 0x81,
-	MJPG_DEC = 0x82
+	MJPG_DEC = 0x82,
+	MJPG_ENC = 0x83
 };
 #elif defined(IMX51_3STACK)
 enum {
@@ -58,7 +59,8 @@ enum {
 	DV3_DEC = 6,
 	/* dummy */
 	RV_DEC = 0x81,
-	MJPG_DEC = 0x82
+	MJPG_DEC = 0x82,
+	MJPG_ENC = 0x83
 };
 #endif
 
