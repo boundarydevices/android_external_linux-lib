@@ -2219,10 +2219,12 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		VpuWriteReg(CMD_DEC_PIC_START_BYTE, param->picStartByteOffset);
 	}
 
-	if (pDecInfo->openParam.bitstreamFormat == STD_DIV3)
-		VpuWriteReg(BIT_RUN_AUX_STD, 1);
-	else
-		VpuWriteReg(BIT_RUN_AUX_STD, 0);
+	if (cpu_is_mx51()) {
+		if (pDecInfo->openParam.bitstreamFormat == STD_DIV3)
+			VpuWriteReg(BIT_RUN_AUX_STD, 1);
+		else
+			VpuWriteReg(BIT_RUN_AUX_STD, 0);
+	}
 
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode, PIC_RUN);
 
