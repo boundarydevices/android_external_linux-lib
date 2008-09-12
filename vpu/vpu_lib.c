@@ -32,18 +32,6 @@
 #include "vpu_io.h"
 #include "vpu_debug.h"
 
-#if defined(IMX27ADS)
-#include "vpu_codetable_mx27.h"
-#elif defined(IMX31ADS)
-#include "vpu_codetable_mx32.h"
-#elif defined(IMX37_3STACK)
-#include "vpu_codetable_mx37.h"
-#elif defined(IMX51_3STACK)
-#include "vpu_codetable_mx51.h"
-#else
-#error PLATFORM not defined
-#endif
-
 #if defined(IMX37_3STACK)
 #define IMAGE_ENDIAN			1
 #define STREAM_ENDIAN			1
@@ -139,12 +127,26 @@ int vpu_WaitForInt(int timeout_in_ms)
  */
 RetCode vpu_Init(PhysicalAddress workBuf)
 {
-	int i;
+	int i, size;
 	volatile Uint32 data;
 	Uint32 virt_codeBuf;
 	CodecInst *pCodecInst;
+	Uint16 *bit_code = NULL;
 
 	ENTER_FUNC();
+
+	bit_code = malloc(MAX_FW_BINARY_LEN * sizeof(Uint16));
+
+	if (bit_code == NULL) {
+		err_msg("Failed to allocate bit_code\n");
+		return RETCODE_FAILURE;
+	}
+
+	memset(bit_code, 0, MAX_FW_BINARY_LEN * sizeof(Uint16));
+	if (LoadBitCodeTable(bit_code, &size) != RETCODE_SUCCESS) {
+		free(bit_code);
+		return RETCODE_FAILURE;
+	}
 
 	codeBuffer = workBuf;
 	workBuffer = codeBuffer + CODE_BUF_SIZE;
@@ -157,21 +159,15 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 					  WORK_BUF_SIZE);
 
 	/* Copy full Microcode to Code Buffer allocated on SDRAM */
-	if (cpu_is_mx27_rev(CHIP_REV_2_0) > 0) {
-		for (i = 0; i < ARRAY_SIZE(bit_code2); i += 2) {
-			data = (unsigned int)((bit_code2[i] << 16) |
-					      bit_code2[i + 1]);
-			((unsigned int *)virt_codeBuf)[i / 2] = data;
-		}
-	} else if (cpu_is_mx51()) {
-		for (i = 0; i < ARRAY_SIZE(bit_code); i += 4) {
+	if (cpu_is_mx51()) {
+		for (i = 0; i < size; i += 4) {
 			data = (bit_code[i + 0] << 16) | bit_code[i + 1];
 			((unsigned int *)virt_codeBuf)[i / 2 + 1] = data;
 			data = (bit_code[i + 2] << 16) | bit_code[i + 3];
 			((unsigned int *)virt_codeBuf)[i / 2] = data;
 		}
 	} else {
-		for (i = 0; i < ARRAY_SIZE(bit_code); i += 2) {
+		for (i = 0; i < size; i += 2) {
 			data = (unsigned int)((bit_code[i] << 16) |
 					      bit_code[i + 1]);
 			if (cpu_is_mx37())
@@ -201,16 +197,9 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 	VpuWriteReg(BIT_CODE_RUN, 0);
 
 	/* Download BIT Microcode to Program Memory */
-	if (cpu_is_mx27_rev(CHIP_REV_2_0) > 0) {
-		for (i = 0; i < 2048; ++i) {
-			data = bit_code2[i];
-			VpuWriteReg(BIT_CODE_DOWN, (i << 16) | data);
-		}
-	} else {
-		for (i = 0; i < 2048; ++i) {
-			data = bit_code[i];
-			VpuWriteReg(BIT_CODE_DOWN, (i << 16) | data);
-		}
+	for (i = 0; i < 2048; ++i) {
+		data = bit_code[i];
+		VpuWriteReg(BIT_CODE_DOWN, (i << 16) | data);
 	}
 
 	if (cpu_is_mx51()) {
@@ -243,6 +232,8 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 		pCodecInst->instIndex = i;
 		pCodecInst->inUse = 0;
 	}
+
+	free(bit_code);
 
 	EXIT_FUNC();
 	return RETCODE_SUCCESS;
