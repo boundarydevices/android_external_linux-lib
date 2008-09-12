@@ -20,6 +20,17 @@
 
 #include "vpu_util.h"
 #include "vpu_io.h"
+#include "vpu_debug.h"
+
+/*
+ * VPU binary file header format:
+ * 12-byte: platform version, eg, MX27, MX37, and so on.
+ * 4-byte:  element numbers, each element is 16bit(unsigned short)
+ */
+typedef struct {
+	Uint8 platform[12];
+	Uint32 size;
+} headerInfo;
 
 CodecInst codecInstPool[MAX_NUM_INSTANCE];
 
@@ -28,6 +39,67 @@ extern PhysicalAddress codeBuffer;
 extern PhysicalAddress paraBuffer;
 extern unsigned long *virt_paraBuf;
 extern unsigned long *virt_paraBuf2;
+
+RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
+{
+	FILE *fp;
+	headerInfo info;
+	char *fw_path, temp_str[64], fw_name[256];
+	int ret;
+
+	fw_path = getenv("VPU_FW_PATH");
+
+	if (fw_path == NULL)
+		strcpy(fw_name, "/usr/lib");	/* default path */
+	else
+		strcpy(fw_name, fw_path);
+
+	strcat(fw_name, "/");
+	if (cpu_is_mx27_rev(CHIP_REV_2_0) > 0)
+		strcat(fw_name, "vpu_fw_imx27_TO2.bin");
+	else if (cpu_is_mx27_rev(CHIP_REV_1_0) > 0)
+		strcat(fw_name, "vpu_fw_imx27_TO1.bin");
+	else {
+		memset(temp_str, 0, 64);
+		sprintf(temp_str, "vpu_fw_imx%2x.bin", mxc_cpu());
+		strcat(fw_name, temp_str);
+	}
+
+	fp = fopen(fw_name, "rb");
+	if (fp == NULL) {
+		err_msg("Error in opening firmware binary file\n");
+		return RETCODE_FAILURE;
+	}
+
+	fread(&info, sizeof(headerInfo), 1, fp);
+
+	if (info.size > MAX_FW_BINARY_LEN) {
+		err_msg("Size in VPU header is too large.Size: %d\n",
+			(Uint16) info.size);
+		goto err;
+	}
+
+	ret = fread(pBitCode, sizeof(Uint16), info.size, fp);
+	if (ret < info.size) {
+		err_msg("VPU firmware binary file is wrong or corrupted.\n");
+		goto err;
+	}
+	fclose(fp);
+
+	memset(temp_str, 0, 64);
+	sprintf(temp_str, "%2x", mxc_cpu());
+	if (strstr((char *)info.platform, temp_str) == NULL) {
+		err_msg("VPU firmware platform version isn't matched\n");
+		goto err;
+	}
+
+	*size = (int)info.size;
+	return RETCODE_SUCCESS;
+
+      err:
+	fclose(fp);
+	return RETCODE_FAILURE;
+}
 
 /*
  * GetCodecInstance() obtains an instance.
