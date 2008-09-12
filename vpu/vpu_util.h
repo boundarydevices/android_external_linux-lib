@@ -19,6 +19,7 @@
 #include "vpu_reg.h"
 #include "vpu_lib.h"
 
+#define MAX_FW_BINARY_LEN		100000
 #define MAX_NUM_INSTANCE		4
 
 #if defined(IMX37_3STACK)
@@ -81,6 +82,8 @@ enum {
 #define MAX_ENC_PIC_HEIGHT		576
 
 void BitIssueCommand(int instIdx, int cdcMode, int cmd);
+
+RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size);
 
 RetCode GetCodecInstance(CodecInst ** ppInst);
 void FreeCodecInstance(CodecInst * pCodecInst);
