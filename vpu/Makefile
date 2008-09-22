@@ -11,7 +11,16 @@ BINPREFIX = vpu_fw_
 
 ifeq ($(PLATFORM), $(findstring $(PLATFORM), $(INCLUDE_LIST)))
 
-VERSION = $(shell echo $(PLATFORM) | awk '{print substr($$0, 1, 5)}' \
+# Same platform ID is used when building for imx31ads and imx32ads.
+# Change version number in bin filename to imx32 if passed platform is
+# imx31ads since there is no VPU module in imx31ads.
+ifeq ($(PLATFORM), IMX31ADS)
+PLATFORM_STR = IMX32ADS
+else
+PLATFORM_STR = $(PLATFORM)
+endif
+
+VERSION = $(shell echo $(PLATFORM_STR) | awk '{print substr($$0, 1, 5)}' \
 	| awk '{print  tolower($$0) }' )
 
 all: $(LIBNAME).so $(LIBNAME).a
