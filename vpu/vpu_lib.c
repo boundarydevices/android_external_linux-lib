@@ -2380,6 +2380,7 @@ RetCode vpu_DecBitBufferFlush(DecHandle handle)
 		return RETCODE_WRONG_CALL_SEQUENCE;
 	}
 
+	IOClkGateSet(true);
 	if (cpu_is_mx51()) {
 		if (pDecInfo->openParam.bitstreamFormat == STD_DIV3)
 			VpuWriteReg(BIT_RUN_AUX_STD, 1);
@@ -2387,7 +2388,6 @@ RetCode vpu_DecBitBufferFlush(DecHandle handle)
 			VpuWriteReg(BIT_RUN_AUX_STD, 0);
 	}
 
-	IOClkGateSet(true);
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
 			DEC_BUF_FLUSH);
 
