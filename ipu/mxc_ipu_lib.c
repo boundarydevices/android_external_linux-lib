@@ -1,11 +1,11 @@
 /*
- * Copyright 2004-2007 Freescale Semiconductor, Inc. All Rights Reserved.
- * 
+ * Copyright 2004-2008 Freescale Semiconductor, Inc. All Rights Reserved.
+ *
  */
 
 /*
- * The code contained herein is licensed under the GNU Lesser General 
- * Public License.  You may obtain a copy of the GNU Lesser General 
+ * The code contained herein is licensed under the GNU Lesser General
+ * Public License.  You may obtain a copy of the GNU Lesser General
  * Public License Version 2.1 or later at the following locations:
  *
  * http://www.opensource.org/licenses/lgpl-license.html
@@ -25,10 +25,10 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <stdint.h>
-#include <sys/stat.h>	
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
-#include <unistd.h>    
+#include <unistd.h>
 #include <sys/mman.h>
 #include <math.h>
 #include <string.h>
@@ -85,7 +85,7 @@ int32_t ipu_update_channel_buffer(ipu_channel_t channel, ipu_buffer_t type,
 	ipu_channel_buf_parm buf_parm;
 	buf_parm.channel = channel;
 	buf_parm.type = type;
-	buf_parm.bufNum = bufNum; 
+	buf_parm.bufNum = bufNum;
 	if(bufNum == 0){
 		buf_parm.phyaddr_0 = phyaddr;
 		buf_parm.phyaddr_1 = (dma_addr_t)NULL;
@@ -179,11 +179,11 @@ int32_t ipu_sdc_init_panel(ipu_panel_t panel,
 	p_info.pixel_fmt = pixel_fmt;
 	p_info.hStartWidth = hStartWidth;
 	p_info.hSyncWidth = hSyncWidth;
-	p_info.hEndWidth = hEndWidth;	
+	p_info.hEndWidth = hEndWidth;
 	p_info.vStartWidth = vStartWidth;
 	p_info.vSyncWidth = vSyncWidth;
 	p_info.vEndWidth = vEndWidth;
-	p_info.signal = sig;	
+	p_info.signal = sig;
 	return ioctl(fd_ipu,IPU_SDC_INIT_PANEL,&p_info);
 }
 int32_t ipu_sdc_set_window_pos(ipu_channel_t channel, int16_t x_pos,
@@ -257,7 +257,7 @@ int32_t ipu_adc_write_cmd(display_port_t disp, cmddata_t type,
 	adc_cmd.disp = disp;
 	adc_cmd.type = type;
 	adc_cmd.cmd = cmd;
-	adc_cmd.params = params;
+	adc_cmd.params = (uint32_t *)params;
 	adc_cmd.numParams = numParams;
 	return ioctl(fd_ipu, IPU_ADC_CMD, &adc_cmd);
 }
@@ -331,7 +331,7 @@ void ipu_csi_flash_strobe(bool flag)
 	ioctl(fd_ipu, IPU_CSI_FLASH_STROBE, &flag);
 }
 
-void ipu_csi_get_window_size(uint32_t * width, uint32_t * height)
+void ipu_csi_get_window_size(uint32_t * width, uint32_t * height, uint32_t csi)
 {
 	ipu_csi_window_size csi_win;
 	ioctl(fd_ipu, IPU_CSI_GET_WIN_SIZE, &csi_win);
@@ -339,7 +339,7 @@ void ipu_csi_get_window_size(uint32_t * width, uint32_t * height)
 	*height = csi_win.height;
 }
 
-void ipu_csi_set_window_size(uint32_t width, uint32_t height)
+void ipu_csi_set_window_size(uint32_t width, uint32_t height, uint32_t csi)
 {
 	ipu_csi_window_size csi_win;
 	csi_win.width = width;
@@ -347,7 +347,7 @@ void ipu_csi_set_window_size(uint32_t width, uint32_t height)
 	ioctl(fd_ipu, IPU_CSI_SET_WIN_SIZE, &csi_win);
 }
 
-void ipu_csi_set_window_pos(uint32_t left, uint32_t top)
+void ipu_csi_set_window_pos(uint32_t left, uint32_t top, uint32_t csi)
 {
 	ipu_csi_window csi_win;
 	csi_win.left = left;
@@ -375,7 +375,7 @@ uint32_t bytes_per_pixel(uint32_t fmt)
         case IPU_PIX_FMT_UYVY:
                 return 2;
                 break;
-        case IPU_PIX_FMT_BGR24: 
+        case IPU_PIX_FMT_BGR24:
         case IPU_PIX_FMT_RGB24:
                 return 3;
                 break;
