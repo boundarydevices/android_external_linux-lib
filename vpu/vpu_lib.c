@@ -185,6 +185,13 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 	if (!cpu_is_mx51())
 		VpuWriteReg(BIT_RESET_CTRL, 0);
 
+	pCodecInst = &codecInstPool[0];
+	for (i = 0; i < MAX_NUM_INSTANCE; ++i, ++pCodecInst) {
+		pCodecInst->instIndex = i;
+		pCodecInst->inUse = 0;
+	}
+	VpuWriteReg(BIT_BIT_STREAM_PARAM, 0);
+
 	if (!cpu_is_mx27()) {
 		if (VpuReadReg(BIT_CUR_PC) != 0) {
 			/* IRQ is disabled during shutdown */
@@ -202,23 +209,18 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 		VpuWriteReg(BIT_CODE_DOWN, (i << 16) | data);
 	}
 
-	if (cpu_is_mx51()) {
-		data = STREAM_ENDIAN;
-		data |= STREAM_FULL_EMPTY_CHECK_DISABLE << 2;
-		data |= BUF_PIC_FLUSH << 3;
-		data |= BUF_PIC_RESET << 4;
-		VpuWriteReg(BIT_BIT_STREAM_CTRL, data);
-		VpuWriteReg(BIT_AXI_SRAM_USE, 0);	/* not use SRAM */
-
-	} else {
-		data = STREAM_FULL_EMPTY_CHECK_DISABLE << 1;
-		data |= STREAM_ENDIAN;
-		data |= 1 << 2;
-		VpuWriteReg(BIT_BIT_STREAM_CTRL, data);
-	}
-
+	data =
+	    STREAM_ENDIAN | STREAM_FULL_EMPTY_CHECK_DISABLE <<
+	    BIT_BUF_CHECK_DIS;
+	data |=
+	    BUF_PIC_FLUSH << BIT_BUF_PIC_FLUSH | BUF_PIC_RESET <<
+	    BIT_BUF_PIC_RESET;
+	VpuWriteReg(BIT_BIT_STREAM_CTRL, data);
 	VpuWriteReg(BIT_FRAME_MEM_CTRL, IMAGE_ENDIAN);
 	VpuWriteReg(BIT_INT_ENABLE, 8);	/* PIC_RUN irq enable */
+
+	if (cpu_is_mx51())
+		VpuWriteReg(BIT_AXI_SRAM_USE, 0);	/* not use SRAM */
 
 	if (cpu_is_mx27()) {
 		ResetVpu();
@@ -226,12 +228,6 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 
 	VpuWriteReg(BIT_CODE_RUN, 1);
 	IOClkGateSet(false);
-
-	pCodecInst = &codecInstPool[0];
-	for (i = 0; i < MAX_NUM_INSTANCE; ++i, ++pCodecInst) {
-		pCodecInst->instIndex = i;
-		pCodecInst->inUse = 0;
-	}
 
 	free(bit_code);
 
@@ -1583,7 +1579,12 @@ RetCode vpu_DecSetEscSeqInit(DecHandle handle, int escape)
 	pDecInfo = &pCodecInst->CodecInfo.decInfo;
 
 	IOClkGateSet(true);
-	VpuWriteReg(CMD_DEC_SEQ_INIT_ESCAPE, (escape & 0x01));
+	if (escape == 0)
+		VpuWriteReg(CMD_DEC_SEQ_INIT_ESCAPE,
+			    VpuReadReg(CMD_DEC_SEQ_INIT_ESCAPE) & ~0x01);
+	else
+		VpuWriteReg(CMD_DEC_SEQ_INIT_ESCAPE,
+			    VpuReadReg(CMD_DEC_SEQ_INIT_ESCAPE) | 0x01);
 	IOClkGateSet(false);
 
 	return RETCODE_SUCCESS;
