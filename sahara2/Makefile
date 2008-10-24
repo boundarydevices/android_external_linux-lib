@@ -1,16 +1,7 @@
-# +FHDR-----------------------------------------------------------------------
-# Copyright (c) 2005, Freescale Semiconductor, Inc.
-# ----------------------------------------------------------------------------
-# FILE NAME      : $RCSfile: Makefile,v $
-# DEPARTMENT     : Security Technology Center (STC), NCSG
-# ----------------------------------------------------------------------------
-# KEYWORDS : SHW, crypto, sahara
-# ----------------------------------------------------------------------------
-# PURPOSE: Makefile for API Library for Sahara Crypto Accelerator
-# -FHDR-----------------------------------------------------------------------
-
 AR = ar -crv
 RM = rm -f
+CC=$(CROSS_COMPILE)gcc
+LD=$(CROSS_COMPILE)ld
 
 INC := $(INCLUDE)
 
@@ -31,15 +22,16 @@ endif
 ifeq ("$(PLATFORM)", "MXC30031ADS")
 TARGET_ARCH=-DCONFIG_ARCH_MXC92323
 endif
+ifeq ("$(PLATFORM)", "IMX51_3STACK")
+TARGET_ARCH=-DCONFIG_ARCH_MX51
+endif
 
 # Add compilation checks
 CFLAGS += -g -Wall -W -Wmissing-prototypes -Wstrict-prototypes -Wdeclaration-after-statement
 
 OBJS= fsl_shw_rand.o  fsl_shw_hash.o  fsl_shw_sym.o  fsl_shw_user.o         \
-      fsl_shw_auth.o  fsl_shw_hmac.o  fsl_shw_wrap.o  um_adaptor.o  sf_util.o
+      fsl_shw_auth.o  fsl_shw_hmac.o  fsl_shw_wrap.o  fsl_shw_keystore.o um_adaptor.o  sf_util.o
 
-CC=$(CROSS_COMPILE)gcc
-LD=$(CROSS_COMPILE)ld
 
 #CFLAGS += -DSAHARA -DLINUX -I$(APIINCDIR)
 CFLAGS += -DSAHARA -DLINUX $(INC)
@@ -51,9 +43,9 @@ CFLAGS += $(TARGET_ARCH)
 
 LIBNAME=libsahara
 
-ifeq ("$(TARGET_ARCH)", "")
-all install:
-else
+#ifeq ("$(TARGET_ARCH)", "")
+#all install:
+#else
 all: $(LIBNAME).so $(LIBNAME).a
 
 install: install_headers
@@ -62,7 +54,7 @@ install: install_headers
 
 install_headers:
 	@mkdir -p $(DEST_DIR)/usr/include
-endif
+#endif
 
 
 $(LIBNAME).a: $(OBJS)
@@ -89,6 +81,7 @@ fsl_shw_auth.o: fsl_shw_auth.c $(API_INCL)
 
 fsl_shw_wrap.o: fsl_shw_wrap.c
 
+fsl_shw_keystore.o: fsl_shw_keystore.c
 um_adaptor.o: um_adaptor.c
 
 sf_util.o: sf_util.c
