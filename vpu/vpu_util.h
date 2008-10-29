@@ -78,9 +78,6 @@ enum {
 	FIRMWARE_GET = 0xf
 };
 
-#define MAX_ENC_PIC_WIDTH		720
-#define MAX_ENC_PIC_HEIGHT		576
-
 void BitIssueCommand(int instIdx, int cdcMode, int cmd);
 
 RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size);
