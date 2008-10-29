@@ -384,10 +384,7 @@ RetCode CheckEncOpenParam(EncOpenParam * pop)
 		}
 	}
 
-	if (picWidth < 32 || picWidth > MAX_ENC_PIC_WIDTH) {
-		return RETCODE_INVALID_PARAM;
-	}
-	if (picHeight < 16 || picHeight > MAX_ENC_PIC_HEIGHT) {
+	if (picWidth < 32 || picHeight < 16) {
 		return RETCODE_INVALID_PARAM;
 	}
 
