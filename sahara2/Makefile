@@ -43,9 +43,9 @@ CFLAGS += $(TARGET_ARCH)
 
 LIBNAME=libsahara
 
-#ifeq ("$(TARGET_ARCH)", "")
-#all install:
-#else
+ifeq ("$(TARGET_ARCH)", "")
+all install:
+else
 all: $(LIBNAME).so $(LIBNAME).a
 
 install: install_headers
@@ -54,7 +54,7 @@ install: install_headers
 
 install_headers:
 	@mkdir -p $(DEST_DIR)/usr/include
-#endif
+endif
 
 
 $(LIBNAME).a: $(OBJS)
