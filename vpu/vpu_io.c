@@ -38,13 +38,13 @@
 #include "vpu_reg.h"
 #include "vpu_io.h"
 #include "vpu_lib.h"
+#include "vpu_util.h"
 
 static int vpu_fd = -1;
 static unsigned long vpu_reg_base;
-static pthread_mutex_t powermutex = PTHREAD_MUTEX_INITIALIZER;
-int power_refcount;
 
 unsigned int system_rev;
+semaphore_t *vpu_semap;
 
 /*
  * Note: the order does not correspond to the bit order in BIT_AXI_SRAM_USE
@@ -209,19 +209,24 @@ int IOSystemInit(void *callback)
 	struct iram_t iram;
 	int ret;
 
+	vpu_semap = vpu_semaphore_open("/dev/shm/vpu.shm");
+
+	if (vpu_semap == NULL) {
+		err_msg("Error: Unable to open vpu shared memory file\n");
+		return -1;
+	}
+
 	ret = get_system_rev();
 	if (ret == -1) {
 		err_msg("Error: Unable to obtain system rev information\n");
 		return -1;
 	}
 
-	/* check if the device has been opened */
-	if (vpu_fd > 0)
-		return 0;
-
+	LockVpu(vpu_semap);
 	vpu_fd = open("/dev/mxc_vpu", O_RDWR);
 	if (vpu_fd < 0) {
 		err_msg("Can't open /dev/mxc_vpu\n");
+		UnlockVpu(vpu_semap);
 		return -1;
 	}
 
@@ -233,14 +238,17 @@ int IOSystemInit(void *callback)
 		err_msg("Can't map register\n");
 		close(vpu_fd);
 		vpu_fd = -1;
+		UnlockVpu(vpu_semap);
 		return -1;
 	}
 
 	bit_work_addr.size = WORK_BUF_SIZE + PARA_BUF_SIZE +
 	    					CODE_BUF_SIZE + PARA_BUF2_SIZE;
 
-	if (IOGetPhyMem(&bit_work_addr) != 0)
+	if (ioctl(vpu_fd, VPU_IOC_GET_WORK_ADDR, &bit_work_addr) < 0) {
+		err_msg("Get bitwork address failed!\n");
 		goto err;
+	}
 
 	if (IOGetVirtMem(&bit_work_addr) <= 0)
 		goto err;
@@ -253,10 +261,12 @@ int IOSystemInit(void *callback)
 			set_iram(iram, use_iram_table, 4);
 	}
 
+	UnlockVpu(vpu_semap);
 	return 0;
 
       err:
 	err_msg("Error in IOSystemInit()");
+	UnlockVpu(vpu_semap);
 	IOSystemShutdown();
 	return -1;
 }
@@ -278,12 +288,8 @@ int IOSystemInit(void *callback)
  */
 int IOSystemShutdown(void)
 {
+	LockVpu(vpu_semap);
 	IOFreeVirtMem(&bit_work_addr);
-	IOFreePhyMem(&bit_work_addr);
-
-	IOClkGateSet(true);
-	VpuWriteReg(BIT_INT_ENABLE, 0);	/* PIC_RUN irq disable */
-	IOClkGateSet(false);
 
 	if (munmap((void *)vpu_reg_base, BIT_REG_MARGIN) != 0)
 		err_msg("munmap failed\n");
@@ -292,6 +298,9 @@ int IOSystemShutdown(void)
 		close(vpu_fd);
 		vpu_fd = -1;
 	}
+
+	UnlockVpu(vpu_semap);
+	vpu_semaphore_close(vpu_semap);
 
 	return 0;
 }
@@ -447,21 +456,8 @@ int IOClkGateSet(int on)
 {
 	int ret = 0;
 
-	pthread_mutex_lock(&powermutex);
-
-	if (on) {
-		if (++power_refcount == 1)
-			ret = ioctl(vpu_fd, VPU_IOC_CLKGATE_SETTING, &on);
-
-		dprintf(3, "on power_refcount = %d\n", power_refcount);
-
-	} else {
-		if (power_refcount > 0 && !(--power_refcount))
-			ret = ioctl(vpu_fd, VPU_IOC_CLKGATE_SETTING, &on);
-		dprintf(3, "off power_refcount = %d\n", power_refcount);
-	}
-
-	pthread_mutex_unlock(&powermutex);
+	ret = ioctl(vpu_fd, VPU_IOC_CLKGATE_SETTING, &on);
+	dprintf(3, "vpu clock gate setting = %d\n", on);
 
 	return ret;
 }
