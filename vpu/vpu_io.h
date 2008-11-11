@@ -56,6 +56,7 @@ typedef struct iram_t {
 #define	VPU_IOC_VL2CC_FLUSH	_IO(VPU_IOC_MAGIC, 5)
 #define	VPU_IOC_IRAM_BASE	_IO(VPU_IOC_MAGIC, 6)
 #define	VPU_IOC_CLKGATE_SETTING	_IO(VPU_IOC_MAGIC, 7)
+#define VPU_IOC_GET_WORK_ADDR   _IO(VPU_IOC_MAGIC, 8)
 
 typedef void (*vpu_callback) (int status);
 

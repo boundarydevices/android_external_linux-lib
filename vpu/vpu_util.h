@@ -16,8 +16,11 @@
 #ifndef _VPU_UTIL_H_
 #define _VPU_UTIL_H_
 
+#include <sys/types.h>
+
 #include "vpu_reg.h"
 #include "vpu_lib.h"
+#include "vpu_io.h"
 
 #define MAX_FW_BINARY_LEN		100000
 #define MAX_NUM_INSTANCE		4
@@ -78,6 +81,15 @@ enum {
 	FIRMWARE_GET = 0xf
 };
 
+typedef struct {
+	pthread_mutex_t lock;
+	pthread_cond_t nonzero;
+	unsigned count;
+	/* VPU data for sharing */
+	CodecInst codecInstPool[MAX_NUM_INSTANCE];
+	CodecInst *pendingInst;
+} semaphore_t;
+
 void BitIssueCommand(int instIdx, int cdcMode, int cmd);
 
 RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size);
@@ -104,4 +116,22 @@ RetCode SetFramerate(EncHandle handle, Uint32 *framerate);
 RetCode SetIntraRefreshNum(EncHandle handle, Uint32 *pIntraRefreshNum);
 RetCode SetSliceMode(EncHandle handle, EncSliceMode *pSliceMode);
 RetCode SetHecMode(EncHandle handle, int mode);
+
+semaphore_t *vpu_semaphore_open(char *semaphore_name);
+void semaphore_post(semaphore_t *semap);
+void semaphore_wait(semaphore_t *semap);
+void vpu_semaphore_close(semaphore_t *semap);
+
+static inline void LockVpu(semaphore_t *semap)
+{
+	semaphore_wait(semap);
+	IOClkGateSet(1);
+}
+
+static inline void UnlockVpu(semaphore_t *semap)
+{
+	semaphore_post(semap);
+	IOClkGateSet(0);
+}
+
 #endif
