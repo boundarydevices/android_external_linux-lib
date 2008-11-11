@@ -17,10 +17,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <pthread.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <errno.h>
 
 #include "vpu_util.h"
 #include "vpu_io.h"
 #include "vpu_debug.h"
+
+#define TIMEOUT  6		/* condition timeout is 6s */
 
 /*
  * VPU binary file header format:
@@ -32,13 +39,8 @@ typedef struct {
 	Uint32 size;
 } headerInfo;
 
-CodecInst codecInstPool[MAX_NUM_INSTANCE];
-
-extern PhysicalAddress workBuffer;
-extern PhysicalAddress codeBuffer;
-extern PhysicalAddress paraBuffer;
 extern unsigned long *virt_paraBuf;
-extern unsigned long *virt_paraBuf2;
+extern semaphore_t *vpu_semap;
 
 RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 {
@@ -112,8 +114,8 @@ RetCode GetCodecInstance(CodecInst ** ppInst)
 	int i;
 	CodecInst *pCodecInst;
 
-	pCodecInst = &codecInstPool[0];
-	for (i = 0; i < MAX_NUM_INSTANCE; ++i, ++pCodecInst) {
+	for (i = 0; i < MAX_NUM_INSTANCE; ++i) {
+		pCodecInst = (CodecInst *) (&vpu_semap->codecInstPool[i]);
 		if (!pCodecInst->inUse)
 			break;
 	}
@@ -136,8 +138,8 @@ RetCode CheckInstanceValidity(CodecInst * pci)
 	CodecInst *pCodecInst;
 	int i;
 
-	pCodecInst = &codecInstPool[0];
-	for (i = 0; i < MAX_NUM_INSTANCE; ++i, ++pCodecInst) {
+	for (i = 0; i < MAX_NUM_INSTANCE; ++i) {
+		pCodecInst = (CodecInst *) (&vpu_semap->codecInstPool[i]);
 		if (pCodecInst == pci)
 			return RETCODE_SUCCESS;
 	}
@@ -746,4 +748,70 @@ RetCode SetHecMode(EncHandle handle, int mode)
 	IOClkGateSet(false);
 
 	return RETCODE_SUCCESS;
+}
+
+semaphore_t *vpu_semaphore_open(char *semaphore_name)
+{
+	int fd;
+	semaphore_t *semap;
+	pthread_mutexattr_t psharedm;
+	pthread_condattr_t psharedc;
+
+	fd = open(semaphore_name, O_RDWR, 0666);
+	if (fd < 0) {
+		fd = open(semaphore_name, O_RDWR | O_CREAT | O_EXCL, 0666);
+		if (fd < 0)
+			return NULL;
+		ftruncate(fd, sizeof(semaphore_t));
+		pthread_mutexattr_init(&psharedm);
+		pthread_mutexattr_setpshared(&psharedm, PTHREAD_PROCESS_SHARED);
+		pthread_condattr_init(&psharedc);
+		pthread_condattr_setpshared(&psharedc, PTHREAD_PROCESS_SHARED);
+		semap = (semaphore_t *) mmap(NULL, sizeof(semaphore_t),
+					     PROT_READ | PROT_WRITE, MAP_SHARED,
+					     fd, 0);
+		pthread_mutex_init(&semap->lock, &psharedm);
+		pthread_cond_init(&semap->nonzero, &psharedc);
+		semap->count = 1;
+	} else {
+		semap = (semaphore_t *) mmap(NULL, sizeof(semaphore_t),
+					     PROT_READ | PROT_WRITE, MAP_SHARED,
+					     fd, 0);
+	}
+	close(fd);
+	return semap;
+}
+
+void semaphore_post(semaphore_t * semap)
+{
+	pthread_mutex_lock(&semap->lock);
+	if (semap->count == 0)
+		pthread_cond_signal(&semap->nonzero);
+	semap->count++;
+	pthread_mutex_unlock(&semap->lock);
+}
+
+void semaphore_wait(semaphore_t * semap)
+{
+	struct timespec ts;
+
+	ts.tv_sec = time(NULL) + TIMEOUT;
+	ts.tv_nsec = 0;
+	pthread_mutex_lock(&semap->lock);
+	while (semap->count == 0) {
+		if (pthread_cond_timedwait(&semap->nonzero, &semap->lock, &ts)
+		    == ETIMEDOUT) {
+			pthread_mutex_unlock(&semap->lock);
+			printf
+			    ("VPU: Another thread/task is possibly exited abnormally.\n");
+			return;
+		}
+	}
+	semap->count--;
+	pthread_mutex_unlock(&semap->lock);
+}
+
+void vpu_semaphore_close(semaphore_t * semap)
+{
+	munmap((void *)semap, sizeof(semaphore_t));
 }
