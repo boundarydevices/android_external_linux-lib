@@ -431,6 +431,10 @@ RetCode vpu_EncClose(EncHandle handle)
 	pCodecInst = handle;
 	pEncInfo = &pCodecInst->CodecInfo.encInfo;
 
+	if (*ppendingInst == pCodecInst) {
+		return RETCODE_FRAME_NOT_COMPLETE;
+	}
+
 	LockVpu(vpu_semap);
 	if (pEncInfo->initialInfoObtained) {
 		BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
@@ -1498,7 +1502,7 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 	VpuWriteReg(pDecInfo->frameDisplayFlagRegAddr, 0);
 
 	VpuWriteReg(BIT_BIT_STREAM_PARAM,
-		    VpuReadReg(BIT_BIT_STREAM_PARAM) | 1 << (instIdx + 2));
+		    VpuReadReg(BIT_BIT_STREAM_PARAM) & ~(1 << (instIdx + 2)));
 	UnlockVpu(vpu_semap);
 
 	return RETCODE_SUCCESS;
@@ -1528,6 +1532,10 @@ RetCode vpu_DecClose(DecHandle handle)
 
 	pCodecInst = handle;
 	pDecInfo = &pCodecInst->CodecInfo.decInfo;
+
+	if (*ppendingInst == pCodecInst) {
+		return RETCODE_FRAME_NOT_COMPLETE;
+	}
 
 	LockVpu(vpu_semap);
 	if (pDecInfo->initialInfoObtained) {
