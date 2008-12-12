@@ -222,11 +222,11 @@ int IOSystemInit(void *callback)
 		return -1;
 	}
 
-	LockVpu(vpu_semap);
+	semaphore_wait(vpu_semap);
 	vpu_fd = open("/dev/mxc_vpu", O_RDWR);
 	if (vpu_fd < 0) {
 		err_msg("Can't open /dev/mxc_vpu\n");
-		UnlockVpu(vpu_semap);
+		semaphore_post(vpu_semap);
 		return -1;
 	}
 
@@ -238,10 +238,11 @@ int IOSystemInit(void *callback)
 		err_msg("Can't map register\n");
 		close(vpu_fd);
 		vpu_fd = -1;
-		UnlockVpu(vpu_semap);
+		semaphore_post(vpu_semap);
 		return -1;
 	}
 
+	IOClkGateSet(true);
 	bit_work_addr.size = WORK_BUF_SIZE + PARA_BUF_SIZE +
 	    					CODE_BUF_SIZE + PARA_BUF2_SIZE;
 
@@ -288,7 +289,7 @@ int IOSystemInit(void *callback)
  */
 int IOSystemShutdown(void)
 {
-	LockVpu(vpu_semap);
+	semaphore_wait(vpu_semap);
 	IOFreeVirtMem(&bit_work_addr);
 
 	if (munmap((void *)vpu_reg_base, BIT_REG_MARGIN) != 0)
@@ -299,7 +300,7 @@ int IOSystemShutdown(void)
 		vpu_fd = -1;
 	}
 
-	UnlockVpu(vpu_semap);
+	semaphore_post(vpu_semap);
 	vpu_semaphore_close(vpu_semap);
 
 	return 0;
