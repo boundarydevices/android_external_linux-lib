@@ -998,6 +998,9 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 		return RETCODE_INVALID_HANDLE;
 	}
 
+        /* Clock is gated off when received interrupt in driver, so need to gate on here. */
+        IOClkGateSet(true);
+
 	info->picType = VpuReadReg(RET_ENC_PIC_TYPE);
 
 	if (pEncInfo->ringBufferEnable == 0) {
@@ -2252,6 +2255,9 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	if (cpu_is_mx32()) {
 		vl2cc_flush();
 	}
+
+	/* Clock is gated off when received interrupt in driver, so need to gate on here. */
+	IOClkGateSet(true);
 
 	val = VpuReadReg(RET_DEC_PIC_SUCCESS);
 	info->decodingSuccess = (val & 0x01);
