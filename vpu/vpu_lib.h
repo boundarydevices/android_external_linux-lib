@@ -28,6 +28,7 @@ typedef unsigned char Uint8;
 typedef unsigned long Uint32;
 typedef unsigned short Uint16;
 typedef Uint32 PhysicalAddress;
+typedef Uint32 VirtualAddress;
 
 #define STREAM_FULL_EMPTY_CHECK_DISABLE 0
 #define BUF_PIC_FLUSH			1
@@ -106,7 +107,8 @@ typedef enum {
 	ENC_SET_GOP_NUMBER,
 	ENC_SET_INTRA_QP,
 	ENC_SET_BITRATE,
-	ENC_SET_FRAME_RATE
+	ENC_SET_FRAME_RATE,
+	SET_DBK_OFFSET
 } CodecCommand;
 
 typedef struct {
@@ -129,6 +131,12 @@ typedef enum {
 	MIRDIR_HOR,
 	MIRDIR_HOR_VER
 } MirrorDirection;
+
+typedef struct {
+	int DbkOffsetA;
+	int DbkOffsetB;
+	int DbkOffsetEnable;
+} DbkOffset;
 
 /* Decode struct and definition */
 typedef struct CodecInst DecInst;
@@ -170,6 +178,15 @@ typedef struct {
 	int worstSliceSize;
 	int mjpg_thumbNailEnable;
 	int mjpg_sourceFormat;
+
+	int streamInfoObtained;
+	int profile;
+	int level;
+	int interlace;
+	/*int vc1_pulldown;*/
+	int vc1_psf;
+
+	int aspectRateInfo;
 } DecInitialInfo;
 
 typedef struct {
@@ -187,6 +204,23 @@ typedef struct {
 	DecAvcSliceBufInfo avcSliceBufInfo;
 } DecBufInfo;
 
+typedef enum {
+	PARA_TYPE_FRM_BUF_STATUS = 1,
+	PARA_TYPE_MB_PARA = 2,
+	PARA_TYPE_MV = 4,
+} ExtParaType;
+
+typedef struct {
+//	PhysicalAddress picParaBaseAddr;
+
+	int frameBufStatEnable;		/* Frame Buffer Status */
+	int mbParamEnable;		/* Mb Param for Error Concealment */
+	int mvReportEnable;		/* Motion vector */
+	int userDataEnable;		/* User Data */
+//	int userDataBufSize;
+//	VirtualAddress userDataBufAddr;
+} DecExtParam;
+
 typedef struct {
 	int prescanEnable;
 	int prescanMode;
@@ -198,7 +232,24 @@ typedef struct {
 	int chunkSize;
 	int picStartByteOffset;
 	PhysicalAddress picStreamBufferAddr;
+
+	DecExtParam extParam;
 } DecParam;
+
+typedef struct {
+	int frameBufDataSize;			/* Frame Buffer Status */
+	VirtualAddress frameBufStatDataAddr;
+
+	int mbParamDataSize;			/* Mb Param for Error Concealment */
+	VirtualAddress mbParamDataAddr;
+
+	int mvDataSize;				/* Motion vector */
+	int mvNumPerMb;
+	VirtualAddress mvDataAddr;
+
+	int userDataNum;			/* User Data */
+	int userDataSize;
+} DecoderOutputExtParam;
 
 typedef struct {
 	int indexFrameDisplay;
@@ -216,6 +267,14 @@ typedef struct {
 	int interlacedFrame;
 	int mp4PackedPBframe;
 	int mp4PackedMode;
+
+	int pictureStructure;
+	int topFieldFirst;
+	int repeatFirstField;
+	int progressiveFrame;
+	int fieldSequence;
+
+	DecoderOutputExtParam outputExtData;
 } DecOutputInfo;
 
 typedef struct {
@@ -420,6 +479,8 @@ typedef struct {
 	int picSrcSize;
 	int dynamicAllocEnable;
 	int vc1BframeDisplayValid;
+
+	DbkOffset dbkOffset;
 } DecInfo;
 
 typedef struct CodecInst {
@@ -430,6 +491,10 @@ typedef struct CodecInst {
 		EncInfo encInfo;
 		DecInfo decInfo;
 	} CodecInfo;
+	union {
+		EncParam encParam;
+		DecParam decParam;
+	} CodecParam;
 } CodecInst;
 
 /*
@@ -462,7 +527,7 @@ typedef struct vpu_versioninfo {
  * v4.1.2 [2008.08.22] update MX37 VPU firmware to V1.0.5
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 3, 2)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 4, 2)
 
 extern unsigned int system_rev;
 
@@ -491,7 +556,8 @@ MXC_REV(cpu_is_mx32);
 MXC_REV(cpu_is_mx37);
 MXC_REV(cpu_is_mx51);
 
-RetCode vpu_Init(PhysicalAddress workBuf);
+RetCode vpu_Init(void *);
+void vpu_UnInit();
 RetCode vpu_GetVersionInfo(vpu_versioninfo * verinfo);
 
 RetCode vpu_EncOpen(EncHandle *, EncOpenParam *);
