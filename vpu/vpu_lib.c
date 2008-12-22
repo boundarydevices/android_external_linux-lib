@@ -78,8 +78,15 @@ unsigned long *virt_paraBuf;
 unsigned long *virt_paraBuf2;
 
 extern vpu_mem_desc bit_work_addr;
+extern vpu_mem_desc pic_para_addr;
+extern vpu_mem_desc user_data_addr;
 extern semaphore_t *vpu_semap;
+#define PIC_PARA_BUF_SIZE	0x40000
+#define USER_DATA_BUF_SIZE	0x100
 
+extern void vpu_setting_iram();
+extern int IOGetPhyPicParaMem(vpu_mem_desc * buff);
+extern int IOGetPhyUserDataMem(vpu_mem_desc * buff);
 /*!
  * @brief
  * This functure indicate whether processing(encoding/decoding) a frame
@@ -114,15 +121,13 @@ int vpu_WaitForInt(int timeout_in_ms)
  * This function initializes VPU hardware and proper data structures/resources.
  * The user must call this function only once before using VPU codec.
  *
- * @param  workBuf  The physical address of a working space of the codec.
- *  The size of the space must be at least CODE_BUF_SIZE + WORK_BUF_SIZE
- * + PARA_BUF2_SIZE + PARA_BUF_SIZE in KB.
+ * @param  cb  callback function if needed
  *
  * @return  This function always returns RETCODE_SUCCESS.
  */
-RetCode vpu_Init(PhysicalAddress workBuf)
+RetCode vpu_Init(void *cb)
 {
-	int i, size;
+	int i, size, err;
 	volatile Uint32 data;
 	Uint32 virt_codeBuf;
 	CodecInst *pCodecInst;
@@ -131,7 +136,14 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 
 	ENTER_FUNC();
 
-	codeBuffer = workBuf;
+	err = IOSystemInit(cb);
+	if (err) {
+		err_msg("IOSystemInit() failure.\n");
+		return RETCODE_FAILURE;
+	}
+
+	LockVpu(vpu_semap);
+	codeBuffer = bit_work_addr.phy_addr;
 	workBuffer = codeBuffer + CODE_BUF_SIZE;
 	paraBuffer = workBuffer + WORK_BUF_SIZE + PARA_BUF2_SIZE;
 
@@ -232,8 +244,16 @@ RetCode vpu_Init(PhysicalAddress workBuf)
 		free(bit_code);
 	}
 
+	vpu_setting_iram();
+	UnlockVpu(vpu_semap);
+
 	EXIT_FUNC();
 	return RETCODE_SUCCESS;
+}
+
+void vpu_UnInit(void)
+{
+	IOSystemShutdown();
 }
 
 /*!
@@ -998,8 +1018,8 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 		return RETCODE_INVALID_HANDLE;
 	}
 
-        /* Clock is gated off when received interrupt in driver, so need to gate on here. */
-        IOClkGateSet(true);
+	/* Clock is gated off when received interrupt in driver, so need to gate on here. */
+	IOClkGateSet(true);
 
 	info->picType = VpuReadReg(RET_ENC_PIC_TYPE);
 
@@ -1488,6 +1508,13 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 	pDecInfo->rotationAngle = 0;
 	pDecInfo->rotatorOutputValid = 0;
 	pDecInfo->rotatorStride = 0;
+	pDecInfo->deringEnable = 0;
+
+#ifdef	IMX37_3STACK
+	pDecInfo->dbkOffset.DbkOffsetEnable = 0;
+	pDecInfo->dbkOffset.DbkOffsetA = 0;
+	pDecInfo->dbkOffset.DbkOffsetB = 0;
+#endif
 
 	pDecInfo->filePlayEnable = pop->filePlayEnable;
 	if (pop->filePlayEnable == 1) {
@@ -1504,8 +1531,12 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 	VpuWriteReg(pDecInfo->streamWrPtrRegAddr, pDecInfo->streamWrPtr);
 	VpuWriteReg(pDecInfo->frameDisplayFlagRegAddr, 0);
 
+	/* Clear stream end flag */
 	VpuWriteReg(BIT_BIT_STREAM_PARAM,
 		    VpuReadReg(BIT_BIT_STREAM_PARAM) & ~(1 << (instIdx + 2)));
+	VpuWriteReg(BIT_FRAME_MEM_CTRL,
+			    VpuReadReg(BIT_FRAME_MEM_CTRL) |
+				(pDecInfo->openParam.chromaInterleave << (instIdx + 1)));
 	UnlockVpu(vpu_semap);
 
 	return RETCODE_SUCCESS;
@@ -1661,10 +1692,6 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		VpuWriteReg(BIT_FRAME_MEM_CTRL,
 			    ((pDecInfo->openParam.chromaInterleave << 2) |
 			     IMAGE_ENDIAN));
-	else
-		VpuWriteReg(BIT_FRAME_MEM_CTRL,
-			    ((pDecInfo->openParam.chromaInterleave << 1) |
-			     IMAGE_ENDIAN));
 
 	if (pCodecInst->codecMode == MJPG_DEC) {
 		VpuWriteReg(CMD_DEC_SEQ_JPG_THUMB_EN,
@@ -1759,6 +1786,21 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 				return RETCODE_FAILURE;
 			}
 	}
+
+#ifdef	IMX37_3STACK
+	val = VpuReadReg(RET_DEC_SEQ_INFO);
+	info->profile = (val >> 4) & 0xFF;
+	info->level = (val >> 12) & 0xFF;
+	info->interlace = (val >> 20) & 0x0001;
+	info->vc1_psf = (val >>22) & 0x0001;
+
+	val = VpuReadReg(RET_DEC_SEQ_ASPECT);
+	info->aspectRateInfo = val;
+#endif
+	if (cpu_is_mx37())
+		info->streamInfoObtained = 1;
+	else
+		info->streamInfoObtained = 0;
 
 	UnlockVpu(vpu_semap);
 
@@ -2047,6 +2089,7 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 {
 	CodecInst *pCodecInst;
 	DecInfo *pDecInfo;
+	DecParam *pDecParam;
 	Uint32 rotMir;
 	Uint32 val = 0;
 	RetCode ret;
@@ -2059,6 +2102,9 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 
 	pCodecInst = handle;
 	pDecInfo = &pCodecInst->CodecInfo.decInfo;
+	pDecParam = &pCodecInst->CodecParam.decParam;
+	memcpy(pDecParam, param, sizeof(*pDecParam));
+
 
 	/* This means frame buffers have not been registered. */
 	if (pDecInfo->frameBufPool == 0) {
@@ -2147,7 +2193,70 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		}
 	}
 
-	/* if iframeSearch is Enable, other bit is ignore; */
+#ifdef	IMX37_3STACK
+	if (param->extParam.mbParamEnable || param->extParam.mvReportEnable ||
+				param->extParam.frameBufStatEnable) {
+		pic_para_addr.size = PIC_PARA_BUF_SIZE;
+		if (IOGetPhyPicParaMem(&pic_para_addr) < 0)
+			return RETCODE_FAILURE;
+
+		if (IOGetVirtMem(&pic_para_addr) < 0) {
+			IOFreePhyPicParaMem(&pic_para_addr);
+			return RETCODE_FAILURE;
+		}
+
+		VpuWriteReg(CMD_DEC_PIC_PARA_BASE_ADDR, pic_para_addr.phy_addr);
+	}
+
+	/* TODO: need re-write after we get the revised schema */
+	if (param->extParam.userDataEnable) {
+		user_data_addr.size = USER_DATA_BUF_SIZE;
+		if (IOGetPhyUserDataMem(&user_data_addr) < 0)
+			return RETCODE_FAILURE;
+
+		if (IOGetVirtMem(&user_data_addr) < 0) {
+			IOFreePhyUserDataMem(&user_data_addr);
+			return RETCODE_FAILURE;
+		}
+#if 0
+		param->extParam.userDataBufAddr = user_data_addr.virt_uaddr;
+		param->extParam.userDataBufSize = user_data_addr.size;
+
+		VpuWriteReg(CMD_DEC_PIC_USER_DATA_BASE_ADDR, user_data_addr.phy_addr);
+		VpuWriteReg(CMD_DEC_PIC_USER_DATA_BUF_SIZE, param->extParam.userDataBufSize);
+#endif
+		VpuWriteReg(CMD_DEC_PIC_USER_DATA_BASE_ADDR, user_data_addr.phy_addr);
+		VpuWriteReg(CMD_DEC_PIC_USER_DATA_BUF_SIZE, user_data_addr.size);
+	}
+#endif
+
+	val = 0;
+	/* if iframeSearch is Enable, other bit is ignored. */
+#ifdef	IMX37_3STACK
+	if (param->iframeSearchEnable == 1) {
+		val |= (pDecInfo->dbkOffset.DbkOffsetEnable << 9);
+		val |= (param->extParam.frameBufStatEnable << 8);
+		val |= (param->extParam.mbParamEnable << 7);
+		val |= (param->extParam.mvReportEnable << 6);
+		val |= ((param->iframeSearchEnable & 0x1) << 2);
+	} else if (param->skipframeMode) {
+		val |= (pDecInfo->dbkOffset.DbkOffsetEnable << 9);
+		val |= (param->extParam.frameBufStatEnable << 8);
+		val |= (param->extParam.mbParamEnable << 7);
+		val |= (param->extParam.mvReportEnable << 6);
+		val |= (param->skipframeMode << 3);
+		val |= (param->prescanMode << 1);
+		val |= (param->prescanEnable);
+	} else {
+		val |= (pDecInfo->dbkOffset.DbkOffsetEnable << 9);
+		val |= (param->extParam.frameBufStatEnable << 8);
+		val |= (param->extParam.mbParamEnable << 7);
+		val |= (param->extParam.mvReportEnable << 6);
+		val |= (param->extParam.userDataEnable << 5);
+		val |= (param->prescanMode << 1);
+		val |= (param->prescanEnable);
+	}
+#else
 	if (param->iframeSearchEnable == 1) {
 		val = (param->iframeSearchEnable << 2) & 0x4;
 	} else {
@@ -2155,8 +2264,15 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		    (param->iframeSearchEnable << 2) |
 		    (param->prescanMode << 1) | param->prescanEnable;
 	}
+#endif
+
 
 	VpuWriteReg(CMD_DEC_PIC_OPTION, val);
+#ifdef	IMX37_3STACK
+	VpuWriteReg( CMD_DEC_PIC_DBK_OFFSET,
+				 ((pDecInfo->dbkOffset.DbkOffsetA & 31) << 5) |
+				  (pDecInfo->dbkOffset.DbkOffsetB & 31));
+#endif
 	VpuWriteReg(CMD_DEC_PIC_SKIP_NUM, param->skipframeNum);
 
 	if (pCodecInst->codecMode == AVC_DEC) {
@@ -2223,6 +2339,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 {
 	CodecInst *pCodecInst;
 	DecInfo *pDecInfo;
+	DecExtParam *pDecExtParam;
 	RetCode ret;
 	Uint32 val = 0;
 	PhysicalAddress paraBuffer;
@@ -2243,6 +2360,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 
 	pCodecInst = handle;
 	pDecInfo = &pCodecInst->CodecInfo.decInfo;
+	pDecExtParam = &pCodecInst->CodecParam.decParam.extParam;
 
 	if (*ppendingInst == 0) {
 		return RETCODE_WRONG_CALL_SEQUENCE;
@@ -2268,9 +2386,142 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		info->mp4PackedPBframe = ((val >> 16) & 0x01);
 	}
 
+#ifdef	IMX37_3STACK
 	val = VpuReadReg(RET_DEC_PIC_TYPE);
 	info->picType = val & 0xff;
 	info->interlacedFrame = (val >> 16) & 0x1;
+
+	val = VpuReadReg(RET_DEC_PIC_TYPE);
+
+	info->interlacedFrame = (val >> 18) & 0x1;
+	info->pictureStructure = (val >> 19) & 0x0003;	/* MbAffFlag[17], FieldPicFlag[16] */
+	info->topFieldFirst = (val >> 21) & 0x0001;	/* TopFieldFirst[18] */
+	info->repeatFirstField = (val >> 22) & 0x0001;
+	info->progressiveFrame = (val >> 23) & 0x0003;
+	info->fieldSequence = (val >> 25) & 0x0007;
+
+	/* Frame Buffer Status */
+	if (pDecExtParam->frameBufStatEnable) {
+		int size, paraInfo, address;
+
+		char tempBuf[8];
+		memset(tempBuf, 0, 8);
+
+		memcpy(tempBuf, (void *)pic_para_addr.virt_uaddr, 8);
+
+		val = ((tempBuf[0]<<24) & 0xFF000000) |
+				((tempBuf[1]<<16) & 0x00FF0000) |
+				((tempBuf[2]<< 8) & 0x0000FF00) |
+				((tempBuf[3]<< 0) & 0x000000FF);
+		address = ((tempBuf[4]<<24) & 0xFF000000) |
+				((tempBuf[5]<<16) & 0x00FF0000) |
+				((tempBuf[6]<< 8) & 0x0000FF00) |
+				((tempBuf[7]<< 0) & 0x000000FF);
+
+		paraInfo = (val >> 24) & 0xFF;
+		size = (val >>  0) & 0xFFFFFF;
+
+		if (paraInfo == PARA_TYPE_FRM_BUF_STATUS) {
+			info->outputExtData.frameBufDataSize = size;
+			info->outputExtData.frameBufStatDataAddr = address +
+					(bit_work_addr.virt_uaddr - bit_work_addr.phy_addr);
+
+		} else {
+			/* VPU does not write data */
+			info->outputExtData.frameBufDataSize = 0;
+			info->outputExtData.frameBufStatDataAddr = 0;
+		}
+	}
+
+	/* Mb Param */
+	if (pDecExtParam->mbParamEnable) {
+		int size, paraInfo, address;
+
+		char tempBuf[8];
+		memset(tempBuf, 0, 8);
+
+		memcpy(tempBuf, (void *)(pic_para_addr.virt_uaddr + 8), 8);
+
+		val =	((tempBuf[0]<<24) & 0xFF000000) |
+				((tempBuf[1]<<16) & 0x00FF0000) |
+				((tempBuf[2]<< 8) & 0x0000FF00) |
+				((tempBuf[3]<< 0) & 0x000000FF);
+		address = ((tempBuf[4]<<24) & 0xFF000000) |
+				((tempBuf[5]<<16) & 0x00FF0000) |
+				((tempBuf[6]<< 8) & 0x0000FF00) |
+				((tempBuf[7]<< 0) & 0x000000FF);
+
+		paraInfo = (val >> 24) & 0xFF;
+		size = (val >>  0) & 0x00FFFF;
+
+		if (paraInfo == PARA_TYPE_MB_PARA) {
+			info->outputExtData.mbParamDataSize = size;
+			info->outputExtData.mbParamDataAddr = address +
+					(bit_work_addr.virt_uaddr - bit_work_addr.phy_addr);
+		} else {
+			/* VPU does not write data */
+			info->outputExtData.mbParamDataSize = 0;
+			info->outputExtData.mbParamDataAddr = 0;
+		}
+	}
+
+	/* Motion Vector */
+	if (pDecExtParam->mvReportEnable) {
+		int size, paraInfo, address, mvNumPerMb;
+
+		char tempBuf[8];
+		memset(tempBuf, 0, 8);
+
+		memcpy(tempBuf, (void *)(pic_para_addr.virt_uaddr + 16), 8);
+
+		val =	((tempBuf[0]<<24) & 0xFF000000) |
+				((tempBuf[1]<<16) & 0x00FF0000) |
+				((tempBuf[2]<< 8) & 0x0000FF00) |
+				((tempBuf[3]<< 0) & 0x000000FF);
+		address = ((tempBuf[4]<<24) & 0xFF000000) |
+				((tempBuf[5]<<16) & 0x00FF0000) |
+				((tempBuf[6]<< 8) & 0x0000FF00) |
+				((tempBuf[7]<< 0) & 0x000000FF);
+
+		paraInfo	= (val >> 24) & 0xFF;
+		mvNumPerMb	= (val >> 16) & 0xFF;
+		size		= (val >>  0) & 0xFFFF;
+
+		if (paraInfo == PARA_TYPE_MV) {
+			info->outputExtData.mvDataSize = size;
+			info->outputExtData.mvNumPerMb = mvNumPerMb;
+			info->outputExtData.mvDataAddr = address +
+					(bit_work_addr.virt_uaddr - bit_work_addr.phy_addr);
+		} else {
+			/* VPU does not write data */
+			info->outputExtData.mvNumPerMb = 0;
+			info->outputExtData.mvDataAddr = 0;
+		}
+	}
+
+	/* User Data */
+	if (pDecExtParam->userDataEnable) {
+		int userDataNum;
+		int userDataSize;
+		char tempBuf[8];
+		memset(tempBuf, 0, 8);
+
+		memcpy(tempBuf, (void *)user_data_addr.virt_uaddr, 8);
+
+		val = ((tempBuf[0]<<24) & 0xFF000000) |
+				((tempBuf[1]<<16) & 0x00FF0000) |
+				((tempBuf[2]<< 8) & 0x0000FF00) |
+				((tempBuf[3]<< 0) & 0x000000FF);
+
+		userDataNum = (val >> 16) & 0xFFFF;
+		userDataSize = (val >> 0) & 0xFFFF;
+		if (userDataNum == 0)
+			userDataSize = 0;
+
+		info->outputExtData.userDataNum = userDataNum;
+		info->outputExtData.userDataSize = userDataSize;
+	}
+#endif
 
 	info->numOfErrMBs[0] = VpuReadReg(RET_DEC_PIC_ERR_MB);
 	info->prescanresult = VpuReadReg(RET_DEC_PIC_OPTION);
@@ -2624,6 +2875,20 @@ RetCode vpu_DecGiveCommand(DecHandle handle, CodecCommand cmd, void *param)
 	case DISABLE_DERING:
 		{
 			pDecInfo->deringEnable = 0;
+			break;
+		}
+
+	case SET_DBK_OFFSET :
+		{
+			DbkOffset dbkOffset;
+			dbkOffset = *(DbkOffset *)param;
+
+			pDecInfo->dbkOffset.DbkOffsetA = dbkOffset.DbkOffsetA;
+			pDecInfo->dbkOffset.DbkOffsetB = dbkOffset.DbkOffsetB;
+
+			pDecInfo->dbkOffset.DbkOffsetEnable =
+					((pDecInfo->dbkOffset.DbkOffsetA !=0 ) &&
+						(pDecInfo->dbkOffset.DbkOffsetB != 0));
 			break;
 		}
 

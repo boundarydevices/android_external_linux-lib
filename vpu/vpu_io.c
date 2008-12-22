@@ -46,6 +46,8 @@ static unsigned long vpu_reg_base;
 unsigned int system_rev;
 semaphore_t *vpu_semap;
 
+int _IOGetPhyMem(int which, vpu_mem_desc *buff);
+
 /*
  * Note: the order does not correspond to the bit order in BIT_AXI_SRAM_USE
  * register, but correspond to the items in use_iram_table array.
@@ -206,7 +208,6 @@ inline unsigned long *reg_map(unsigned long offset)
  */
 int IOSystemInit(void *callback)
 {
-	struct iram_t iram;
 	int ret;
 
 	vpu_semap = vpu_semaphore_open("/dev/shm/vpu.shm");
@@ -246,21 +247,13 @@ int IOSystemInit(void *callback)
 	bit_work_addr.size = WORK_BUF_SIZE + PARA_BUF_SIZE +
 	    					CODE_BUF_SIZE + PARA_BUF2_SIZE;
 
-	if (ioctl(vpu_fd, VPU_IOC_GET_WORK_ADDR, &bit_work_addr) < 0) {
+	if (_IOGetPhyMem(VPU_IOC_GET_WORK_ADDR, &bit_work_addr) < 0) {
 		err_msg("Get bitwork address failed!\n");
 		goto err;
 	}
 
 	if (IOGetVirtMem(&bit_work_addr) <= 0)
 		goto err;
-
-	vpu_Init(bit_work_addr.phy_addr);
-	if (cpu_is_mx37()) {
-		IOGetIramBase(&iram);
-		ret = get_iram_setting(iram, use_iram_table, 4);
-		if (ret != -1)
-			set_iram(iram, use_iram_table, 4);
-	}
 
 	UnlockVpu(vpu_semap);
 	return 0;
@@ -270,6 +263,19 @@ int IOSystemInit(void *callback)
 	UnlockVpu(vpu_semap);
 	IOSystemShutdown();
 	return -1;
+}
+
+void vpu_setting_iram()
+{
+	struct iram_t iram;
+	int ret;
+
+	if (cpu_is_mx37()) {
+		IOGetIramBase(&iram);
+		ret = get_iram_setting(iram, use_iram_table, 4);
+		if (ret != -1)
+			set_iram(iram, use_iram_table, 4);
+	}
 }
 
 /*!
@@ -290,7 +296,14 @@ int IOSystemInit(void *callback)
 int IOSystemShutdown(void)
 {
 	semaphore_wait(vpu_semap);
+
+	/*
+	 * Do not call IOFreePhyMem/IOFreePhyPicParaMem/IOFreePhyUserDataMem
+	 * to free memory, let kernel do.
+	 */
 	IOFreeVirtMem(&bit_work_addr);
+	IOFreeVirtMem(&pic_para_addr);
+	IOFreeVirtMem(&user_data_addr);
 
 	if (munmap((void *)vpu_reg_base, BIT_REG_MARGIN) != 0)
 		err_msg("munmap failed\n");
@@ -322,25 +335,22 @@ unsigned long VpuReadReg(unsigned long addr)
 
 /*!
  * @brief Allocated buffer of requested size
- * When user wants to get massive memory
- * for the system, they needs to fill the required
- * size in buff structure, and if this function
- * succeeds in allocating memory and returns 0,
- * the returned physical memory is filled in
- * phy_addr of buff structure. If the function fails
- * and return -1,  the phy_addr remains the same as before.
- * memory size is in byte.
+ * When user wants to get massive memory for the system, they needs to fill
+ * the required size in buff structure, and if this function succeeds in
+ * allocating memory and returns 0, the returned physical memory is filled in
+ * phy_addr of buff structure. If the function fails and return -1,
+ * the phy_addr remains the same as before.
  *
- * @param buff	the structure contains the memory information to be got;
+ * @param buff	the structure contains the memory information to be retrieved;
  *
  * @return
- * @li 0	          Allocation memory success.
+ * @li 0		Allocation memory success.
  * @li -1		Allocation memory failure.
  */
 static unsigned int sz_alloc;
-int IOGetPhyMem(vpu_mem_desc * buff)
+int _IOGetPhyMem(int which, vpu_mem_desc *buff)
 {
-	if (ioctl(vpu_fd, VPU_IOC_PHYMEM_ALLOC, buff) < 0) {
+	if (ioctl(vpu_fd, which, buff) < 0) {
 		err_msg("mem allocation failed!\n");
 		buff->phy_addr = 0;
 		buff->cpu_addr = 0;
@@ -351,6 +361,21 @@ int IOGetPhyMem(vpu_mem_desc * buff)
 	dprintf(3, "%s: alloc=%d, total=%d\n", __func__, buff->size, sz_alloc);
 
 	return 0;
+}
+
+int IOGetPhyMem(vpu_mem_desc * buff)
+{
+	return _IOGetPhyMem(VPU_IOC_PHYMEM_ALLOC, buff);
+}
+
+int IOGetPhyPicParaMem(vpu_mem_desc * buff)
+{
+	return _IOGetPhyMem(VPU_IOC_GET_PIC_PARA_ADDR, buff);
+}
+
+int IOGetPhyUserDataMem(vpu_mem_desc * buff)
+{
+	return _IOGetPhyMem(VPU_IOC_GET_USER_DATA_ADDR, buff);
 }
 
 /*!
@@ -365,16 +390,33 @@ int IOGetPhyMem(vpu_mem_desc * buff)
  * @li 0            Freeing memory success.
  * @li -1		Freeing memory failure.
  */
-int IOFreePhyMem(vpu_mem_desc * buff)
+int _IOFreePhyMem(int which, vpu_mem_desc * buff)
 {
 	if (buff->phy_addr != 0) {
 		dprintf(3, "%s: phy addr = %08lx\n", __func__, buff->phy_addr);
-		ioctl(vpu_fd, VPU_IOC_PHYMEM_FREE, buff);
+		ioctl(vpu_fd, which, buff);
 	}
 
-	buff->phy_addr = 0;
-	buff->cpu_addr = 0;
+	sz_alloc -= buff->size;
+	dprintf(3, "%s: total=%d\n", __func__, sz_alloc);
+	memset(buff, 0, sizeof(*buff));
+
 	return 0;
+}
+
+int IOFreePhyMem(vpu_mem_desc * buff)
+{
+	return _IOFreePhyMem(VPU_IOC_PHYMEM_FREE, buff);
+}
+
+int IOFreePhyPicParaMem(vpu_mem_desc * buff)
+{
+	return _IOFreePhyMem(VPU_IOC_GET_PIC_PARA_ADDR, buff);
+}
+
+int IOFreePhyUserDataMem(vpu_mem_desc * buff)
+{
+	return _IOFreePhyMem(VPU_IOC_GET_USER_DATA_ADDR, buff);
 }
 
 /*!
@@ -396,6 +438,7 @@ int IOGetVirtMem(vpu_mem_desc * buff)
 	}
 
 	buff->virt_uaddr = va_addr;
+	dprintf(3, "%s: virt addr = %08lx\n", __func__, buff->virt_uaddr);
 	return va_addr;
 }
 
