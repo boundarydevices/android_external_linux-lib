@@ -1534,9 +1534,13 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 	/* Clear stream end flag */
 	VpuWriteReg(BIT_BIT_STREAM_PARAM,
 		    VpuReadReg(BIT_BIT_STREAM_PARAM) & ~(1 << (instIdx + 2)));
+
+#ifdef  IMX37_3STACK
 	VpuWriteReg(BIT_FRAME_MEM_CTRL,
 			    VpuReadReg(BIT_FRAME_MEM_CTRL) |
 				(pDecInfo->openParam.chromaInterleave << (instIdx + 1)));
+#endif
+
 	UnlockVpu(vpu_semap);
 
 	return RETCODE_SUCCESS;
