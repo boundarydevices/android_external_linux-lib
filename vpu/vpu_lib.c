@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2008 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2009 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -520,6 +520,10 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 	data = (picWidth << BIT_PIC_WIDTH_OFFSET) | picHeight;
 	VpuWriteReg(CMD_ENC_SEQ_SRC_SIZE, data);
 	VpuWriteReg(CMD_ENC_SEQ_SRC_F_RATE, encOP.frameRateInfo);
+
+	if (cpu_is_mx51())
+		VpuWriteReg(BIT_FRAME_MEM_CTRL,
+			    VpuReadReg(BIT_FRAME_MEM_CTRL) | (encOP.chromaInterleave << 2));
 
 	if (encOP.bitstreamFormat == STD_MPEG4) {
 		VpuWriteReg(CMD_ENC_SEQ_COD_STD, 0);
