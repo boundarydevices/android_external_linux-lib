@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2008 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2009 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -17,6 +17,7 @@
 #define _VPU_UTIL_H_
 
 #include <sys/types.h>
+#include <pthread.h>
 
 #include "vpu_reg.h"
 #include "vpu_lib.h"

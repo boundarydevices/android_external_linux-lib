@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2008 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2009 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -45,6 +45,9 @@ static unsigned long vpu_reg_base;
 
 unsigned int system_rev;
 semaphore_t *vpu_semap;
+vpu_mem_desc bit_work_addr;
+vpu_mem_desc pic_para_addr;
+vpu_mem_desc user_data_addr;
 
 int _IOGetPhyMem(int which, vpu_mem_desc *buff);
 
@@ -150,7 +153,7 @@ int isVpuInitialized(void)
 	return val != 0;
 }
 
-static int get_system_rev()
+static int get_system_rev(void)
 {
 	FILE *fp;
 	char buf[1024];
@@ -209,11 +212,23 @@ inline unsigned long *reg_map(unsigned long offset)
 int IOSystemInit(void *callback)
 {
 	int ret;
+	char *shm_path, shm_file[256];
 
-	vpu_semap = vpu_semaphore_open("/dev/shm/vpu.shm");
+	shm_path = getenv("VPU_SHM_PATH");
+
+	if (shm_path == NULL)
+		strcpy(shm_file, "/dev/shm");	/* default path */
+	else
+		strcpy(shm_file, shm_path);
+
+	strcat(shm_file, "/");
+	strcat(shm_file, "vpu.shm");
+
+	vpu_semap = vpu_semaphore_open(shm_file);
 
 	if (vpu_semap == NULL) {
 		err_msg("Error: Unable to open vpu shared memory file\n");
+		err_msg("Please export VPU_SHM_PATH env for putting vpu shared memory file\n");
 		return -1;
 	}
 
