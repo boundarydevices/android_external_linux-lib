@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2008 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2009 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -522,12 +522,13 @@ typedef struct vpu_versioninfo {
 
 /*
  * Revision History:
- * v4.3.2 [2008.10.28] support loopback in MX51
- * v4.2.2 [2008.09.03] support encoder in MX51
+ * v4.4.3 [2009.01.19] support chromaInterleave of encoder on MX51
+ * v4.3.2 [2008.10.28] support loopback on MX51
+ * v4.2.2 [2008.09.03] support encoder on MX51
  * v4.1.2 [2008.08.22] update MX37 VPU firmware to V1.0.5
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 4, 2)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 4, 3)
 
 extern unsigned int system_rev;
 
@@ -557,7 +558,7 @@ MXC_REV(cpu_is_mx37);
 MXC_REV(cpu_is_mx51);
 
 RetCode vpu_Init(void *);
-void vpu_UnInit();
+void vpu_UnInit(void);
 RetCode vpu_GetVersionInfo(vpu_versioninfo * verinfo);
 
 RetCode vpu_EncOpen(EncHandle *, EncOpenParam *);
