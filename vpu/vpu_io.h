@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2008 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2009 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -62,10 +62,6 @@ typedef struct iram_t {
 
 
 typedef void (*vpu_callback) (int status);
-
-vpu_mem_desc bit_work_addr;
-vpu_mem_desc pic_para_addr;
-vpu_mem_desc user_data_addr;
 
 int IOSystemInit(void *callback);
 int IOSystemShutdown(void);
