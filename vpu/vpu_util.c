@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2008 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2009 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -17,7 +17,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include <pthread.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
@@ -70,6 +69,7 @@ RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 	fp = fopen(fw_name, "rb");
 	if (fp == NULL) {
 		err_msg("Error in opening firmware binary file\n");
+		err_msg("Please put bin file to /usr/lib folder or export VPU_FW_PATH env\n");
 		return RETCODE_FAILURE;
 	}
 
@@ -765,8 +765,6 @@ semaphore_t *vpu_semaphore_open(char *semaphore_name)
 		ftruncate(fd, sizeof(semaphore_t));
 		pthread_mutexattr_init(&psharedm);
 		pthread_mutexattr_setpshared(&psharedm, PTHREAD_PROCESS_SHARED);
-		pthread_condattr_init(&psharedc);
-		pthread_condattr_setpshared(&psharedc, PTHREAD_PROCESS_SHARED);
 		semap = (semaphore_t *) mmap(NULL, sizeof(semaphore_t),
 					     PROT_READ | PROT_WRITE, MAP_SHARED,
 					     fd, 0);
