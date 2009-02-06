@@ -1,5 +1,5 @@
 /*
- * Copyright 2008 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2008-2009 Freescale Semiconductor, Inc. All Rights Reserved.
  */
 
 /*
@@ -23,10 +23,6 @@
 
 #if defined(DIAG_DRV_IF)
 #include <diagnostic.h>
-#endif
-
-#if !defined(FSL_HAVE_SCC2) && defined(__KERNEL__)
-#include <asm/arch/mxc_scc_driver.h>
 #endif
 
 /* Define a semaphore to protect the keystore data */

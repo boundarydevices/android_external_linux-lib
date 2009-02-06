@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2008 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2009 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  */
 
@@ -34,7 +34,7 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
-#include <asm/arch/ipu.h>
+#include <linux/ipu.h>
 
 static int fd_ipu = -1;
 static int open_count = 0;
