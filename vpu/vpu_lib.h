@@ -256,7 +256,7 @@ typedef struct {
 	int indexFrameDecoded[2];
 	int picType;
 	int numOfErrMBs[2];
-	PhysicalAddress qpInfo;
+	Uint32 *qpInfo;
 	int hScaleFlag;
 	int vScaleFlag;
 	int prescanresult;
@@ -592,8 +592,6 @@ RetCode vpu_DecGiveCommand(DecHandle handle, CodecCommand cmd, void *parameter);
 int vpu_IsBusy(void);
 int vpu_WaitForInt(int timeout_in_ms);
 
-void SaveQpReport(PhysicalAddress qpReportAddr, int picWidth, int picHeight,
-		  int frameIdx, char *fileName);
 void SaveGetEncodeHeader(EncHandle handle, int encHeaderType, char *filename);
 
 #endif
