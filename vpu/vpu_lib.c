@@ -1040,7 +1040,7 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 	}
 
 	info->numOfSlices = VpuReadReg(RET_ENC_PIC_SLICE_NUM);
-	info->sliceInfo = virt_paraBuf + 0x1200;
+	info->sliceInfo = (Uint32 *)((Uint32)virt_paraBuf + 0x1200);
 	info->mbInfo = virt_paraBuf;
 	info->bitstreamWrapAround = VpuReadReg(RET_ENC_PIC_FLAG);
 
@@ -1048,31 +1048,31 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 	    pEncInfo->openParam.mbQpReport == 1) {
 		int widthInMB;
 		int heightInMB;
-		PhysicalAddress readPnt;
-		PhysicalAddress writePnt;
-		PhysicalAddress mbQpPnt;
+		int readPnt;
+		int writePnt;
+		Uint32 *virt_mbQpAddr;
 		int i;
 		int j;
 		Uint32 val, val1, val2;
 
-		mbQpPnt = (Uint32) virt_paraBuf + 0x1300;
+		virt_mbQpAddr = (Uint32 *)((Uint32) virt_paraBuf + 0x1300);
 		widthInMB = pEncInfo->openParam.picWidth / 16;
 		heightInMB = pEncInfo->openParam.picHeight / 16;
-		writePnt = (Uint32) virt_paraBuf - PARA_BUF2_SIZE;
+		writePnt = 0;
 		for (i = 0; i < heightInMB; ++i) {
-			readPnt = mbQpPnt + i * 128;
+			readPnt = i * 32;
 			for (j = 0; j < widthInMB; j += 4) {
-				val1 = VpuReadReg(readPnt);
-				readPnt += 4;
-				val2 = VpuReadReg(readPnt);
-				readPnt += 4;
+				val1 = virt_mbQpAddr[readPnt];
+				readPnt++;
+				val2 = virt_mbQpAddr[readPnt];
+				readPnt++;
 				val = (val1 << 8 & 0xff000000) | (val1 << 16) |
 				    (val2 >> 8) | (val2 & 0x000000ff);
-				VpuWriteReg(writePnt, val);
-				writePnt += 4;
+				virt_paraBuf2[writePnt] = val;
+				writePnt++;
 			}
 		}
-		info->mbQpInfo = virt_paraBuf - PARA_BUF2_SIZE;
+		info->mbQpInfo = virt_paraBuf2;
 	}
 
 	*ppendingInst = 0;
@@ -2578,18 +2578,18 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 				readPnt = i * 32;
 				for (j = 0; j < widthInMB; j += 4) {
 					val1 = virt_paraBuf[readPnt];
-					readPnt += 1;
+					readPnt++;
 					val2 = virt_paraBuf[readPnt];
-					readPnt += 1;
+					readPnt++;
 					val = (val1 << 8 & 0xff000000) |
 					    (val1 << 16) | (val2 >> 8) |
 					    (val2 & 0x000000ff);
 					virt_paraBuf2[writePnt] = val;
-					writePnt += 1;
+					writePnt++;
 				}
 			}
 
-			info->qpInfo = paraBuffer - PARA_BUF2_SIZE;
+			info->qpInfo = virt_paraBuf2;
 		}
 	}
 
@@ -2950,63 +2950,4 @@ void SaveGetEncodeHeader(EncHandle handle, int encHeaderType, char *filename)
 
 		free(pHeader);
 	}
-}
-
-void SaveQpReport(PhysicalAddress qpReportAddr, int picWidth, int picHeight,
-		  int frameIdx, char *fileName)
-{
-	FILE *fp;
-	int i, j;
-	int MBx, MBy, MBxof4, MBxof1, MBxx;
-	Uint32 qp;
-	Uint8 lastQp[4];
-
-	ENTER_FUNC();
-
-	if (frameIdx == 0)
-		fp = fopen(fileName, "wb");
-	else
-		fp = fopen(fileName, "a+b");
-
-	if (!fp) {
-		err_msg("Can't open %s in SaveQpReport\n", fileName);
-		return;
-	}
-
-	LockVpu(vpu_semap);
-
-	MBx = picWidth / 16;
-	MBxof1 = MBx % 4;
-	MBxof4 = MBx - MBxof1;
-	MBy = picHeight / 16;
-	MBxx = (MBx + 3) / 4 * 4;
-	for (i = 0; i < MBy; i++) {
-		for (j = 0; j < MBxof4; j = j + 4) {
-			qp = VpuReadReg(qpReportAddr + j + MBxx * i);
-			fprintf(fp, " %4d %4d %3d \n", frameIdx,
-				MBx * i + j + 0, (Uint8) (qp >> 24));
-			fprintf(fp, " %4d %4d %3d \n", frameIdx,
-				MBx * i + j + 1, (Uint8) (qp >> 16));
-			fprintf(fp, " %4d %4d %3d \n", frameIdx,
-				MBx * i + j + 2, (Uint8) (qp >> 8));
-			fprintf(fp, " %4d %4d %3d \n", frameIdx,
-				MBx * i + j + 3, (Uint8) qp);
-		}
-
-		if (MBxof1 > 0) {
-			qp = VpuReadReg(qpReportAddr + MBxx * i + MBxof4);
-			lastQp[0] = (Uint8) (qp >> 24);
-			lastQp[1] = (Uint8) (qp >> 16);
-			lastQp[2] = (Uint8) (qp >> 8);
-			lastQp[3] = (Uint8) (qp);
-		}
-
-		for (j = 0; j < MBxof1; j++) {
-			fprintf(fp, " %4d %4d %3d \n", frameIdx,
-				MBx * i + j + MBxof4, lastQp[j]);
-		}
-	}
-	UnlockVpu(vpu_semap);
-
-	fclose(fp);
 }
