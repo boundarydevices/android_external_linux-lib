@@ -75,7 +75,8 @@ typedef enum {
 	RETCODE_CALLED_BEFORE = -12,
 	RETCODE_NOT_INITIALIZED = -13,
 	RETCODE_DEBLOCKING_OUTPUT_NOT_SET = -14,
-	RETCODE_NOT_SUPPORTED = -15
+	RETCODE_NOT_SUPPORTED = -15,
+	RETCODE_REPORT_BUF_NOT_SET = -16
 } RetCode;
 
 typedef enum {
@@ -108,6 +109,13 @@ typedef enum {
 	ENC_SET_INTRA_QP,
 	ENC_SET_BITRATE,
 	ENC_SET_FRAME_RATE,
+	ENC_SET_REPORT_MBINFO,
+	ENC_SET_REPORT_MVINFO,
+	ENC_SET_REPORT_SLICEINFO,
+	DEC_SET_REPORT_BUFSTAT,
+	DEC_SET_REPORT_MBINFO,
+	DEC_SET_REPORT_MVINFO,
+	DEC_SET_REPORT_USERDATA,
 	SET_DBK_OFFSET
 } CodecCommand;
 
@@ -161,6 +169,12 @@ typedef struct {
 } DecOpenParam;
 
 typedef struct {
+	int frameBufStatBufSize;  /* Size of buffer to save Frame Buffer Status */
+	int mbInfoBufSize;        /* Size of buffer to save Mb information for Error Concealment  */
+	int mvInfoBufSize;        /* Size of buffer to save Motion vector information */
+} DecReportBufSize;
+
+typedef struct {
 	int picWidth;		// {(PicX+15)/16} * 16
 	int picHeight;		// {(PicY+15)/16} * 16
 	Uint32 frameRateInfo;
@@ -183,10 +197,12 @@ typedef struct {
 	int profile;
 	int level;
 	int interlace;
-	/*int vc1_pulldown;*/
+	int constraint_set_flag[4];
+	int direct8x8Flag;
 	int vc1_psf;
-
 	int aspectRateInfo;
+
+	DecReportBufSize reportBufSize;
 } DecInitialInfo;
 
 typedef struct {
@@ -211,70 +227,60 @@ typedef enum {
 } ExtParaType;
 
 typedef struct {
-//	PhysicalAddress picParaBaseAddr;
-
-	int frameBufStatEnable;		/* Frame Buffer Status */
-	int mbParamEnable;		/* Mb Param for Error Concealment */
-	int mvReportEnable;		/* Motion vector */
-	int userDataEnable;		/* User Data */
-//	int userDataBufSize;
-//	VirtualAddress userDataBufAddr;
-} DecExtParam;
-
-typedef struct {
 	int prescanEnable;
 	int prescanMode;
 	int dispReorderBuf;
 	int iframeSearchEnable;
 	int skipframeMode;
 	int skipframeNum;
-	int vpuCountEnable;
 	int chunkSize;
 	int picStartByteOffset;
 	PhysicalAddress picStreamBufferAddr;
-
-	DecExtParam extParam;
 } DecParam;
 
-typedef struct {
-	int frameBufDataSize;			/* Frame Buffer Status */
-	VirtualAddress frameBufStatDataAddr;
-
-	int mbParamDataSize;			/* Mb Param for Error Concealment */
-	VirtualAddress mbParamDataAddr;
-
-	int mvDataSize;				/* Motion vector */
-	int mvNumPerMb;
-	VirtualAddress mvDataAddr;
-
-	int userDataNum;			/* User Data */
-	int userDataSize;
-} DecoderOutputExtParam;
+typedef	struct {
+	int enable;
+	int size;
+	union {
+	    int mvNumPerMb;
+	    int userDataNum;
+	};
+	union {
+	    int reserved;
+	    int userDataBufFull;
+	};
+	Uint8 *addr;
+} DecReportInfo;
 
 typedef struct {
 	int indexFrameDisplay;
-	int indexFrameDecoded[2];
+	int indexFrameDecoded;
 	int picType;
-	int numOfErrMBs[2];
+	int numOfErrMBs;
 	Uint32 *qpInfo;
 	int hScaleFlag;
 	int vScaleFlag;
 	int prescanresult;
-	int indexFrameNextDecoded[3];
 	int notSufficientPsBuffer;
 	int notSufficientSliceBuffer;
 	int decodingSuccess;
 	int interlacedFrame;
 	int mp4PackedPBframe;
-	int mp4PackedMode;
 
 	int pictureStructure;
 	int topFieldFirst;
 	int repeatFirstField;
-	int progressiveFrame;
+	union {
+	    int progressiveFrame;
+	    int vc1_repeatFrame;
+	};
 	int fieldSequence;
 
-	DecoderOutputExtParam outputExtData;
+	DecReportInfo mbInfo;
+	DecReportInfo mvInfo;
+	DecReportInfo frameBufStat;
+	DecReportInfo userData;
+
 } DecOutputInfo;
 
 typedef struct {
@@ -343,6 +349,7 @@ typedef struct {
 	int sliceReport;
 	int mbReport;
 	int mbQpReport;
+
 	int rcIntraQp;
 	int chromaInterleave;
 	int dynamicAllocEnable;
@@ -357,7 +364,14 @@ typedef struct {
 } EncOpenParam;
 
 typedef struct {
+        int sliceInfoBufSize;                 /* Slice Info */
+        int mbInfoBufSize;               /* Mb Param for Error Concealment */
+        int mvInfoBufSize;                /* Motion vector */
+} EncReportBufSize;
+
+typedef struct {
 	int minFrameBufferCount;
+	EncReportBufSize reportBufSize;
 } EncInitialInfo;
 
 typedef struct {
@@ -365,13 +379,16 @@ typedef struct {
 	int forceIPicture;
 	int skipPicture;
 	int quantParam;
-	int vpuCountEnable;
 	PhysicalAddress picStreamBufferAddr;
 	int picStreamBufferSize;
-	int intraRefresh;
-	int hecEnable;
-	EncSliceMode slicemode;
 } EncParam;
+
+typedef	struct {
+	int	enable;
+	int	type;
+	int	size;
+	Uint8   *addr;
+} EncReportInfo;
 
 typedef struct {
 	PhysicalAddress bitstreamBuffer;
@@ -379,9 +396,13 @@ typedef struct {
 	int bitstreamWrapAround;
 	int picType;
 	int numOfSlices;
-	Uint32 *sliceInfo;
-	Uint32 *mbInfo;
-	Uint32 *mbQpInfo;
+	Uint32 *pSliceInfo;
+	Uint32 *pMBInfo;
+	Uint32 *pMBQpInfo;
+
+	EncReportInfo mbInfo;
+	EncReportInfo mvInfo;
+	EncReportInfo sliceInfo;
 } EncOutputInfo;
 
 typedef struct {
@@ -418,85 +439,6 @@ typedef struct {
 	Uint32 framerate;
 } stChangeRcPara;
 
-typedef struct {
-	EncOpenParam openParam;
-	EncInitialInfo initialInfo;
-
-	PhysicalAddress streamRdPtr;
-	PhysicalAddress streamRdPtrRegAddr;
-	PhysicalAddress streamWrPtrRegAddr;
-	PhysicalAddress streamBufStartAddr;
-	PhysicalAddress streamBufEndAddr;
-	int streamBufSize;
-
-	FrameBuffer *frameBufPool;
-	int numFrameBuffers;
-	int stride;
-
-	int rotationEnable;
-	int mirrorEnable;
-	MirrorDirection mirrorDirection;
-	int rotationAngle;
-
-	int initialInfoObtained;
-	int vpuCountEnable;
-	int dynamicAllocEnable;
-	int ringBufferEnable;
-} EncInfo;
-
-typedef struct {
-	DecOpenParam openParam;
-	DecInitialInfo initialInfo;
-
-	PhysicalAddress streamWrPtr;
-	PhysicalAddress streamRdPtrRegAddr;
-	PhysicalAddress streamWrPtrRegAddr;
-	PhysicalAddress streamBufStartAddr;
-	PhysicalAddress streamBufEndAddr;
-	PhysicalAddress frameDisplayFlagRegAddr;
-	int streamBufSize;
-
-	FrameBuffer *frameBufPool;
-	int numFrameBuffers;
-	FrameBuffer *recFrame;
-	int stride;
-
-	int rotationEnable;
-	int deringEnable;
-	int mirrorEnable;
-	MirrorDirection mirrorDirection;
-	int rotationAngle;
-	FrameBuffer rotatorOutput;
-	int rotatorStride;
-	int rotatorOutputValid;
-	int initialInfoObtained;
-
-	FrameBuffer deBlockingFilterOutput;
-	int deBlockingFilterOutputValid;
-
-	int vpuCountEnable;
-	int filePlayEnable;
-	int picSrcSize;
-	int dynamicAllocEnable;
-	int vc1BframeDisplayValid;
-
-	DbkOffset dbkOffset;
-} DecInfo;
-
-typedef struct CodecInst {
-	int instIndex;
-	int inUse;
-	int codecMode;
-	union {
-		EncInfo encInfo;
-		DecInfo decInfo;
-	} CodecInfo;
-	union {
-		EncParam encParam;
-		DecParam decParam;
-	} CodecParam;
-} CodecInst;
-
 /*
  * The firmware version is retrieved from bitcode table.
  *
@@ -522,13 +464,14 @@ typedef struct vpu_versioninfo {
 
 /*
  * Revision History:
+ * v4.4.4 [2009.02.27] support data report and change VPU APIs
  * v4.4.3 [2009.01.19] support chromaInterleave of encoder on MX51
  * v4.3.2 [2008.10.28] support loopback on MX51
  * v4.2.2 [2008.09.03] support encoder on MX51
  * v4.1.2 [2008.08.22] update MX37 VPU firmware to V1.0.5
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 4, 3)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 4, 4)
 
 extern unsigned int system_rev;
 
