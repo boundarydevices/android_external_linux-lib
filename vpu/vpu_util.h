@@ -26,6 +26,21 @@
 #define MAX_FW_BINARY_LEN		100000
 #define MAX_NUM_INSTANCE		4
 
+#define SIZE_PIC_PARA_BASE_BUF          0x100
+#define SIZE_MV_DATA                    0x20000
+#define SIZE_MB_DATA                    0x4000
+#define SIZE_FRAME_BUF_STAT             0x100
+#define SIZE_SLICE_INFO                 0x100
+#define USER_DATA_INFO_OFFSET           8*17
+
+#define ADDR_PIC_PARA_BASE_OFFSET       0
+#define ADDR_MV_BASE_OFFSET             ADDR_PIC_PARA_BASE_OFFSET + SIZE_PIC_PARA_BASE_BUF
+#define ADDR_MB_BASE_OFFSET             ADDR_MV_BASE_OFFSET + SIZE_MV_DATA
+#define ADDR_FRAME_BUF_STAT_BASE_OFFSET ADDR_MB_BASE_OFFSET + SIZE_MB_DATA
+#define ADDR_SLICE_BASE_OFFSET          ADDR_MB_BASE_OFFSET + SIZE_MB_DATA
+#define ENC_ADDR_END_OF_RPT_BUF         ADDR_FRAME_BUF_STAT_BASE_OFFSET + SIZE_SLICE_INFO
+#define DEC_ADDR_END_OF_RPT_BUF         ADDR_FRAME_BUF_STAT_BASE_OFFSET + SIZE_FRAME_BUF_STAT
+
 #if defined(IMX37_3STACK)
 enum {
 	AVC_DEC = 0,
@@ -81,6 +96,98 @@ enum {
 	RC_CHANGE_PARAMETER = 9,
 	FIRMWARE_GET = 0xf
 };
+
+typedef struct {
+	EncOpenParam openParam;
+	EncInitialInfo initialInfo;
+
+	PhysicalAddress streamRdPtr;
+	PhysicalAddress streamRdPtrRegAddr;
+	PhysicalAddress streamWrPtrRegAddr;
+	PhysicalAddress streamBufStartAddr;
+	PhysicalAddress streamBufEndAddr;
+	int streamBufSize;
+
+	FrameBuffer *frameBufPool;
+	int numFrameBuffers;
+	int stride;
+
+	int rotationEnable;
+	int mirrorEnable;
+	MirrorDirection mirrorDirection;
+	int rotationAngle;
+
+	int initialInfoObtained;
+	int dynamicAllocEnable;
+	int ringBufferEnable;
+
+	EncReportInfo encReportMBInfo;
+	EncReportInfo encReportMVInfo;
+	EncReportInfo encReportSliceInfo;
+
+	vpu_mem_desc picParaBaseMem;
+
+} EncInfo;
+
+typedef struct {
+	DecOpenParam openParam;
+	DecInitialInfo initialInfo;
+
+	PhysicalAddress streamWrPtr;
+	PhysicalAddress streamRdPtrRegAddr;
+	PhysicalAddress streamWrPtrRegAddr;
+	PhysicalAddress streamBufStartAddr;
+	PhysicalAddress streamBufEndAddr;
+	PhysicalAddress frameDisplayFlagRegAddr;
+	int streamBufSize;
+
+	FrameBuffer *frameBufPool;
+	int numFrameBuffers;
+	FrameBuffer *recFrame;
+	int stride;
+
+	int rotationEnable;
+	int deringEnable;
+	int mirrorEnable;
+	MirrorDirection mirrorDirection;
+	int rotationAngle;
+	FrameBuffer rotatorOutput;
+	int rotatorStride;
+	int rotatorOutputValid;
+	int initialInfoObtained;
+
+	FrameBuffer deBlockingFilterOutput;
+	int deBlockingFilterOutputValid;
+
+	int filePlayEnable;
+	int picSrcSize;
+	int dynamicAllocEnable;
+	int vc1BframeDisplayValid;
+
+	DbkOffset dbkOffset;
+
+	vpu_mem_desc picParaBaseMem;
+	vpu_mem_desc userDataBufMem;
+
+	DecReportInfo decReportFrameBufStat; /* Frame Buffer Status */
+	DecReportInfo decReportMBInfo;      /* Mb Param for Error Concealment */
+	DecReportInfo decReportMVInfo;     /* Motion vector */
+	DecReportInfo decReportUserData;
+} DecInfo;
+
+typedef struct CodecInst {
+	int instIndex;
+	int inUse;
+	int codecMode;
+	union {
+		EncInfo encInfo;
+		DecInfo decInfo;
+	} CodecInfo;
+	union {
+		EncParam encParam;
+		DecParam decParam;
+	} CodecParam;
+} CodecInst;
 
 typedef struct {
 	pthread_mutex_t lock;
