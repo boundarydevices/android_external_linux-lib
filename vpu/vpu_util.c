@@ -26,7 +26,7 @@
 #include "vpu_io.h"
 #include "vpu_debug.h"
 
-#define TIMEOUT  6		/* condition timeout is 6s */
+#define TIMEOUT  10		/* condition timeout is 10s */
 
 /*
  * VPU binary file header format:
@@ -294,13 +294,14 @@ RetCode CheckEncOpenParam(EncOpenParam * pop)
 			return RETCODE_INVALID_PARAM;
 		}
 	}
-	if (pop->sliceReport != 0 && pop->sliceReport != 1) {
-		return RETCODE_INVALID_PARAM;
+	if (cpu_is_mx27()) {
+		if (pop->sliceReport != 0 && pop->sliceReport != 1) {
+			return RETCODE_INVALID_PARAM;
+		}
+		if (pop->mbReport != 0 && pop->mbReport != 1) {
+			return RETCODE_INVALID_PARAM;
+		}
 	}
-	if (pop->mbReport != 0 && pop->mbReport != 1) {
-		return RETCODE_INVALID_PARAM;
-	}
-
 	if (pop->intraRefresh < 0 || pop->intraRefresh >=
 	    (picWidth * picHeight / 256)) {
 		return RETCODE_INVALID_PARAM;
