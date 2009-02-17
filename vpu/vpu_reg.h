@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2008 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2009 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -67,6 +67,12 @@
 #define BIT_FRM_DIS_FLG_2               0x158
 #define BIT_FRM_DIS_FLG_3               0x15C
 
+#define BIT_AXI_SRAM_BIT_ADDR		0x190
+#define BIT_AXI_SRAM_IPACDC_ADDR	0x194
+#define BIT_AXI_SRAM_DBKY_ADDR		0x198
+#define BIT_AXI_SRAM_DBKC_ADDR		0x19C
+#define BIT_AXI_SRAM_OVL_ADDR		0x1A0
+
 #else
 #define	BIT_AXI_SRAM_USE		0x178
 #define BIT_SEARCH_RAM_BASE_ADDR	0x140
@@ -126,6 +132,7 @@
 #define RET_DEC_SEQ_CROP_TOP_BOTTOM	0x1DC
 #define	RET_DEC_SEQ_JPG_PARA		0x1E4
 #define RET_DEC_SEQ_JPG_THUMB_IND	0x1E8
+#define RET_DEC_SEQ_HEADER_REPORT	0x1EC
 
 #ifdef	IMX37_3STACK
 #define RET_DEC_SEQ_NEXT_FRAME_NUM	0x1BC
@@ -232,11 +239,7 @@
 #endif
 
 #define RET_DEC_PIC_CUR_IDX		0x1DC
-#ifdef	IMX37_3STACK
-#define RET_DEC_PIC_NEXT_IDX		0x1BC
-#else
-#define RET_DEC_PIC_NEXT_IDX		0x1E0
-#endif
+#define RET_DEC_PIC_HEADER_REPORT	0x1E4
 
 /*---------------------------------------------------------------------------
  * [ENC PIC RUN] COMMAND
@@ -249,6 +252,7 @@
 #define CMD_ENC_PIC_OPTION		0x194
 #define CMD_ENC_PIC_BB_START		0x198
 #define CMD_ENC_PIC_BB_SIZE		0x19C
+#define CMD_ENC_PIC_PARA_BASE_ADDR	0x1A0
 
 #define RET_ENC_PIC_FRAME_NUM		0x1C0
 #define RET_ENC_PIC_TYPE		0x1C4
@@ -309,7 +313,7 @@
 	#define PARA_BUF2_SIZE			(0) /* Not used */
 	#define PARA_BUF_SIZE			(10 * 1024)
 #elif defined(IMX51_3STACK)
-        #define CODE_BUF_SIZE			( 132 * 1024 )
+        #define CODE_BUF_SIZE			( 136 * 1024 )
         #define FMO_SLICE_SAVE_BUF_SIZE	        ( 32 )
         #define WORK_BUF_SIZE			( 512 * 1024 ) + ( FMO_SLICE_SAVE_BUF_SIZE * 1024 * 8 )
         #define PARA_BUF2_SIZE			( 2 * 1024 )
