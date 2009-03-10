@@ -13,9 +13,9 @@
  */
 
 /*!
- * @file mxc_ipu_lib.c
+ * @file mxc_ipu_lib_basic.c
  *
- * @brief IPU library implementation
+ * @brief IPU basic library implementation
  *
  * @ingroup IPU
  */
@@ -29,6 +29,7 @@
 #include <math.h>
 #include <string.h>
 #include <malloc.h>
+#include <pthread.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -167,7 +168,10 @@ uint32_t bytes_per_pixel(uint32_t fmt)
 		case IPU_PIX_FMT_GENERIC:       /*generic data */
 		case IPU_PIX_FMT_RGB332:
 		case IPU_PIX_FMT_YUV420P:
+		case IPU_PIX_FMT_YUV420P2:
 		case IPU_PIX_FMT_YUV422P:
+		case IPU_PIX_FMT_YVU422P:
+		case IPU_PIX_FMT_NV12:
 			return 1;
 			break;
 		case IPU_PIX_FMT_RGB565:
@@ -177,11 +181,14 @@ uint32_t bytes_per_pixel(uint32_t fmt)
 			break;
 		case IPU_PIX_FMT_BGR24:
 		case IPU_PIX_FMT_RGB24:
+		case IPU_PIX_FMT_YUV444:
 			return 3;
 			break;
 		case IPU_PIX_FMT_GENERIC_32:    /*generic data */
 		case IPU_PIX_FMT_BGR32:
 		case IPU_PIX_FMT_RGB32:
+		case IPU_PIX_FMT_RGBA32:
+		case IPU_PIX_FMT_BGRA32:
 		case IPU_PIX_FMT_ABGR32:
 			return 4;
 			break;
@@ -204,6 +211,7 @@ int ipu_open()
 		}
 	}
 	open_count++;
+
 	return fd_ipu;
 }
 
@@ -231,3 +239,7 @@ int ipu_get_interrupt_event(ipu_event_info *ev)
 	return ioctl(fd_ipu,IPU_GET_EVENT,ev);
 }
 
+int ipu_is_channel_busy(ipu_channel_t chan)
+{
+	return ioctl(fd_ipu,IPU_IS_CHAN_BUSY,&chan);
+}
