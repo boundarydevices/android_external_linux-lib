@@ -40,16 +40,6 @@
 #define STREAM_ENDIAN			0
 #endif
 
-/* Stolen from linux/include/linux/byteorder/swab.h */
-#define swab32(x) \
-	((Uint32)( \
-		(((Uint32)(x) & (Uint32)0x000000ffUL) << 24) | \
-		(((Uint32)(x) & (Uint32)0x0000ff00UL) <<  8) | \
-		(((Uint32)(x) & (Uint32)0x00ff0000UL) >>  8) | \
-		(((Uint32)(x) & (Uint32)0xff000000UL) >> 24) ))
-
-#define ARRAY_SIZE(x)	(sizeof(x) / sizeof((x)[0]))
-
 static PhysicalAddress rdPtrRegAddr[] = {
 	BIT_RD_PTR_0,
 	BIT_RD_PTR_1,
@@ -74,6 +64,7 @@ static PhysicalAddress disFlagRegAddr[] = {
 /* If a frame is started, pendingInst is set to the proper instance. */
 static CodecInst **ppendingInst;
 
+Uint32 virt_codeBuf;
 unsigned long *virt_paraBuf;
 unsigned long *virt_paraBuf2;
 
@@ -121,9 +112,8 @@ int vpu_WaitForInt(int timeout_in_ms)
  */
 RetCode vpu_Init(void *cb)
 {
-	int i, size, err;
+	int i, err;
 	volatile Uint32 data;
-	Uint32 virt_codeBuf;
 	CodecInst *pCodecInst;
 	Uint16 *bit_code = NULL;
 	PhysicalAddress workBuffer, codeBuffer, paraBuffer;
@@ -151,35 +141,10 @@ RetCode vpu_Init(void *cb)
 
 	if (!isVpuInitialized()) {
 		bit_code = malloc(MAX_FW_BINARY_LEN * sizeof(Uint16));
-		if (bit_code == NULL) {
-			err_msg("Failed to allocate bit_code\n");
-			return RETCODE_FAILURE;
-		}
-		memset(bit_code, 0, MAX_FW_BINARY_LEN * sizeof(Uint16));
-		if (LoadBitCodeTable(bit_code, &size) != RETCODE_SUCCESS) {
+		if (DownloadBitCodeTable((unsigned long *)virt_codeBuf,
+				bit_code) != RETCODE_SUCCESS) {
 			free(bit_code);
 			return RETCODE_FAILURE;
-		}
-
-		/* Copy full Microcode to Code Buffer allocated on SDRAM */
-		if (cpu_is_mx51()) {
-			for (i = 0; i < size; i += 4) {
-				data =
-				    (bit_code[i + 0] << 16) | bit_code[i + 1];
-				((unsigned int *)virt_codeBuf)[i / 2 + 1] =
-				    data;
-				data =
-				    (bit_code[i + 2] << 16) | bit_code[i + 3];
-				((unsigned int *)virt_codeBuf)[i / 2] = data;
-			}
-		} else {
-			for (i = 0; i < size; i += 2) {
-				data = (unsigned int)((bit_code[i] << 16) |
-						      bit_code[i + 1]);
-				if (cpu_is_mx37())
-					data = swab32(data);
-				((unsigned int *)virt_codeBuf)[i / 2] = data;
-			}
 		}
 
 		IOClkGateSet(true);
@@ -1116,8 +1081,9 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 	}
 
 	if (pEncInfo->encReportMBInfo.enable) {
-		int size = 0, i = 0;
-		Uint32 tempBuf[2], val = 0, address = 0, *dst_addr = NULL, *src_addr = NULL;
+		int size = 0;
+		Uint32 tempBuf[2], val = 0, address = 0;
+		Uint8 *dst_addr = NULL, *src_addr = NULL;
 		Uint32 virt_addr = pEncInfo->picParaBaseMem.virt_uaddr;
 
 		memcpy((char *)tempBuf, (void *)virt_addr, 8);
@@ -1128,19 +1094,16 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 		info->mbInfo.addr = pEncInfo->encReportMBInfo.addr;
 		if (info->mbInfo.addr && info->mbInfo.size) {
 			size = (info->mbInfo.size + 7) / 8 * 8;
-			dst_addr = (Uint32 *)info->mbInfo.addr;
-			src_addr = (Uint32 *)(virt_addr + ADDR_MB_BASE_OFFSET);
-			for (i = 0; i < size / 2; i += 2) {
-				/* swab odd and even words for mx51 */
-				*(dst_addr + i * 2) = *(src_addr + i * 2 + 1);
-				*(dst_addr + i * 2 + 1) = *(src_addr + i * 2);
-			}
+			dst_addr = (Uint8 *)info->mbInfo.addr;
+			src_addr = (Uint8 *)(virt_addr + ADDR_MB_BASE_OFFSET);
+			CopyBufferData(dst_addr, src_addr, size);
 		}
 	}
 
 	if (pEncInfo->encReportMVInfo.enable) {
-		int size = 0, i = 0;
-		Uint32 tempBuf[2], val = 0, address = 0, *dst_addr = NULL, *src_addr = NULL;
+		int size = 0;
+		Uint32 tempBuf[2], val = 0, address = 0;
+		Uint8 *dst_addr = NULL, *src_addr = NULL;
 		Uint32 virt_addr = pEncInfo->picParaBaseMem.virt_uaddr;
 
 		memcpy((char *)tempBuf, (void *)virt_addr + 8, 8);
@@ -1152,19 +1115,16 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 		info->mvInfo.addr = pEncInfo->encReportMVInfo.addr;
 		if (info->mvInfo.addr && info->mvInfo.size) {
 			size = (info->mvInfo.size + 7) / 8 * 8;
-			dst_addr = (Uint32 *)info->mvInfo.addr;
-			src_addr = (Uint32 *)(virt_addr + ADDR_MB_BASE_OFFSET);
-			for (i = 0; i < size / 2; i += 2) {
-				/* swab odd and even words for mx51 */
-				*(dst_addr + i * 2) = *(src_addr + i * 2 + 1);
-				*(dst_addr + i * 2 + 1) = *(src_addr + i * 2);
-			}
+			dst_addr = (Uint8 *)info->mvInfo.addr;
+			src_addr = (Uint8 *)(virt_addr + ADDR_MB_BASE_OFFSET);
+			CopyBufferData(dst_addr, src_addr, size);
 		}
 	}
 
 	if (pEncInfo->encReportSliceInfo.enable) {
-		int size = 0, i = 0;
-		Uint32 tempBuf[2], val = 0, address = 0, *dst_addr = NULL, *src_addr = NULL;
+		int size = 0;
+		Uint32 tempBuf[2], val = 0, address = 0;
+		Uint8 *dst_addr = NULL, *src_addr = NULL;
 		Uint32 virt_addr = pEncInfo->picParaBaseMem.virt_uaddr;
 
 		memcpy((char *)tempBuf, (void *)virt_addr + 16, 8);
@@ -1176,13 +1136,9 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 		info->sliceInfo.addr = pEncInfo->encReportMBInfo.addr;
 		if (info->sliceInfo.addr && info->sliceInfo.size) {
 			size = (info->sliceInfo.size + 7) / 8 * 8;
-			dst_addr = (Uint32 *)info->sliceInfo.addr;
-			src_addr = (Uint32 *)(virt_addr + ADDR_SLICE_BASE_OFFSET);
-			for (i = 0; i < size / 2; i += 2) {
-				/* swab odd and even words for mx51 */
-				*(dst_addr + i * 2) = *(src_addr + i * 2 + 1);
-				*(dst_addr + i * 2 + 1) = *(src_addr + i * 2);
-			}
+			dst_addr = (Uint8 *)info->sliceInfo.addr;
+			src_addr = (Uint8 *)(virt_addr + ADDR_SLICE_BASE_OFFSET);
+			CopyBufferData(dst_addr, src_addr, size);
 		}
 	}
 
@@ -2395,6 +2351,24 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 					*(virt_addr + 5) = 0;
 				}
 			}
+			if (cpu_is_mx37()) {
+				Uint32 *virt_addr, phy_addr;
+
+				virt_addr = (Uint32 *)pDecInfo->picParaBaseMem.virt_uaddr;
+				phy_addr = pDecInfo->picParaBaseMem.phy_addr;
+				/* Set frameStat buffer address */
+				if (pDecInfo->decReportFrameBufStat.enable) {
+					*(virt_addr + 1) = swab32(phy_addr + ADDR_FRAME_BUF_STAT_BASE_OFFSET);
+				}
+				/* Set mbParam buffer address */
+				if (pDecInfo->decReportMBInfo.enable) {
+					*(virt_addr + 3) = swab32(phy_addr + ADDR_MB_BASE_OFFSET);
+				}
+				/* Set mvParam buffer address */
+				if (pDecInfo->decReportMVInfo.enable) {
+					*(virt_addr + 5) = swab32(phy_addr + ADDR_MV_BASE_OFFSET);
+				}
+			}
 		}
 	}
 
@@ -2579,7 +2553,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	}
 
 	if (pDecInfo->decReportFrameBufStat.enable) {
-		int size = 0, paraInfo = 0, address = 0, i = 0;
+		int size = 0, paraInfo = 0, address = 0;
 		Uint32 tempBuf[2], virt_addr;
 
 		virt_addr = pDecInfo->picParaBaseMem.virt_uaddr;
@@ -2600,29 +2574,19 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 			info->frameBufStat.size = size;
 			info->frameBufStat.addr = pDecInfo->decReportFrameBufStat.addr;
 			size = (size + 7) / 8 * 8;
-			if (info->frameBufStat.size && pDecInfo->decReportFrameBufStat.addr) {
-				if (cpu_is_mx37()) {
-					memcpy(pDecInfo->decReportFrameBufStat.addr,
-						(void *)(address + (bit_work_addr.virt_uaddr -
-						 bit_work_addr.phy_addr)), size);
-				} else {
-					Uint32 *dst_addr, *src_addr;
-					dst_addr = (Uint32 *)pDecInfo->decReportFrameBufStat.addr;
-					src_addr = (Uint32 *)(virt_addr +
-							 ADDR_FRAME_BUF_STAT_BASE_OFFSET);
-					for (i = 0; i < size / 2; i += 2) {
-						/* swab odd and even words for mx51 */
-						*(dst_addr + i * 2) = *(src_addr + i * 2 + 1);
-						*(dst_addr + i * 2 + 1) = *(src_addr + i * 2);
-					}
-				}
+			if (info->frameBufStat.size && info->frameBufStat.addr) {
+				Uint8 *dst_addr, *src_addr;
+				dst_addr = (Uint8 *)info->frameBufStat.addr;
+				src_addr = (Uint8 *)(virt_addr +
+					 ADDR_FRAME_BUF_STAT_BASE_OFFSET);
+				CopyBufferData(dst_addr, src_addr, size);
 			}
 		}
 	}
 
 	/* Mb Param */
 	if (pDecInfo->decReportMBInfo.enable) {
-		int size = 0, paraInfo = 0, address = 0, i = 0;
+		int size = 0, paraInfo = 0, address = 0;
 		Uint32 tempBuf[2], virt_addr;
 
 		virt_addr = pDecInfo->picParaBaseMem.virt_uaddr;
@@ -2644,28 +2608,24 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 			info->mbInfo.size = size;
 			info->mbInfo.addr = pDecInfo->decReportMBInfo.addr;
 			size = (size + 7) / 8 * 8;
-			if (info->mbInfo.size && pDecInfo->decReportMBInfo.addr) {
-				if (cpu_is_mx37()) {
-					memcpy(pDecInfo->decReportMBInfo.addr,
-						(void *)(address + (bit_work_addr.virt_uaddr -
-							 bit_work_addr.phy_addr)), size);
-				} else {
-					Uint32 *dst_addr, *src_addr;
-					dst_addr = (Uint32 *)pDecInfo->decReportMBInfo.addr;
-					src_addr = (Uint32 *)(virt_addr + ADDR_MB_BASE_OFFSET);
-					for (i = 0; i < size / 2; i += 2) {
-						/* swab odd and even words for mx51 */
-						*(dst_addr + i * 2) = *(src_addr + i * 2 + 1);
-						*(dst_addr + i * 2 + 1) = *(src_addr + i * 2);
-					}
-				}
+			if (info->mbInfo.size && info->mbInfo.addr) {
+				Uint8 *dst_addr, *src_addr;
+				dst_addr = (Uint8 *)info->mbInfo.addr;
+				src_addr = (Uint8 *)(virt_addr +
+						ADDR_MB_BASE_OFFSET);
+				CopyBufferData(dst_addr, src_addr, size);
 			}
+		} else {
+			/* VPU does not write data */
+			info->mbInfo.size = 0;
+			info->mbInfo.addr = 0;
 		}
+
 	}
 
 	/* Motion Vector */
 	if (pDecInfo->decReportMVInfo.enable) {
-		int size = 0, paraInfo = 0, address = 0, mvNumPerMb = 0, i = 0;
+		int size = 0, paraInfo = 0, address = 0, mvNumPerMb = 0;
 		Uint32 tempBuf[2], virt_addr;
 
 		virt_addr = pDecInfo->picParaBaseMem.virt_uaddr;
@@ -2683,33 +2643,29 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		size		= (val >>  0) & 0xFFFF;
 		info->mvInfo.enable = 1;
 		if (paraInfo == PARA_TYPE_MV) {
-			size = (size + 7) / 8 * 8 * mvNumPerMb * 4;
 
 			info->mvInfo.size = size;
 			info->mvInfo.mvNumPerMb = mvNumPerMb;
 			info->mvInfo.addr = pDecInfo->decReportMVInfo.addr;
-			if (info->mvInfo.size && pDecInfo->decReportMVInfo.addr) {
-				if (cpu_is_mx37()) {
-					memcpy(pDecInfo->decReportMVInfo.addr,
-						(void *)(address + (bit_work_addr.virt_uaddr -
-							 bit_work_addr.phy_addr)), size);
-				} else {
-					Uint32 *dst_addr, *src_addr;
-					dst_addr = (Uint32 *)pDecInfo->decReportMVInfo.addr;
-					src_addr = (Uint32 *)(virt_addr + ADDR_MV_BASE_OFFSET);
-					for (i = 0; i < size / 2; i += 2) {
-						/* swab odd and even words for mx51 */
-						*(dst_addr + i * 2) = *(src_addr + i * 2 + 1);
-						*(dst_addr + i * 2 + 1) = *(src_addr + i * 2);
-					}
-				}
+			if (info->mvInfo.size && info->mvInfo.addr) {
+				Uint8 *dst_addr, *src_addr;
+				dst_addr = (Uint8 *)info->mvInfo.addr;
+				src_addr = (Uint8 *)(virt_addr +
+						ADDR_MV_BASE_OFFSET);
+				size = (size + 7) / 8 * 8 * mvNumPerMb * 4;
+				CopyBufferData(dst_addr, src_addr, size);
 			}
+
+		} else {
+			/* VPU does not write data */
+			info->mvInfo.mvNumPerMb = 0;
+			info->mvInfo.addr = 0;
 		}
 	}
 
 	/* User Data */
 	if (pDecInfo->decReportUserData.enable) {
-		int userDataNum = 0, userDataSize = 0, i = 0;
+		int userDataNum = 0, userDataSize = 0;
 		Uint32 tempBuf[2], virt_addr;
 
 		virt_addr = pDecInfo->userDataBufMem.virt_uaddr;
@@ -2734,19 +2690,10 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		info->userData.enable = 1;
 		if (userDataSize && pDecInfo->decReportUserData.addr) {
 			int size = (userDataSize + 7) / 8 * 8 + USER_DATA_INFO_OFFSET;
-			if (cpu_is_mx37()) {
-				memcpy(pDecInfo->decReportUserData.addr,
-					(void *)virt_addr, size);
-			} else {
-				Uint32 *dst_addr, *src_addr;
-				dst_addr = (Uint32 *)pDecInfo->decReportUserData.addr;
-				src_addr = (Uint32 *)virt_addr;
-				for (i = 0; i < size / 2; i += 2) {
-					/* swab odd and even words for mx51 */
-					*(dst_addr + i * 2) = *(src_addr + i * 2 + 1);
-					*(dst_addr + i * 2 + 1) = *(src_addr + i * 2);
-				}
-			}
+			Uint8 *dst_addr, *src_addr;
+			dst_addr = (Uint8 *)pDecInfo->decReportUserData.addr;
+			src_addr = (Uint8 *)virt_addr;
+			CopyBufferData(dst_addr, src_addr, size);
 		}
 	}
 
