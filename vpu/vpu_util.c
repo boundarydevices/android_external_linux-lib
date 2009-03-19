@@ -103,6 +103,47 @@ RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 	return RETCODE_FAILURE;
 }
 
+RetCode DownloadBitCodeTable(unsigned long *virtCodeBuf, Uint16 *bit_code)
+{
+	int i, size;
+	volatile Uint32 data;
+	unsigned long *virt_codeBuf = NULL;
+
+	if (virtCodeBuf == NULL || bit_code == NULL) {
+		err_msg("Failed to allocate bit_code\n");
+		return RETCODE_FAILURE;
+	}
+
+	memset(bit_code, 0, MAX_FW_BINARY_LEN * sizeof(Uint16));
+	if (LoadBitCodeTable(bit_code, &size) != RETCODE_SUCCESS) {
+		return RETCODE_FAILURE;
+	}
+
+	virt_codeBuf = virtCodeBuf;
+	/* Copy full Microcode to Code Buffer allocated on SDRAM */
+	if (cpu_is_mx51()) {
+		for (i = 0; i < size; i += 4) {
+			data =
+			    (bit_code[i + 0] << 16) | bit_code[i + 1];
+			((unsigned int *)virt_codeBuf)[i / 2 + 1] =
+			    data;
+			data =
+			    (bit_code[i + 2] << 16) | bit_code[i + 3];
+			((unsigned int *)virt_codeBuf)[i / 2] = data;
+		}
+	} else {
+		for (i = 0; i < size; i += 2) {
+			data = (unsigned int)((bit_code[i] << 16) |
+					      bit_code[i + 1]);
+			if (cpu_is_mx37())
+				data = swab32(data);
+			((unsigned int *)virt_codeBuf)[i / 2] = data;
+		}
+	}
+
+	return RETCODE_SUCCESS;
+}
+
 /*
  * GetCodecInstance() obtains an instance.
  * It stores a pointer to the allocated instance in *ppInst
@@ -539,6 +580,24 @@ int DecBitstreamBufEmpty(DecInfo * pDecInfo)
 	IOClkGateSet(false);
 
 	return rdPtr == wrPtr;
+}
+
+RetCode CopyBufferData(Uint8 *dst, Uint8 *src, int size)
+{
+	if (!dst || !src || !size)
+		return RETCODE_FAILURE;
+
+	if (cpu_is_mx37())
+		memcpy(dst, src, size);
+	else if (cpu_is_mx51()) {
+		int i;
+		for (i = 0; i < size / 8; i += 2) {
+			/* swab odd and even words for mx51 */
+			*((Uint32 *)dst + i * 2) = *((Uint32 *)src + i * 2 + 1);
+			*((Uint32 *)dst + i * 2 + 1) = *((Uint32 *)src + i * 2);
+		}
+	}
+	return RETCODE_SUCCESS;
 }
 
 void GetParaSet(EncHandle handle, int paraSetType, EncParamSet * para)
