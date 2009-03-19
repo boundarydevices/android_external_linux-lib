@@ -464,6 +464,7 @@ typedef struct vpu_versioninfo {
 
 /*
  * Revision History:
+ * v4.5.4 [2009.03.19] upgrade mx37 fw to v1.1.0
  * v4.4.4 [2009.02.27] support data report and change VPU APIs
  * v4.4.3 [2009.01.19] support chromaInterleave of encoder on MX51
  * v4.3.2 [2008.10.28] support loopback on MX51
@@ -471,7 +472,7 @@ typedef struct vpu_versioninfo {
  * v4.1.2 [2008.08.22] update MX37 VPU firmware to V1.0.5
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 4, 4)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 5, 4)
 
 extern unsigned int system_rev;
 
