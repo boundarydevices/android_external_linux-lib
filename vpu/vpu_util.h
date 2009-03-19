@@ -201,6 +201,7 @@ typedef struct {
 void BitIssueCommand(int instIdx, int cdcMode, int cmd);
 
 RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size);
+RetCode DownloadBitCodeTable(unsigned long *virtCodeBuf, Uint16 *bit_code);
 
 RetCode GetCodecInstance(CodecInst ** ppInst);
 void FreeCodecInstance(CodecInst * pCodecInst);
@@ -216,6 +217,7 @@ RetCode CheckDecInstanceValidity(DecHandle handle);
 RetCode CheckDecOpenParam(DecOpenParam * pop);
 int DecBitstreamBufEmpty(DecInfo * pDecInfo);
 void SetParaSet(DecHandle handle, int paraSetType, DecParamSet * para);
+RetCode CopyBufferData(Uint8 *dst, Uint8 *src, int size);
 
 RetCode SetGopNumber(EncHandle handle, Uint32 *gopNumber);
 RetCode SetIntraQp(EncHandle handle, Uint32 *intraQp);
@@ -241,5 +243,14 @@ static inline void UnlockVpu(semaphore_t *semap)
 	semaphore_post(semap);
 	IOClkGateSet(0);
 }
+
+#define swab32(x) \
+	((Uint32)( \
+		(((Uint32)(x) & (Uint32)0x000000ffUL) << 24) | \
+		(((Uint32)(x) & (Uint32)0x0000ff00UL) <<  8) | \
+		(((Uint32)(x) & (Uint32)0x00ff0000UL) >>  8) | \
+		(((Uint32)(x) & (Uint32)0xff000000UL) >> 24) ))
+
+#define ARRAY_SIZE(x)	(sizeof(x) / sizeof((x)[0]))
 
 #endif
