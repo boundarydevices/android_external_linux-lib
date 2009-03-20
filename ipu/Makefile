@@ -10,6 +10,8 @@ all: $(LIBNAME).so
 install:
 	@mkdir -p $(DEST_DIR)/usr/lib
 	cp $(LIBNAME).* $(DEST_DIR)/usr/lib
+	@mkdir -p $(DEST_DIR)/usr/include
+	cp mxc_ipu_hl_lib.h $(DEST_DIR)/usr/include
 
 $(LIBNAME).so: $(OBJS)
 	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^ -lpthread
