@@ -55,7 +55,7 @@ enum {
 	MJPG_DEC = 0x82,
 	MJPG_ENC = 0x83
 };
-#elif defined(IMX51_3STACK)
+#elif defined(IMX51_3STACK) || defined(IMX51)
 enum {
 	AVC_DEC = 0,
 	VC1_DEC = 1,
