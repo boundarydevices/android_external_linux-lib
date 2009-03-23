@@ -57,7 +57,7 @@
 #define BIT_RD_PTR_3			0x138
 #define BIT_WR_PTR_3			0x13C
 
-#ifdef IMX51_3STACK
+#if defined(IMX51_3STACK) || defined(IMX51)
 #define BIT_AXI_SRAM_USE                0x140
 #define BIT_SEARCH_RAM_BASE_ADDR	0x144
 #define BIT_SEARCH_RAM_SIZE		0x148
@@ -312,7 +312,7 @@
 	#define WORK_BUF_SIZE			(512 * 1024)
 	#define PARA_BUF2_SIZE			(0) /* Not used */
 	#define PARA_BUF_SIZE			(10 * 1024)
-#elif defined(IMX51_3STACK)
+#elif defined(IMX51_3STACK) || defined(IMX51)
         #define CODE_BUF_SIZE			( 136 * 1024 )
         #define FMO_SLICE_SAVE_BUF_SIZE	        ( 32 )
         #define WORK_BUF_SIZE			( 512 * 1024 ) + ( FMO_SLICE_SAVE_BUF_SIZE * 1024 * 8 )
@@ -325,7 +325,7 @@
 /*----------------------------------------------------------------------------
  * REGISTER BIT FIELD
  *---------------------------------------------------------------------------*/
-#if defined(IMX51_3STACK)
+#if defined(IMX51_3STACK) || defined(IMX51)
 #define BIT_SEL_BE			0
 #define BIT_SEL_64BITS_ENDIAN		1
 #define BIT_BUF_CHECK_DIS		2
@@ -342,7 +342,7 @@
 #define BITS_STREAMCTRL_MASK		0x01F
 #endif
 
-#if defined(IMX51_3STACK) || defined(IMX37_3STACK)
+#if defined(IMX51_3STACK) || defined(IMX51) || defined(IMX37_3STACK)
 #define BIT_PIC_WIDTH_OFFSET		16
 #else
 #define BIT_PIC_WIDTH_OFFSET		10
