@@ -521,6 +521,16 @@ int IOClkGateSet(int on)
 	return ret;
 }
 
+int IOSysSWReset(void)
+{
+	int ret = 0;
+
+	ret = ioctl(vpu_fd, VPU_IOC_SYS_SW_RESET, 0);
+	dprintf(3, "vpu system software reset\n");
+
+	return ret;
+}
+
 /*!
  * @brief
  * When the system starts up, resetting is needed in advance.
