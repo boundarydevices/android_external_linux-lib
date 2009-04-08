@@ -276,11 +276,13 @@ typedef struct {
 	};
 	int fieldSequence;
 
+	int decPicHeight;
+	int decPicWidth;
+
 	DecReportInfo mbInfo;
 	DecReportInfo mvInfo;
 	DecReportInfo frameBufStat;
 	DecReportInfo userData;
-
 } DecOutputInfo;
 
 typedef struct {
@@ -535,6 +537,7 @@ RetCode vpu_DecGiveCommand(DecHandle handle, CodecCommand cmd, void *parameter);
 
 int vpu_IsBusy(void);
 int vpu_WaitForInt(int timeout_in_ms);
+RetCode vpu_SWReset(DecHandle handle, int index);
 
 void SaveGetEncodeHeader(EncHandle handle, int encHeaderType, char *filename);
 
