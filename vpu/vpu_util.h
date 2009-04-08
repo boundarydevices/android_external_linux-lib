@@ -94,6 +94,7 @@ enum {
 	DEC_PARA_SET = 7,
 	DEC_BUF_FLUSH = 8,
 	RC_CHANGE_PARAMETER = 9,
+	VPU_WAKE = 11,
 	FIRMWARE_GET = 0xf
 };
 
