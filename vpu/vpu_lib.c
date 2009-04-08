@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <unistd.h>
 
 #include "vpu_reg.h"
 #include "vpu_lib.h"
@@ -213,6 +214,111 @@ RetCode vpu_Init(void *cb)
 void vpu_UnInit(void)
 {
 	IOSystemShutdown();
+}
+
+/*
+ * This function resets the VPU instance specified by handle or index that
+ * exists in the current thread. If handle is not NULL, the index will be
+ * ignored and the instance of handle will be reset; otherwise, the
+ * instance of index will be reset.
+ */
+RetCode vpu_SWReset(DecHandle handle, int index)
+{
+	static unsigned int regBk[64];
+	int i = 0;
+	CodecInst *pCodecInst;
+	DecInfo *pDecInfo;
+	RetCode ret;
+
+	ENTER_FUNC();
+
+	if ((handle == NULL) && (index < 0 || index > MAX_NUM_INSTANCE))
+		return RETCODE_FAILURE;
+
+	if (handle == NULL) {
+		LockVpu(vpu_semap);
+
+		handle = (CodecInst *) (&vpu_semap->codecInstPool[i]);
+		if (handle == NULL) {
+			UnlockVpu(vpu_semap);
+			return RETCODE_FAILURE;
+		}
+	}
+	ret = CheckDecInstanceValidity(handle);
+	if (ret != RETCODE_SUCCESS)
+		return ret;
+
+	pCodecInst = handle;
+
+	pDecInfo = &pCodecInst->CodecInfo.decInfo;
+
+	IOClkGateSet(true);
+	for (i = 0 ; i < 64 ; i++)
+		regBk[i] = VpuReadReg(BIT_CODE_BUF_ADDR + (i * 4));
+
+	IOSysSWReset();
+
+	for (i = 0 ; i < 64 ; i++)
+		VpuWriteReg(BIT_CODE_BUF_ADDR + (i * 4), regBk[i]);
+
+	VpuWriteReg(BIT_RESET_CTRL, 0);
+	VpuWriteReg(BIT_CODE_RUN, 0);
+
+	Uint32 *p = (Uint32 *) virt_codeBuf;
+	Uint32 data;
+	Uint16 data_hi;
+	Uint16 data_lo;
+	if (cpu_is_mx51()) {
+		for (i = 0; i < 2048; i += 4) {
+			data = p[(i / 2) + 1];
+			data_hi = (data >> 16) & 0xFFFF;
+			data_lo = data & 0xFFFF;
+			VpuWriteReg(BIT_CODE_DOWN, (i << 16) | data_hi);
+			VpuWriteReg(BIT_CODE_DOWN, ((i + 1) << 16) | data_lo);
+
+			data = p[i / 2];
+			data_hi = (data >> 16) & 0xFFFF;
+			data_lo = data & 0xFFFF;
+			VpuWriteReg(BIT_CODE_DOWN, ((i + 2) << 16) | data_hi);
+			VpuWriteReg(BIT_CODE_DOWN, ((i + 3) << 16) | data_lo);
+		}
+	} else {
+		for (i = 0; i < 2048; i += 2) {
+			if (cpu_is_mx37())
+				data = swab32(p[i / 2]);
+			else
+				data = p[i / 2];
+			data_hi = (data >> 16) & 0xFFFF;
+			data_lo = data & 0xFFFF;
+
+			VpuWriteReg(BIT_CODE_DOWN, (i << 16) | data_hi);
+			VpuWriteReg(BIT_CODE_DOWN, ((i + 1) << 16) | data_lo);
+		}
+	}
+
+	VpuWriteReg(BIT_BUSY_FLAG, 1);
+	VpuWriteReg(BIT_CODE_RUN, 1);
+
+	while (vpu_IsBusy());
+
+	BitIssueCommand(0, 0, VPU_WAKE);
+	while (vpu_IsBusy());
+
+	if (pDecInfo->initialInfoObtained) {
+		if (cpu_is_mx51()) {
+			if (pDecInfo->openParam.bitstreamFormat == STD_DIV3)
+				VpuWriteReg(BIT_RUN_AUX_STD, 1);
+			else
+				VpuWriteReg(BIT_RUN_AUX_STD, 0);
+		}
+		BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
+				SEQ_END);
+		while (VpuReadReg(BIT_BUSY_FLAG)) ;
+	}
+
+	FreeCodecInstance(pCodecInst);
+	UnlockVpu(vpu_semap);
+	return RETCODE_SUCCESS;
 }
 
 /*!
@@ -2293,7 +2399,7 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 
 	VpuWriteReg(CMD_DEC_PIC_ROT_MODE, rotMir);
 
-	if (!cpu_is_mx27() && !cpu_is_mx37() && !cpu_is_mx51()) {
+	if (cpu_is_mx32()) {
 		if (pCodecInst->codecMode == MP4_DEC &&
 		    pDecInfo->openParam.mp4DeblkEnable == 1) {
 			if (pDecInfo->deBlockingFilterOutputValid) {
@@ -2434,21 +2540,18 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 	VpuWriteReg(CMD_DEC_PIC_SKIP_NUM, param->skipframeNum);
 
 	/* clear dispReorderBuf flag firstly */
-	VpuWriteReg(CMD_DEC_DISPLAY_REORDER, VpuReadReg(CMD_DEC_DISPLAY_REORDER) & ~(1 << 1));
+	val = VpuReadReg(CMD_DEC_DISPLAY_REORDER) & 0xFFFFFFFD;
+	val |= (param->dispReorderBuf & 0x1) << 1;
 	if (pCodecInst->codecMode == AVC_DEC) {
 		if (pDecInfo->openParam.reorderEnable == 1) {
-			VpuWriteReg(CMD_DEC_DISPLAY_REORDER,
-				    param->dispReorderBuf << 1 |
-				    VpuReadReg(CMD_DEC_DISPLAY_REORDER));
+			VpuWriteReg(CMD_DEC_DISPLAY_REORDER, val);
 		}
 	} else if (!cpu_is_mx27() && ((pCodecInst->codecMode == VC1_DEC) ||
 				      (pCodecInst->codecMode == MP2_DEC) ||
 				      (pCodecInst->codecMode == MP4_DEC) ||
 				      (pCodecInst->codecMode == RV_DEC))) {
 		if (pDecInfo->filePlayEnable == 1)
-			VpuWriteReg(CMD_DEC_DISPLAY_REORDER,
-				    param->dispReorderBuf << 1 |
-				    VpuReadReg(CMD_DEC_DISPLAY_REORDER));
+			VpuWriteReg(CMD_DEC_DISPLAY_REORDER, val);
 	}
 
 	if (pDecInfo->filePlayEnable == 1) {
@@ -2535,6 +2638,10 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	} else if (pCodecInst->codecMode == MP4_DEC) {
 		info->mp4PackedPBframe = ((val >> 16) & 0x01);
 	}
+
+	val = VpuReadReg(RET_DEC_PIC_SIZE);	/* decoding picture size */
+	info->decPicHeight = val & 0xFFFF;
+	info->decPicWidth = (val>>16) & 0xFFFF;
 
 	val = VpuReadReg(RET_DEC_PIC_TYPE);
 	info->picType = val & 0xff;
