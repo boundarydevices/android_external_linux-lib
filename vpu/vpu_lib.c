@@ -486,6 +486,10 @@ RetCode vpu_EncOpen(EncHandle * pHandle, EncOpenParam * pop)
 	}
 
 	VpuWriteReg(BIT_BIT_STREAM_CTRL, val);
+
+	val = VpuReadReg(BIT_FRAME_MEM_CTRL) & ~(1 << (instIdx + 2));
+	VpuWriteReg(BIT_FRAME_MEM_CTRL,
+		    val | (pEncInfo->openParam.chromaInterleave << (instIdx + 2)));
 	UnlockVpu(vpu_semap);
 
 	return RETCODE_SUCCESS;
@@ -586,10 +590,6 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 	VpuWriteReg(CMD_ENC_SEQ_SRC_SIZE, data);
 	VpuWriteReg(CMD_ENC_SEQ_SRC_F_RATE, encOP.frameRateInfo);
 
-	if (cpu_is_mx51())
-		VpuWriteReg(BIT_FRAME_MEM_CTRL,
-			    VpuReadReg(BIT_FRAME_MEM_CTRL) | (encOP.chromaInterleave << 2));
-
 	if (encOP.bitstreamFormat == STD_MPEG4) {
 		VpuWriteReg(CMD_ENC_SEQ_COD_STD, 0);
 		data = encOP.EncStdParam.mp4Param.mp4_intraDcVlcThr << 2 |
@@ -602,7 +602,7 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 		VpuWriteReg(CMD_ENC_SEQ_MP4_PARA, data);
 	} else if (encOP.bitstreamFormat == STD_H263) {
 		if (cpu_is_mx51())
-			VpuWriteReg(CMD_ENC_SEQ_COD_STD, 8);	/* TODO: will fix in next FW */
+			VpuWriteReg(CMD_ENC_SEQ_COD_STD, 8);
 		else
 			VpuWriteReg(CMD_ENC_SEQ_COD_STD, 1);
 		data = encOP.EncStdParam.h263Param.h263_annexJEnable << 2 |
@@ -1030,7 +1030,8 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 
 	if (param->skipPicture) {
 		VpuWriteReg(CMD_ENC_PIC_OPTION,
-			    (pEncInfo->encReportSliceInfo.enable << 5) | (pEncInfo->encReportMVInfo.enable << 4) |
+			    (pEncInfo->encReportSliceInfo.enable << 5) |
+			    (pEncInfo->encReportMVInfo.enable << 4) |
 			    (pEncInfo->encReportMBInfo.enable << 3) | 1);
 	} else {
 		VpuWriteReg(CMD_ENC_PIC_SRC_ADDR_Y, pSrcFrame->bufY);
@@ -1038,8 +1039,10 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 		VpuWriteReg(CMD_ENC_PIC_SRC_ADDR_CR, pSrcFrame->bufCr);
 
 		VpuWriteReg(CMD_ENC_PIC_OPTION,
-			    (pEncInfo->encReportSliceInfo.enable << 5) | (pEncInfo->encReportMVInfo.enable << 4) |
-			    (pEncInfo->encReportMBInfo.enable << 3) | (param->forceIPicture << 1 & 0x2));
+			    (pEncInfo->encReportSliceInfo.enable << 5) |
+			    (pEncInfo->encReportMVInfo.enable << 4) |
+			    (pEncInfo->encReportMBInfo.enable << 3) |
+			    (param->forceIPicture << 1 & 0x2));
 	}
 
 	if (pEncInfo->dynamicAllocEnable == 1) {
@@ -1071,18 +1074,15 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 			phy_addr = pEncInfo->picParaBaseMem.phy_addr;
 			/* Set mbParam buffer address */
 			if (pEncInfo->encReportMBInfo.enable) {
-				*(virt_addr + 0) = phy_addr + ADDR_MB_BASE_OFFSET;
-				*(virt_addr + 1) = 0;
+				*virt_addr = phy_addr + ADDR_MB_BASE_OFFSET;
 			}
 			/* Set mvParam buffer address */
 			if (pEncInfo->encReportMVInfo.enable) {
 				*(virt_addr + 2) = phy_addr + ADDR_MV_BASE_OFFSET;
-				*(virt_addr + 3) = 0;
 			}
 			/* Set slice info address */
 			if (pEncInfo->encReportSliceInfo.enable) {
 				*(virt_addr + 4) = phy_addr + ADDR_SLICE_BASE_OFFSET;
-				*(virt_addr + 5) = 0;
 			}
 		}
 	}
@@ -1752,12 +1752,10 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 	VpuWriteReg(BIT_BIT_STREAM_PARAM,
 		    VpuReadReg(BIT_BIT_STREAM_PARAM) & ~(1 << (instIdx + 2)));
 
-	if (cpu_is_mx37()) {
-		bit_offset = instIdx + 1;
-		val = VpuReadReg(BIT_FRAME_MEM_CTRL) & ~(1 << bit_offset);
-		VpuWriteReg(BIT_FRAME_MEM_CTRL,
-			    val | (pDecInfo->openParam.chromaInterleave << bit_offset));
-	}
+	bit_offset = cpu_is_mx37() ? (instIdx + 1) : (instIdx + 2);
+	val = VpuReadReg(BIT_FRAME_MEM_CTRL) & ~(1 << bit_offset);
+	VpuWriteReg(BIT_FRAME_MEM_CTRL,
+		    val | (pDecInfo->openParam.chromaInterleave << bit_offset));
 	UnlockVpu(vpu_semap);
 
 	return RETCODE_SUCCESS;
@@ -1894,6 +1892,29 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	    ((pDecInfo->filePlayEnable << 2) & 0x4) |
 	    ((pDecInfo->openParam.reorderEnable << 1) & 0x2);
 
+	if(pCodecInst->codecMode == MJPG_DEC) {
+		val |= 1 << 10; /* force not interrupt mode */
+		val |= pDecInfo->decReportUserData.enable << 5;
+	}
+
+	if (pDecInfo->decReportUserData.enable &&
+	    !pDecInfo->userDataBufMem.phy_addr) {
+		pDecInfo->userDataBufMem.size = pDecInfo->decReportUserData.size;
+		ret = IOGetPhyMem(&pDecInfo->userDataBufMem);
+		if (ret) {
+			err_msg("Unable to obtain physical mem\n");
+			return RETCODE_FAILURE;
+		}
+		if (IOGetVirtMem(&pDecInfo->userDataBufMem) <= 0) {
+			IOFreePhyMem(&pDecInfo->userDataBufMem);
+			pDecInfo->userDataBufMem.phy_addr = 0;
+			err_msg("Unable to obtain virtual mem\n");
+			return RETCODE_FAILURE;
+		}
+		VpuWriteReg(CMD_DEC_PIC_USER_DATA_BASE_ADDR, pDecInfo->userDataBufMem.phy_addr);
+		VpuWriteReg(CMD_DEC_PIC_USER_DATA_BUF_SIZE, pDecInfo->decReportUserData.size);
+	}
+
 	if (cpu_is_mx27()) {
 		val |= (pDecInfo->openParam.qpReport & 0x1);
 	} else {
@@ -1908,11 +1929,6 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		VpuWriteReg(CMD_DEC_SEQ_PS_BB_SIZE,
 			    (pDecInfo->openParam.psSaveBufferSize / 1024));
 	}
-
-	if (cpu_is_mx51())
-		VpuWriteReg(BIT_FRAME_MEM_CTRL,
-			    ((pDecInfo->openParam.chromaInterleave << 2) |
-			     IMAGE_ENDIAN));
 
 	if (pCodecInst->codecMode == MJPG_DEC) {
 		VpuWriteReg(CMD_DEC_SEQ_JPG_THUMB_EN,
@@ -2014,6 +2030,17 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		info->level = (val >> 12) & 0xFF;
 		info->interlace = (val >> 20) & 0x0001;
 		info->vc1_psf = (val >>22) & 0x0001;
+	} else if (cpu_is_mx51()) {
+		val = VpuReadReg(RET_DEC_SEQ_HEADER_REPORT);
+		info->profile =	(val >> 0) & 0xFF;
+		info->level = (val >> 8) & 0xFF;
+		info->interlace  = (val >> 16) & 0x01;
+		info->direct8x8Flag = (val >> 17) & 0x01;
+		info->vc1_psf =	(val >> 18) & 0x01;
+		info->constraint_set_flag[0] = (val >> 19) & 0x01;
+		info->constraint_set_flag[1] = (val >> 20) & 0x01;
+		info->constraint_set_flag[2] = (val >> 21) & 0x01;
+		info->constraint_set_flag[3] = (val >> 22) & 0x01;
 	}
 
 	val = VpuReadReg(RET_DEC_SEQ_ASPECT);
@@ -2023,7 +2050,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	info->reportBufSize.mbInfoBufSize = SIZE_MB_DATA;
 	info->reportBufSize.mvInfoBufSize = SIZE_MV_DATA;
 
-	if (cpu_is_mx37())
+	if (cpu_is_mx37() || cpu_is_mx51())
 		info->streamInfoObtained = 1;
 	else
 		info->streamInfoObtained = 0;
@@ -2095,6 +2122,9 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 	pDecInfo->frameBufPool = bufArray;
 	pDecInfo->numFrameBuffers = num;
 	pDecInfo->stride = stride;
+
+	if (pDecInfo->openParam.bitstreamFormat == STD_MJPG)
+		return RETCODE_SUCCESS;
 
 	LockVpu(vpu_semap);
 	if (!cpu_is_mx51()) {
@@ -2387,7 +2417,8 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		rotMir |= 0x20;	/* Enable Dering Filter */
 	}
 
-	if (rotMir & 0x30) {	/* rotator or dering enabled */
+	if ((rotMir & 0x30) ||  /* rotator or dering enabled */
+	    (pCodecInst->codecMode == MJPG_DEC)) {
 		VpuWriteReg(CMD_DEC_PIC_ROT_ADDR_Y,
 			    pDecInfo->rotatorOutput.bufY);
 		VpuWriteReg(CMD_DEC_PIC_ROT_ADDR_CB,
@@ -2444,17 +2475,14 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 				/* Set frameStat buffer address */
 				if (pDecInfo->decReportFrameBufStat.enable) {
 					*virt_addr = phy_addr + ADDR_FRAME_BUF_STAT_BASE_OFFSET;
-					*(virt_addr + 1) = 0;
 				}
 				/* Set mbParam buffer address */
 				if (pDecInfo->decReportMBInfo.enable) {
 					*(virt_addr + 2) = phy_addr + ADDR_MB_BASE_OFFSET;
-					*(virt_addr + 3) = 0;
 				}
 				/* Set mvParam buffer address */
 				if (pDecInfo->decReportMVInfo.enable) {
 					*(virt_addr + 4) = phy_addr + ADDR_MV_BASE_OFFSET;
-					*(virt_addr + 5) = 0;
 				}
 			}
 			if (cpu_is_mx37()) {
@@ -2478,24 +2506,23 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		}
 	}
 
-	if (pDecInfo->decReportUserData.enable) {
-		if (!pDecInfo->userDataBufMem.phy_addr) {
-			pDecInfo->userDataBufMem.size = pDecInfo->decReportUserData.size;
-			ret = IOGetPhyMem(&pDecInfo->userDataBufMem);
-			if (ret) {
-				err_msg("Unable to obtain physical mem\n");
-				return RETCODE_FAILURE;
-			}
-			if (IOGetVirtMem(&pDecInfo->userDataBufMem) <= 0) {
-				IOFreePhyMem(&pDecInfo->userDataBufMem);
-				pDecInfo->userDataBufMem.phy_addr = 0;
-				err_msg("Unable to obtain virtual mem\n");
-				return RETCODE_FAILURE;
-			}
-
-			VpuWriteReg(CMD_DEC_PIC_USER_DATA_BASE_ADDR, pDecInfo->userDataBufMem.phy_addr);
-			VpuWriteReg(CMD_DEC_PIC_USER_DATA_BUF_SIZE, pDecInfo->decReportUserData.size);
+	if (pDecInfo->decReportUserData.enable &&
+	    !pDecInfo->userDataBufMem.phy_addr) {
+		pDecInfo->userDataBufMem.size = pDecInfo->decReportUserData.size;
+		ret = IOGetPhyMem(&pDecInfo->userDataBufMem);
+		if (ret) {
+			err_msg("Unable to obtain physical mem\n");
+			return RETCODE_FAILURE;
 		}
+		if (IOGetVirtMem(&pDecInfo->userDataBufMem) <= 0) {
+			IOFreePhyMem(&pDecInfo->userDataBufMem);
+			pDecInfo->userDataBufMem.phy_addr = 0;
+			err_msg("Unable to obtain virtual mem\n");
+			return RETCODE_FAILURE;
+		}
+
+		VpuWriteReg(CMD_DEC_PIC_USER_DATA_BASE_ADDR, pDecInfo->userDataBufMem.phy_addr);
+		VpuWriteReg(CMD_DEC_PIC_USER_DATA_BUF_SIZE, pDecInfo->decReportUserData.size);
 	}
 
 	val = 0;
@@ -2539,19 +2566,19 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 
 	VpuWriteReg(CMD_DEC_PIC_SKIP_NUM, param->skipframeNum);
 
-	/* clear dispReorderBuf flag firstly */
-	val = VpuReadReg(CMD_DEC_DISPLAY_REORDER) & 0xFFFFFFFD;
-	val |= (param->dispReorderBuf & 0x1) << 1;
-	if (pCodecInst->codecMode == AVC_DEC) {
-		if (pDecInfo->openParam.reorderEnable == 1) {
-			VpuWriteReg(CMD_DEC_DISPLAY_REORDER, val);
+
+	if (!cpu_is_mx51()) {
+		/* clear dispReorderBuf flag firstly */
+		val = VpuReadReg(CMD_DEC_DISPLAY_REORDER) & 0xFFFFFFFD;
+		val |= (param->dispReorderBuf & 0x1) << 1;
+		if (((pCodecInst->codecMode == AVC_DEC) && (pDecInfo->openParam.reorderEnable == 1)) ||
+		    (pCodecInst->codecMode == VC1_DEC) ||
+		    (pCodecInst->codecMode == MP2_DEC) ||
+		    (pCodecInst->codecMode == MP4_DEC) ||
+		    (pCodecInst->codecMode == RV_DEC)) {
+			if (pDecInfo->filePlayEnable == 1)
+				VpuWriteReg(CMD_DEC_DISPLAY_REORDER, val);
 		}
-	} else if (!cpu_is_mx27() && ((pCodecInst->codecMode == VC1_DEC) ||
-				      (pCodecInst->codecMode == MP2_DEC) ||
-				      (pCodecInst->codecMode == MP4_DEC) ||
-				      (pCodecInst->codecMode == RV_DEC))) {
-		if (pDecInfo->filePlayEnable == 1)
-			VpuWriteReg(CMD_DEC_DISPLAY_REORDER, val);
 	}
 
 	if (pDecInfo->filePlayEnable == 1) {
@@ -2639,15 +2666,18 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		info->mp4PackedPBframe = ((val >> 16) & 0x01);
 	}
 
-	val = VpuReadReg(RET_DEC_PIC_SIZE);	/* decoding picture size */
-	info->decPicHeight = val & 0xFFFF;
-	info->decPicWidth = (val>>16) & 0xFFFF;
+	if( pCodecInst->codecMode != RV_DEC && pCodecInst->codecMode != MJPG_DEC)
+	{
+		val = VpuReadReg(RET_DEC_PIC_SIZE);	/* decoding picture size */
+		info->decPicHeight = val & 0xFFFF;
+		info->decPicWidth = (val >> 16) & 0xFFFF;
+	}
 
 	val = VpuReadReg(RET_DEC_PIC_TYPE);
 	info->picType = val & 0xff;
 	info->interlacedFrame = (val >> 16) & 0x1;
 
-	if (cpu_is_mx37()) {
+	if (cpu_is_mx37() || cpu_is_mx51()) {
 		info->interlacedFrame = (val >> 18) & 0x1;
 		info->pictureStructure = (val >> 19) & 0x0003;	/* MbAffFlag[17], FieldPicFlag[16] */
 		info->topFieldFirst = (val >> 21) & 0x0001;	/* TopFieldFirst[18] */
