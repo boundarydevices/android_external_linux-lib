@@ -584,6 +584,8 @@ int DecBitstreamBufEmpty(DecInfo * pDecInfo)
 
 RetCode CopyBufferData(Uint8 *dst, Uint8 *src, int size)
 {
+	Uint32 temp;
+
 	if (!dst || !src || !size)
 		return RETCODE_FAILURE;
 
@@ -592,9 +594,11 @@ RetCode CopyBufferData(Uint8 *dst, Uint8 *src, int size)
 	else if (cpu_is_mx51()) {
 		int i;
 		for (i = 0; i < size / 8; i += 2) {
-			/* swab odd and even words for mx51 */
-			*((Uint32 *)dst + i * 2) = *((Uint32 *)src + i * 2 + 1);
-			*((Uint32 *)dst + i * 2 + 1) = *((Uint32 *)src + i * 2);
+			/* swab odd and even words and swab32 for mx51 */
+			temp = *((Uint32 *)src + i * 2 + 1);
+			*((Uint32 *)dst + i * 2) = swab32(temp);
+			temp = *((Uint32 *)src + i * 2);
+			*((Uint32 *)dst + i * 2 + 1) = swab32(temp);
 		}
 	}
 	return RETCODE_SUCCESS;
