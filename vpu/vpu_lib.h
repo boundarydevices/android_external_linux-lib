@@ -278,6 +278,7 @@ typedef struct {
 
 	int decPicHeight;
 	int decPicWidth;
+	Rect decPicCrop;
 
 	DecReportInfo mbInfo;
 	DecReportInfo mvInfo;
