@@ -2622,6 +2622,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	DecInfo *pDecInfo;
 	RetCode ret;
 	Uint32 val = 0;
+	Uint32 val2 = 0;
 	PhysicalAddress paraBuffer;
 
 	ENTER_FUNC();
@@ -2666,11 +2667,29 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		info->mp4PackedPBframe = ((val >> 16) & 0x01);
 	}
 
-	if( pCodecInst->codecMode != RV_DEC && pCodecInst->codecMode != MJPG_DEC)
-	{
-		val = VpuReadReg(RET_DEC_PIC_SIZE);	/* decoding picture size */
+	if (pCodecInst->codecMode != RV_DEC
+	    && pCodecInst->codecMode != MJPG_DEC) {
+		val = VpuReadReg(RET_DEC_PIC_SIZE);     /* decoding picture size */
 		info->decPicHeight = val & 0xFFFF;
 		info->decPicWidth = (val >> 16) & 0xFFFF;
+	}
+
+	if (cpu_is_mx51() && pCodecInst->codecMode == AVC_DEC) {
+		val = VpuReadReg(RET_DEC_PIC_CROP_LEFT_RIGHT);  /* frame crop information(left, right) */
+		val2 = VpuReadReg(RET_DEC_PIC_CROP_TOP_BOTTOM); /* frame crop information(top, bottom) */
+		if (val == 0 && val2 == 0) {
+			info->decPicCrop.left = 0;
+			info->decPicCrop.right = 0;
+			info->decPicCrop.top = 0;
+			info->decPicCrop.bottom = 0;
+		} else {
+			info->decPicCrop.left = ((val >> 16) & 0xFFFF) * 2;
+			info->decPicCrop.right =
+			    info->decPicWidth - ((val & 0xFFFF) * 2);
+			info->decPicCrop.top = ((val2 >> 16) & 0xFFFF) * 2;
+			info->decPicCrop.bottom =
+			    info->decPicHeight - ((val2 & 0xFFFF) * 2);
+		}
 	}
 
 	val = VpuReadReg(RET_DEC_PIC_TYPE);
