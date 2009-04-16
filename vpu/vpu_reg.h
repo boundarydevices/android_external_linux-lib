@@ -67,11 +67,11 @@
 #define BIT_FRM_DIS_FLG_2               0x158
 #define BIT_FRM_DIS_FLG_3               0x15C
 
-#define BIT_AXI_SRAM_BIT_ADDR		0x190
-#define BIT_AXI_SRAM_IPACDC_ADDR	0x194
-#define BIT_AXI_SRAM_DBKY_ADDR		0x198
-#define BIT_AXI_SRAM_DBKC_ADDR		0x19C
-#define BIT_AXI_SRAM_OVL_ADDR		0x1A0
+#define CMD_SET_FRAME_AXI_BIT_ADDR	0x190
+#define CMD_SET_FRAME_AXI_IPACDC_ADDR	0x194
+#define CMD_SET_FRAME_AXI_DBKY_ADDR	0x198
+#define CMD_SET_FRAME_AXI_DBKC_ADDR	0x19C
+#define CMD_SET_FRAME_AXI_OVL_ADDR	0x1A0
 
 #else
 #define	BIT_AXI_SRAM_USE		0x178
@@ -95,11 +95,7 @@
 #define BIT_RUN_COD_STD			0x16C
 #define BIT_INT_ENABLE			0x170
 #define BIT_INT_REASON			0x174
-
 #define BIT_RUN_AUX_STD                 0x178
-
-#define BIT_CMD_0			0x1E0
-#define BIT_CMD_1			0x1E4
 
 #define BIT_MSG_0			0x1F0
 #define BIT_MSG_1			0x1F4
@@ -246,7 +242,8 @@
 #endif
 
 #define RET_DEC_PIC_CUR_IDX		0x1DC
-#define RET_DEC_PIC_HEADER_REPORT	0x1E4
+#define RET_DEC_PIC_CROP_LEFT_RIGHT	0x1E0
+#define RET_DEC_PIC_CROP_TOP_BOTTOM	0x1E4
 
 /*---------------------------------------------------------------------------
  * [ENC PIC RUN] COMMAND
