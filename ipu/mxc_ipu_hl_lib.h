@@ -22,28 +22,46 @@
  * 1. mxc_ipu_lib_task_init()
  *
  * First, call mxc_ipu_lib_task_init() function with user defined setting.
- * user could set input/output setting like width/height/format/input crop/
- * output to framebuffer etc.
- * User can allocate input and output buffer by themselves(must be physical
- * continuous), if user allocated buffers by themselves, they must set
- * parameter paddr in ipu_lib_input_param_t/ipu_lib_output_param_t. For
- * OP_STREAM_MODE mode, they should set both of paddr[2], for OP_NORMAL_MODE
- * mode they only need set paddr[0].
- * mxc_ipu_lib_task_init() will return inbuf_start/outbuf_start in ipu_handle
- * if user did not set paddr, these are virtual buffer address allocated by
- * ipu lib.
- * User should fill input data input paddr or inbuf_start before call function
- * mxc_ipu_lib_task_buf_update().
+ * user could set input/overlay/output setting like width/height/format/
+ * input crop/output to framebuffer etc.
+ * User can allocate input, overlay and output buffer by themselves(must be
+ * physical continuous), if user allocated buffers by themselves, they must set
+ * parameter user_def_paddr in ipu_lib_input_param_t/ipu_lib_output_param_t.
+ * For OP_STREAM_MODE mode, they should set both of user_def_paddr[2], for
+ * OP_NORMAL_MODE mode they only need set user_def_paddr[0].
+ * mxc_ipu_lib_task_init() will return inbuf_start/ovbuf_start/outbuf_start
+ * in ipu_handle if user did not set user_def_paddr, these are virtual buffer
+ * start address allocated by ipu lib.
+ * User should fill input/overlay data into user_def_paddr or inbuf_start/
+ * ovbuf_start before call function mxc_ipu_lib_task_buf_update().
+ *
+ * NOTE: overlay is a special function of ipu, which can combine input and
+ * overlay to one output based on alpha and color-key setting. Pay attention
+ * that overlay's width/height should be the same as output. If user do not
+ * want to use overlay function, then just let this parameter to NULL.
  *
  * 2. mxc_ipu_lib_task_buf_update()
  *
  * User should call mxc_ipu_lib_task_buf_update() function after they finish fill
- * input data into input paddr(user allocated buffer)/inbuf_start(ipu lib allocated
- * buffer). At first time calling this update function, for OP_STREAM_MODE mode,
- * user should fill data to both input buffer paddr[2]/inbuf_start[2], for
- * OP_NORMAL_MODE mode user only need to fill paddr[0]/inbuf_start[0]; next time
+ * input/overlay data into input/overlay user_def_paddr(user allocated buffer)
+ * or inbuf_start/ovbuf_start(ipu lib allocated buffer).
+ * At first time calling this update function, for OP_STREAM_MODE mode,
+ * user should fill data to both input buffer inbuf_start[2], for
+ * OP_NORMAL_MODE mode user only need to fill inbuf_start[0]; next time
  * calling this update function, user only need to fill buffer accoring to the index
  * return by mxc_ipu_lib_task_buf_update() last time.
+ * Above method is using buffers allocated by ipu lib, user can also use buffers
+ * allocated by themselves:
+ *
+ * User defined buffer queue example(OP_STREAM_MODE mode):
+ * a. user allocate 5 physical continuous memory buffers: paddr[0~4];
+ * b. set input.user_def_paddr[2] as paddr[0] and paddr[1];
+ * c. call mxc_ipu_lib_task_init();
+ * d. fill input data to paddr[0] and paddr[1];
+ * e. call mxc_ipu_lib_task_buf_update();
+ * f. fill input data to paddr[2];
+ * g. call mxc_ipu_lib_task_buf_update(..&paddr[2]..);
+ *
  * In mxc_ipu_lib_task_buf_update() function, ipu lib will call
  * output_callback(void *arg, int output_buf_index)
  * (if user set this call back function in parameter) while there is output data,
@@ -59,6 +77,11 @@
 #ifndef __MXC_IPU_HL_LIB_H__
 #define __MXC_IPU_HL_LIB_H__
 
+#ifdef __cplusplus
+extern "C"{
+#endif
+
+#include <linux/ipu.h>
 #include <linux/mxcfb.h>
 
 /*
@@ -102,8 +125,27 @@ typedef struct {
 		unsigned int win_h;
 	} input_crop_win;
 
-	dma_addr_t paddr[2];
+	dma_addr_t user_def_paddr[2];
 } ipu_lib_input_param_t;
+
+typedef struct {
+	unsigned int width;
+	unsigned int height;
+	unsigned int fmt;
+
+	struct {
+		struct mxcfb_pos pos;
+		unsigned int win_w;
+		unsigned int win_h;
+	} ov_crop_win;
+
+	dma_addr_t user_def_paddr[2];
+
+	unsigned char alpha_en;
+	unsigned char key_color_en;
+	unsigned char alpha; /* 0 ~ 255*/
+	unsigned int key_color; /* RBG 24bit */
+} ipu_lib_overlay_param_t;
 
 /*
  * output parameter settings.
@@ -131,13 +173,21 @@ typedef struct {
 	unsigned int fmt;
 	unsigned int rot;
 
-	dma_addr_t paddr[2];
+	dma_addr_t user_def_paddr[2];
 
 	int show_to_fb;
 	struct {
 		struct mxcfb_pos pos;
 		unsigned int fb_num;
 	} fb_disp;
+
+	/* output_win is doing similar thing as fb_disp */
+	/* they output data to part of the whole output */
+	struct {
+		struct mxcfb_pos pos;
+		unsigned int win_w;
+		unsigned int win_h;
+	} output_win;
 } ipu_lib_output_param_t;
 
 /*
@@ -145,16 +195,18 @@ typedef struct {
  *
  * This handle will be return after mxc_ipu_lib_task_init function.
  * If user did not define paddr of input/output buffer, then they can get
- * virtual address of input/output buffer by inbuf_start/outbuf_startx
+ * virtual address of input/output buffer by inbuf_start/outbuf_start
  * which allocated by ipu lib.
  * The ifr_size/ofr_size indicate the size of input/output buffer.
  * User should not care the priv parameter and DO NOT change it.
  */
 typedef struct {
         void * inbuf_start[2];
-	int ifr_size;
+        void * ovbuf_start[2];
 	void * outbuf_start0[2];
 	void * outbuf_start1[2];
+	int ifr_size;
+	int ovfr_size;
 	int ofr_size[2];
 
 	void * priv;
@@ -164,6 +216,8 @@ typedef struct {
  * This function init the ipu task according to param setting.
  *
  * @param	input		Input parameter for ipu task.
+ *
+ * @param	overlay		Overlay parameter for ipu task.
  *
  * @param	output0		The first output paramter for ipu task.
  *
@@ -183,6 +237,7 @@ typedef struct {
  * 		fail.
  */
 int mxc_ipu_lib_task_init(ipu_lib_input_param_t * input,
+		ipu_lib_overlay_param_t * overlay,
 		ipu_lib_output_param_t * output0,
 		ipu_lib_output_param_t * output1,
 		int mode, ipu_lib_handle_t * ipu_handle);
@@ -215,12 +270,14 @@ void mxc_ipu_lib_task_uninit(ipu_lib_handle_t * ipu_handle);
  *
  * @param	ipu_handle	The ipu task handle need to update buffer.
  *
- * @param	phyaddr		User can set phyaddr to their own allocated
+ * @param	new_inbuf_paddr	User can set phyaddr to their own allocated
  * 				buffer addr, ipu lib will update the buffer
  * 				from this address for process. If user do not
  * 				want to use it, please let it be zero, and
  * 				fill the buffer according to inbuf_start
  * 				parameter in ipu_handle.
+ *
+ * @param	new_ovbuf_paddr User defined overlay physical buffer address.
  *
  * @param	output_callback	IPU lib will call output_callback funtion
  * 				when there is output data.
@@ -231,6 +288,11 @@ void mxc_ipu_lib_task_uninit(ipu_lib_handle_t * ipu_handle);
  * 		or negative error code on fail.
  */
 int mxc_ipu_lib_task_buf_update(ipu_lib_handle_t * ipu_handle,
-	dma_addr_t phyaddr, void (output_callback)(void *, int),
-	void * output_cb_arg);
+	dma_addr_t new_inbuf_paddr, dma_addr_t new_ovbuf_paddr,
+	void (output_callback)(void *, int), void * output_cb_arg);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif
