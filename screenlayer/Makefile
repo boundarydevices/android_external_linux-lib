@@ -1,5 +1,6 @@
 CC=$(CROSS_COMPILE)gcc
 AR=$(CROSS_COMPILE)ar
+INC = $(INCLUDE) -I../ipu
 
 OBJS = ScreenLayer.o
 
@@ -17,7 +18,7 @@ $(LIBNAME).so: $(OBJS)
 	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^ -L../ipu -lipu
 
 %.o: %.c
-	$(CC) $(INCLUDE) -Wall -O2 -c $^ -o $@
+	$(CC) $(INC) -Wall -O2 -c $^ -o $@
 
 .PHONY: clean
 clean:
