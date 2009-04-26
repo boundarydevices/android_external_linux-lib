@@ -198,7 +198,10 @@ RetCode vpu_Init(void *cb)
 			ResetVpu();
 		}
 
+		VpuWriteReg(BIT_BUSY_FLAG, 1);
 		VpuWriteReg(BIT_CODE_RUN, 1);
+		while (VpuReadReg(BIT_BUSY_FLAG));
+
 		IOClkGateSet(false);
 
 		free(bit_code);
@@ -1923,6 +1926,10 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 
 	VpuWriteReg(CMD_DEC_SEQ_OPTION, val);
 
+	if( pCodecInst->codecMode == MP4_DEC ) {
+		VpuWriteReg(CMD_DEC_SEQ_MP4_ASP_CLASS, pDecInfo->openParam.mp4Class);
+	}
+
 	if (pCodecInst->codecMode == AVC_DEC) {
 		VpuWriteReg(CMD_DEC_SEQ_PS_BB_START,
 			    pDecInfo->openParam.psSaveBuffer);
@@ -2667,12 +2674,9 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		info->mp4PackedPBframe = ((val >> 16) & 0x01);
 	}
 
-	if (pCodecInst->codecMode != RV_DEC
-	    && pCodecInst->codecMode != MJPG_DEC) {
-		val = VpuReadReg(RET_DEC_PIC_SIZE);     /* decoding picture size */
-		info->decPicHeight = val & 0xFFFF;
-		info->decPicWidth = (val >> 16) & 0xFFFF;
-	}
+	val = VpuReadReg(RET_DEC_PIC_SIZE);     /* decoding picture size */
+	info->decPicHeight = val & 0xFFFF;
+	info->decPicWidth = (val >> 16) & 0xFFFF;
 
 	if (cpu_is_mx51() && pCodecInst->codecMode == AVC_DEC) {
 		val = VpuReadReg(RET_DEC_PIC_CROP_LEFT_RIGHT);  /* frame crop information(left, right) */
