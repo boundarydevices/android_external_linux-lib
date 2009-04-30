@@ -197,6 +197,9 @@ RetCode vpu_Init(void *cb)
 		if (cpu_is_mx27()) {
 			ResetVpu();
 		}
+		/* TODO currently can not use IRAM on mx37 */
+		if (cpu_is_mx37())
+			VpuWriteReg(BIT_AXI_SRAM_USE, 0);
 
 		VpuWriteReg(BIT_BUSY_FLAG, 1);
 		VpuWriteReg(BIT_CODE_RUN, 1);
@@ -207,7 +210,6 @@ RetCode vpu_Init(void *cb)
 		free(bit_code);
 	}
 
-	vpu_setting_iram();
 	UnlockVpu(vpu_semap);
 
 	EXIT_FUNC();
@@ -2016,7 +2018,12 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 
 		val = info->picWidth * info->picHeight;
 		info->normalSliceSize = (val * 3 / 2) / 1024 / 4;
-		info->worstSliceSize = (val / 256) * 3200 / 8 / 1024;
+		info->worstSliceSize = ((val / 256) * 3200 / 8  + 512)/ 1024;
+	} else {
+		info->picCropRect.left = 0;
+		info->picCropRect.right = 0;
+		info->picCropRect.top = 0;
+		info->picCropRect.bottom = 0;
 	}
 
 	if (pCodecInst->codecMode == MJPG_DEC) {
@@ -2187,6 +2194,11 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 	/* Tell the decoder how much frame buffers were allocated. */
 	VpuWriteReg(CMD_SET_FRAME_BUF_NUM, num);
 	VpuWriteReg(CMD_SET_FRAME_BUF_STRIDE, stride);
+
+	if (cpu_is_mx37() && pDecInfo->openParam.bitstreamFormat != STD_VC1)
+		vpu_setting_iram();
+	else
+		VpuWriteReg(BIT_AXI_SRAM_USE, 0);	/* not use SRAM */
 
 	if (pCodecInst->codecMode == AVC_DEC) {
 		VpuWriteReg(CMD_SET_FRAME_SLICE_BB_START,
@@ -2537,6 +2549,9 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		val |= (pDecInfo->dbkOffset.DbkOffsetEnable << 9);
 
 	if (cpu_is_mx37() || cpu_is_mx51()) {
+		if (cpu_is_mx37())
+			val |= (param->skipframeNum << 16);
+
 		val |= (1 << 10); /* hardcode to use interrupt disable mode  */
 		val |= (pDecInfo->decReportFrameBufStat.enable << 8);
 		val |= (pDecInfo->decReportMBInfo.enable << 7);
@@ -2571,7 +2586,9 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 				  (pDecInfo->dbkOffset.DbkOffsetB & 31));
 	}
 
-	VpuWriteReg(CMD_DEC_PIC_SKIP_NUM, param->skipframeNum);
+	/* TODO may be removed after next mx51 release be aligned with mx37 */
+	if (cpu_is_mx51())
+		VpuWriteReg(CMD_DEC_PIC_SKIP_NUM, param->skipframeNum);
 
 
 	if (!cpu_is_mx51()) {
@@ -2678,21 +2695,36 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	info->decPicHeight = val & 0xFFFF;
 	info->decPicWidth = (val >> 16) & 0xFFFF;
 
-	if (cpu_is_mx51() && pCodecInst->codecMode == AVC_DEC) {
-		val = VpuReadReg(RET_DEC_PIC_CROP_LEFT_RIGHT);  /* frame crop information(left, right) */
-		val2 = VpuReadReg(RET_DEC_PIC_CROP_TOP_BOTTOM); /* frame crop information(top, bottom) */
+	/* frame crop information */
+	if (pCodecInst->codecMode == AVC_DEC) {
+		val = VpuReadReg(RET_DEC_PIC_CROP_LEFT_RIGHT);
+		val2 = VpuReadReg(RET_DEC_PIC_CROP_TOP_BOTTOM);
 		if (val == 0 && val2 == 0) {
 			info->decPicCrop.left = 0;
 			info->decPicCrop.right = 0;
 			info->decPicCrop.top = 0;
 			info->decPicCrop.bottom = 0;
 		} else {
-			info->decPicCrop.left = ((val >> 16) & 0xFFFF) * 2;
-			info->decPicCrop.right =
-			    info->decPicWidth - ((val & 0xFFFF) * 2);
-			info->decPicCrop.top = ((val2 >> 16) & 0xFFFF) * 2;
-			info->decPicCrop.bottom =
-			    info->decPicHeight - ((val2 & 0xFFFF) * 2);
+			if (cpu_is_mx51()) {
+				info->decPicCrop.left =
+				    ((val >> 16) & 0xFFFF) * 2;
+				info->decPicCrop.right =
+				    info->decPicWidth - ((val & 0xFFFF) * 2);
+				info->decPicCrop.top =
+				    ((val2 >> 16) & 0xFFFF) * 2;
+				info->decPicCrop.bottom =
+				    info->decPicHeight - ((val2 & 0xFFFF) * 2);
+			} else if (cpu_is_mx37()) {
+
+				info->decPicCrop.left =
+				    ((val>>10) & 0x3FF) * 2;
+				info->decPicCrop.right =
+				    info->decPicWidth - ((val & 0x3FF) * 2);
+				info->decPicCrop.top =
+				    ((val2>>10) & 0x3FF)*2;
+				info->decPicCrop.bottom =
+				    info->decPicHeight - ((val2 & 0x3FF) * 2);
+			}
 		}
 	}
 
