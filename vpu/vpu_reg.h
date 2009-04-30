@@ -82,12 +82,13 @@
 #define BIT_FRM_DIS_FLG_1		0x144
 #define	BIT_FRM_DIS_FLG_2		0x148
 #define	BIT_FRM_DIS_FLG_3		0x14C
-#endif
 
-#define BIT_BIT_USE_SRAM_BASE		0x150
-#define BIT_IP_USE_SRAM_BASE		0x154
-#define	BIT_DBK_USE_SRAM_BASE		0x158
-#define	BIT_OVL_USE_SRAM_BASE		0x15C
+#define CMD_SET_FRAME_AXI_BIT_ADDR	0x190
+#define CMD_SET_FRAME_AXI_BIT_DIVX3_ADDR	0x194
+#define CMD_SET_FRAME_AXI_IP_ADDR	0x198
+#define CMD_SET_FRAME_AXI_DBK_ADDR	0x19C
+#define CMD_SET_FRAME_AXI_OVL_ADDR	0x1A0
+#endif
 
 #define BIT_BUSY_FLAG			0x160
 #define BIT_RUN_COMMAND			0x164
@@ -211,17 +212,29 @@
 #define CMD_DEC_PIC_ROT_STRIDE		0x190
 #define CMD_DEC_PIC_OPTION		0x194
 #define CMD_DEC_PIC_SKIP_NUM		0x198
-#define CMD_DEC_PIC_CHUNK_SIZE		0x19C
-#define CMD_DEC_PIC_BB_START		0x1A0
-#define CMD_DEC_PIC_START_BYTE		0x1A4
+ #if !defined(IMX37_3STACK)
+ #define CMD_DEC_PIC_CHUNK_SIZE		0x19C
+ #define CMD_DEC_PIC_BB_START		0x1A0
+ #define CMD_DEC_PIC_START_BYTE		0x1A4
+ #else
+ #define CMD_DEC_PIC_CHUNK_SIZE		0x198
+ #define CMD_DEC_PIC_BB_START		0x19C
+ #define CMD_DEC_PIC_START_BYTE		0x1A0
+ #endif
 #endif
 
+#if !defined(IMX37_3STACK)
 #define CMD_DEC_PIC_PARA_BASE_ADDR      0x1A8
 #define CMD_DEC_PIC_USER_DATA_BASE_ADDR 0x1AC
 #define CMD_DEC_PIC_USER_DATA_BUF_SIZE  0x1B0
+#else
+#define CMD_DEC_PIC_PARA_BASE_ADDR      0x1A4
+#define CMD_DEC_PIC_USER_DATA_BASE_ADDR 0x1A8
+#define CMD_DEC_PIC_USER_DATA_BUF_SIZE  0x1AC
+#endif
 
 #if defined(IMX37_3STACK)
-#define CMD_DEC_PIC_DBK_OFFSET		0x1C0
+#define CMD_DEC_PIC_DBK_OFFSET		0x1B0
 #else
 #define CMD_DEC_PIC_DBK_OFFSET		0x1B4
 #endif
@@ -243,8 +256,13 @@
 #endif
 
 #define RET_DEC_PIC_CUR_IDX		0x1DC
+#if !defined(IMX37_3STACK)
 #define RET_DEC_PIC_CROP_LEFT_RIGHT	0x1E0
 #define RET_DEC_PIC_CROP_TOP_BOTTOM	0x1E4
+#else
+#define RET_DEC_PIC_CROP_LEFT_RIGHT	0x1B4
+#define RET_DEC_PIC_CROP_TOP_BOTTOM	0x1B8
+#endif
 
 /*---------------------------------------------------------------------------
  * [ENC PIC RUN] COMMAND
