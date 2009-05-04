@@ -78,10 +78,10 @@ Uint32 use_iram_table[][NR_ENTRY] = {
 	 *
 	 * {VPU Register Address Offset, IRAM Size, Flag indicating used or not}
 	 */
-	{CMD_SET_FRAME_AXI_DBK_ADDR, 25600, 0},
-	{CMD_SET_FRAME_AXI_OVL_ADDR, 8000, 0},
-	{CMD_SET_FRAME_AXI_IP_ADDR, 6400, 0},
-	{CMD_SET_FRAME_AXI_BIT_ADDR, 6400, 0},
+	{0x19C, 25600, 0},
+	{0x1A0, 8000, 0},
+	{0x198, 6400, 0},
+	{0x190, 6400, 0},
 };
 
 int get_iram_setting(struct iram_t iram, Uint32 array[][NR_ENTRY],
