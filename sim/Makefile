@@ -7,6 +7,10 @@ CFLAGS += $(INCLUDE)
 
 LIBNAME=libsim
 
+# list of platforms which want this test case
+INCLUDE_LIST:= IMX51
+
+ifeq ($(PLATFORM), $(findstring $(PLATFORM), $(INCLUDE_LIST)))
 all: $(LIBNAME).so
 
 install:
@@ -17,6 +21,13 @@ install:
 
 $(LIBNAME).so: $(OBJS)
 	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^ -lpthread
+
+%.o: %.c
+	$(CC) -D$(PLATFORM) $(INCLUDE) -Wall -O2 -c $^ -o $@
+
+else
+all install :
+endif
 
 .PHONY: clean
 clean:
