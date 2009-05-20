@@ -96,17 +96,20 @@ typedef struct {
 	int update_bufnum;
         ipu_mem_info i_minfo[2];
         ipu_mem_info ov_minfo[2];
+	ipu_mem_info ov_alpha_minfo[2];
 	int iwidth;
 	int iheight;
 	int i_off;
 	int i_uoff;
 	int i_voff;
 	int overlay_en;
+	int overlay_local_alpha_en;
 	int ovwidth;
 	int ovheight;
 	int ov_off;
 	int ov_uoff;
 	int ov_voff;
+	int ov_alpha_off;
 
 	int input_fr_cnt;
 	int output_fr_cnt;
@@ -392,6 +395,11 @@ static int _ipu_task_check(ipu_lib_input_param_t * input,
 		ret = -1;
 		goto done;
 	}
+	if (overlay && overlay->global_alpha_en && overlay->local_alpha_en) {
+		dbg(DBG_ERR, "Choose overlay global or local alpha only!\n");
+		ret = -1;
+		goto done;
+	}
 
 	if ((input->input_crop_win.win_w > 0) || (input->input_crop_win.win_h > 0)) {
 		if ((input->input_crop_win.win_w + input->input_crop_win.pos.x) > input->width)
@@ -507,6 +515,10 @@ static int _ipu_task_check(ipu_lib_input_param_t * input,
 								overlay->ov_crop_win.pos.x) * fmt_to_bpp(overlay->fmt)/8;
 						break;
 				}
+
+				if (overlay && overlay->local_alpha_en)
+					ipu_priv_handle->ov_alpha_off = overlay->ov_crop_win.pos.y * overlay->width +
+									overlay->ov_crop_win.pos.x;
 			}
 		} else {
 			ipu_priv_handle->ovwidth = overlay->width;
@@ -602,6 +614,8 @@ static int _ipu_task_check(ipu_lib_input_param_t * input,
 	if (overlay) {
 		ipu_priv_handle->output[0].task_mode |= IC_MODE;
 		ipu_priv_handle->overlay_en = 1;
+		if (overlay->local_alpha_en)
+			ipu_priv_handle->overlay_local_alpha_en = 1;
 	}
 
 	if (output1) {
@@ -803,6 +817,34 @@ static int _ipu_mem_alloc(ipu_lib_input_param_t * input,
 			} else {
 				ipu_priv_handle->ov_minfo[i].paddr = overlay->user_def_paddr[i];
 				dbg(DBG_INFO, "\033[0;35mSet overlay dma mem [%d] addr 0x%x by user!\033[0m\n", i, overlay->user_def_paddr[i]);
+			}
+
+			if (overlay->local_alpha_en) {
+				if (overlay->user_def_alpha_paddr[i] == 0) {
+					ipu_handle->ovfr_alpha_size = ipu_priv_handle->ov_alpha_minfo[i].size =
+						overlay->width * overlay->height;
+					if (ioctl(ipu_priv_handle->fd_ipu, IPU_ALOC_MEM, &(ipu_priv_handle->ov_alpha_minfo[i])) < 0) {
+						dbg(DBG_ERR, "Ioctl IPU_ALOC_MEM failed!\n");
+						ret = -1;
+						goto err;
+					}
+					/* mmap virtual addr for user*/
+					ipu_handle->ovbuf_alpha_start[i] = mmap (NULL, ipu_priv_handle->ov_alpha_minfo[i].size,
+							PROT_READ | PROT_WRITE, MAP_SHARED,
+							ipu_priv_handle->fd_ipu, ipu_priv_handle->ov_alpha_minfo[i].paddr);
+					if (ipu_handle->ovbuf_alpha_start[i] == MAP_FAILED) {
+						dbg(DBG_ERR, "mmap failed!\n");
+						ret = -1;
+						goto err;
+					}
+					dbg(DBG_INFO,
+						    "\033[0;35mAlocate %d dma mem [%d] for overlay local alpha blending, dma addr 0x%x, mmap to %p!\033[0m\n",
+							ipu_handle->ovfr_alpha_size, i, ipu_priv_handle->ov_alpha_minfo[i].paddr,
+							ipu_handle->ovbuf_alpha_start[i]);
+				} else {
+					ipu_priv_handle->ov_alpha_minfo[i].paddr = overlay->user_def_alpha_paddr[i];
+					dbg(DBG_INFO, "\033[0;35mSet overlay local alpha blending dma mem [%d] addr 0x%x by user!\033[0m\n", i, overlay->user_def_alpha_paddr[i]);
+				}
 			}
 		}
 
@@ -1056,6 +1098,13 @@ static void _ipu_mem_free(ipu_lib_handle_t * ipu_handle)
 			dbg(DBG_INFO, "\033[0;35mFree %d dma mem [%d] for overlay, dma addr 0x%x!\033[0m\n",
 					ipu_handle->ovfr_size, i, ipu_priv_handle->ov_minfo[i].paddr);
 		}
+		if (ipu_priv_handle->ov_alpha_minfo[i].vaddr) {
+			if (ipu_handle->ovbuf_alpha_start[i])
+				munmap(ipu_handle->ovbuf_alpha_start[i], ipu_priv_handle->ov_alpha_minfo[i].size);
+			ioctl(ipu_priv_handle->fd_ipu, IPU_FREE_MEM, &(ipu_priv_handle->ov_alpha_minfo[i]));
+			dbg(DBG_INFO, "\033[0;35mFree %d dma mem [%d] for overlay local alpha blending, dma addr 0x%x!\033[0m\n",
+					ipu_handle->ovfr_alpha_size, i, ipu_priv_handle->ov_alpha_minfo[i].paddr);
+		}
 
 		for (j=0;j<output_num;j++) {
 			if (ipu_priv_handle->output[j].show_to_fb == 0) {
@@ -1170,10 +1219,18 @@ static int _ipu_channel_setup(ipu_lib_input_param_t * input,
 		dbg(DBG_INFO, "\t\tov_off 0x%x\n", ipu_priv_handle->ov_off);
 		dbg(DBG_INFO, "\t\tov_uoff 0x%x\n", ipu_priv_handle->ov_uoff);
 		dbg(DBG_INFO, "\t\tov_voff 0x%x\n", ipu_priv_handle->ov_voff);
+		if (overlay->local_alpha_en)
+			dbg(DBG_INFO, "\t\tov_alpha_off 0x%x\n", ipu_priv_handle->ov_alpha_off);
 
 		dbg(DBG_INFO, "\t\033[0;34moverlay buf paddr:\033[0m\n");
 		dbg(DBG_INFO, "\t\tbuf0 0x%x\n", ipu_priv_handle->ov_minfo[0].paddr);
 		dbg(DBG_INFO, "\t\tbuf1 0x%x\n", ipu_priv_handle->ov_minfo[1].paddr);
+
+		if (overlay->local_alpha_en) {
+			dbg(DBG_INFO, "\t\033[0;34moverlay local alpha buf paddr:\033[0m\n");
+			dbg(DBG_INFO, "\t\tbuf0 0x%x\n", ipu_priv_handle->ov_alpha_minfo[0].paddr);
+			dbg(DBG_INFO, "\t\tbuf1 0x%x\n", ipu_priv_handle->ov_alpha_minfo[1].paddr);
+		}
 	}
 
 	dbg(DBG_INFO, "\033[0;34moutput0 info:\033[0m\n");
@@ -1264,10 +1321,11 @@ static int _ipu_channel_setup(ipu_lib_input_param_t * input,
 			if (overlay) {
 				params.mem_prp_vf_mem.in_g_pixel_fmt = overlay->fmt;
 				params.mem_prp_vf_mem.graphics_combine_en = 1;
-				params.mem_prp_vf_mem.global_alpha_en = overlay->alpha_en;
+				params.mem_prp_vf_mem.global_alpha_en = overlay->global_alpha_en;
 				params.mem_prp_vf_mem.alpha = overlay->alpha;
 				params.mem_prp_vf_mem.key_color_en = overlay->key_color_en;
 				params.mem_prp_vf_mem.key_color = overlay->key_color;
+				params.mem_prp_vf_mem.alpha_chan_en = overlay->local_alpha_en;
 			}
 
 			ret = ipu_init_channel(ipu_priv_handle->output[i].ic_chan, &params);
@@ -1305,6 +1363,24 @@ static int _ipu_channel_setup(ipu_lib_input_param_t * input,
 				if (ret < 0) {
 					ipu_uninit_channel(ipu_priv_handle->output[i].ic_chan);
 					goto done;
+				}
+
+				if (overlay->local_alpha_en) {
+					ret = ipu_init_channel_buffer(ipu_priv_handle->output[i].ic_chan,
+							IPU_ALPHA_IN_BUFFER,
+							IPU_PIX_FMT_GENERIC,
+							ipu_priv_handle->ovwidth,
+							ipu_priv_handle->ovheight,
+							overlay->width,
+							IPU_ROTATE_NONE,
+							ipu_priv_handle->ov_alpha_minfo[0].paddr + ipu_priv_handle->ov_alpha_off,
+							ipu_priv_handle->mode & OP_STREAM_MODE ?
+							ipu_priv_handle->ov_alpha_minfo[1].paddr + ipu_priv_handle->ov_alpha_off : 0,
+							0, 0);
+					if (ret < 0) {
+						ipu_uninit_channel(ipu_priv_handle->output[i].ic_chan);
+						goto done;
+					}
 				}
 			}
 
@@ -1446,10 +1522,11 @@ static int _ipu_channel_setup(ipu_lib_input_param_t * input,
 			if (overlay) {
 				params.mem_prp_vf_mem.in_g_pixel_fmt = overlay->fmt;
 				params.mem_prp_vf_mem.graphics_combine_en = 1;
-				params.mem_prp_vf_mem.global_alpha_en = overlay->alpha_en;
+				params.mem_prp_vf_mem.global_alpha_en = overlay->global_alpha_en;
 				params.mem_prp_vf_mem.alpha = overlay->alpha;
 				params.mem_prp_vf_mem.key_color_en = overlay->key_color_en;
 				params.mem_prp_vf_mem.key_color = overlay->key_color;
+				params.mem_prp_vf_mem.alpha_chan_en = overlay->local_alpha_en;
 			}
 
 			ret = ipu_init_channel(ipu_priv_handle->output[i].ic_chan, &params);
@@ -1488,6 +1565,24 @@ static int _ipu_channel_setup(ipu_lib_input_param_t * input,
 				if (ret < 0) {
 					ipu_uninit_channel(ipu_priv_handle->output[i].ic_chan);
 					goto done;
+				}
+
+				if (overlay->local_alpha_en) {
+					ret = ipu_init_channel_buffer(ipu_priv_handle->output[i].ic_chan,
+							IPU_ALPHA_IN_BUFFER,
+							IPU_PIX_FMT_GENERIC,
+							ipu_priv_handle->ovwidth,
+							ipu_priv_handle->ovheight,
+							overlay->width,
+							IPU_ROTATE_NONE,
+							ipu_priv_handle->ov_alpha_minfo[0].paddr + ipu_priv_handle->ov_alpha_off,
+							ipu_priv_handle->mode & OP_STREAM_MODE ?
+							ipu_priv_handle->ov_alpha_minfo[1].paddr + ipu_priv_handle->ov_alpha_off : 0,
+							0, 0);
+					if (ret < 0) {
+						ipu_uninit_channel(ipu_priv_handle->output[i].ic_chan);
+						goto done;
+					}
 				}
 			}
 
@@ -1939,14 +2034,20 @@ int _ipu_task_enable(ipu_lib_handle_t * ipu_handle)
 		if(task_mode == IC_MODE){
 			if (i == 0)
 				ipu_select_buffer(ipu_priv_handle->output[i].ic_chan, IPU_INPUT_BUFFER, 0);
-			if (ipu_priv_handle->overlay_en)
+			if (ipu_priv_handle->overlay_en) {
 				ipu_select_buffer(ipu_priv_handle->output[i].ic_chan, IPU_GRAPH_IN_BUFFER, 0);
+				if (ipu_priv_handle->overlay_local_alpha_en)
+					ipu_select_buffer(ipu_priv_handle->output[i].ic_chan, IPU_ALPHA_IN_BUFFER, 0);
+			}
 			ipu_select_buffer(ipu_priv_handle->output[i].ic_chan, IPU_OUTPUT_BUFFER, 0);
 			if (bufcnt == 2) {
 				if (i == 0)
 					ipu_select_buffer(ipu_priv_handle->output[i].ic_chan, IPU_INPUT_BUFFER, 1);
-				if (ipu_priv_handle->overlay_en)
+				if (ipu_priv_handle->overlay_en) {
 					ipu_select_buffer(ipu_priv_handle->output[i].ic_chan, IPU_GRAPH_IN_BUFFER, 1);
+					if (ipu_priv_handle->overlay_local_alpha_en)
+						ipu_select_buffer(ipu_priv_handle->output[i].ic_chan, IPU_ALPHA_IN_BUFFER, 1);
+				}
 				ipu_select_buffer(ipu_priv_handle->output[i].ic_chan, IPU_OUTPUT_BUFFER, 1);
 			}
 		} else if (task_mode == ROT_MODE){
@@ -1963,14 +2064,20 @@ int _ipu_task_enable(ipu_lib_handle_t * ipu_handle)
 
 			if (i == 0)
 				ipu_select_buffer(ipu_priv_handle->output[i].ic_chan, IPU_INPUT_BUFFER, 0);
-			if (ipu_priv_handle->overlay_en)
+			if (ipu_priv_handle->overlay_en) {
 				ipu_select_buffer(ipu_priv_handle->output[i].ic_chan, IPU_GRAPH_IN_BUFFER, 0);
+				if (ipu_priv_handle->overlay_local_alpha_en)
+					ipu_select_buffer(ipu_priv_handle->output[i].ic_chan, IPU_ALPHA_IN_BUFFER, 0);
+			}
 			ipu_select_buffer(ipu_priv_handle->output[i].ic_chan, IPU_OUTPUT_BUFFER, 0);
 			if (bufcnt == 2) {
 				if (i == 0)
 					ipu_select_buffer(ipu_priv_handle->output[i].ic_chan, IPU_INPUT_BUFFER, 1);
-				if (ipu_priv_handle->overlay_en)
+				if (ipu_priv_handle->overlay_en) {
 					ipu_select_buffer(ipu_priv_handle->output[i].ic_chan, IPU_GRAPH_IN_BUFFER, 1);
+					if (ipu_priv_handle->overlay_local_alpha_en)
+						ipu_select_buffer(ipu_priv_handle->output[i].ic_chan, IPU_ALPHA_IN_BUFFER, 1);
+				}
 				ipu_select_buffer(ipu_priv_handle->output[i].ic_chan, IPU_OUTPUT_BUFFER, 1);
 			}
 		}
@@ -2089,7 +2196,8 @@ int _ipu_wait_for_irq(int irq, int times)
  */
 int mxc_ipu_lib_task_buf_update(ipu_lib_handle_t * ipu_handle,
 	dma_addr_t new_inbuf_paddr, dma_addr_t new_ovbuf_paddr,
-	void (output_callback)(void *, int), void * output_cb_arg)
+	dma_addr_t new_ovbuf_alpha_paddr, void (output_callback)(void *, int),
+	void * output_cb_arg)
 {
 	int ret, i, output_num;
 	ipu_lib_priv_handle_t * ipu_priv_handle = (ipu_lib_priv_handle_t *)ipu_handle->priv;
@@ -2163,10 +2271,19 @@ int mxc_ipu_lib_task_buf_update(ipu_lib_handle_t * ipu_handle,
 			ipu_update_channel_buffer(ipu_priv_handle->output[0].begin_chan, IPU_GRAPH_IN_BUFFER,
 				ipu_priv_handle->update_bufnum, new_ovbuf_paddr);
 		}
-		ipu_select_buffer(ipu_priv_handle->output[0].begin_chan, IPU_INPUT_BUFFER,
-					ipu_priv_handle->update_bufnum);
-		if (ipu_priv_handle->overlay_en)
+		if (new_ovbuf_alpha_paddr && ipu_priv_handle->overlay_en && ipu_priv_handle->overlay_local_alpha_en) {
+			dbg(DBG_DEBUG, "update overlay local alpha blending with user defined buffer phy 0x%x\n", new_ovbuf_alpha_paddr);
+			ipu_update_channel_buffer(ipu_priv_handle->output[0].begin_chan, IPU_ALPHA_IN_BUFFER,
+				ipu_priv_handle->update_bufnum, new_ovbuf_alpha_paddr);
+		}
+		if (ipu_priv_handle->overlay_en) {
 			ipu_select_buffer(ipu_priv_handle->output[0].begin_chan, IPU_GRAPH_IN_BUFFER,
+					ipu_priv_handle->update_bufnum);
+			if (ipu_priv_handle->overlay_local_alpha_en)
+				ipu_select_buffer(ipu_priv_handle->output[0].begin_chan, IPU_ALPHA_IN_BUFFER,
+					ipu_priv_handle->update_bufnum);
+		}
+		ipu_select_buffer(ipu_priv_handle->output[0].begin_chan, IPU_INPUT_BUFFER,
 					ipu_priv_handle->update_bufnum);
 
 		if (ipu_priv_handle->mode & OP_STREAM_MODE)
