@@ -36,9 +36,14 @@
  * ovbuf_start before call function mxc_ipu_lib_task_buf_update().
  *
  * NOTE: overlay is a special function of ipu, which can combine input and
- * overlay to one output based on alpha and color-key setting. Pay attention
- * that overlay's width/height should be the same as output. If user do not
- * want to use overlay function, then just let this parameter to NULL.
+ * overlay to one output based on alpha and color-key setting. Both global
+ * alpha blending and local alpha blending are supported. You should set
+ * corresponding enable flag in ipu_lib_overlay_param_t. If you want to use
+ * local alpha blending, you need set user_def_alpha_paddr in
+ * ipu_lib_overlay_param_t and fill in alpha data before call function
+ * mxc_ipu_lib_task_init(). Pay attention that overlay's width/height
+ * should be the same as output. If user do not want to use overlay function,
+ * then just let this parameter to NULL.
  *
  * 2. mxc_ipu_lib_task_buf_update()
  *
@@ -140,8 +145,10 @@ typedef struct {
 	} ov_crop_win;
 
 	dma_addr_t user_def_paddr[2];
+	dma_addr_t user_def_alpha_paddr[2];
 
-	unsigned char alpha_en;
+	unsigned char global_alpha_en;
+	unsigned char local_alpha_en;
 	unsigned char key_color_en;
 	unsigned char alpha; /* 0 ~ 255*/
 	unsigned int key_color; /* RBG 24bit */
@@ -203,10 +210,12 @@ typedef struct {
 typedef struct {
         void * inbuf_start[2];
         void * ovbuf_start[2];
+        void * ovbuf_alpha_start[2];
 	void * outbuf_start0[2];
 	void * outbuf_start1[2];
 	int ifr_size;
 	int ovfr_size;
+	int ovfr_alpha_size;
 	int ofr_size[2];
 
 	void * priv;
@@ -279,6 +288,9 @@ void mxc_ipu_lib_task_uninit(ipu_lib_handle_t * ipu_handle);
  *
  * @param	new_ovbuf_paddr User defined overlay physical buffer address.
  *
+ * @param	new_ovbuf_alpha_paddr User defined overlay local alpha blending
+ *		physical buffer address.
+ *
  * @param	output_callback	IPU lib will call output_callback funtion
  * 				when there is output data.
  *
@@ -289,7 +301,8 @@ void mxc_ipu_lib_task_uninit(ipu_lib_handle_t * ipu_handle);
  */
 int mxc_ipu_lib_task_buf_update(ipu_lib_handle_t * ipu_handle,
 	dma_addr_t new_inbuf_paddr, dma_addr_t new_ovbuf_paddr,
-	void (output_callback)(void *, int), void * output_cb_arg);
+	dma_addr_t new_ovbuf_alpha_paddr, void (output_callback)(void *, int),
+	void * output_cb_arg);
 
 #ifdef __cplusplus
 }
