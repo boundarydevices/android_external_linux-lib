@@ -435,7 +435,7 @@ SLRetCode LoadScreenLayer(ScreenLayer *pSL, LoadParam *pParam, u8 nBufIdx)
 		goto done;
 	}
 
-	if (mxc_ipu_lib_task_buf_update(&ipu_handle, 0, 0, 0, 0) < 0) {
+	if (mxc_ipu_lib_task_buf_update(&ipu_handle, 0, 0, 0, 0, 0) < 0) {
 		ret = E_RET_TASK_RUN_ERR;
 		pthread_mutex_unlock(&SLmutex);
 		goto done;
@@ -500,7 +500,7 @@ SLRetCode _CopyScreenLayer(ScreenLayer *pSrcSL, ScreenLayer *pTgtSL)
 		goto done;
 	}
 
-	if (mxc_ipu_lib_task_buf_update(&ipu_handle, 0, 0, 0, 0) < 0) {
+	if (mxc_ipu_lib_task_buf_update(&ipu_handle, 0, 0, 0, 0, 0) < 0) {
 		ret = E_RET_TASK_RUN_ERR;
 		goto done;
 	}
@@ -584,7 +584,7 @@ SLRetCode _CombScreenLayers(ScreenLayer *pBotSL, ScreenLayer *pTopSL)
 		overlay.height = pTopSL->screenRect.bottom - pTopSL->screenRect.top;
 		overlay.fmt = pTopSL->fmt;
 		overlay.user_def_paddr[0] = pTopSL->bufPaddr[pTopSLPriv->curBufIdx];
-		overlay.alpha_en = pTopSLPriv->alphaEnable;
+		overlay.global_alpha_en = pTopSLPriv->alphaEnable;
 		overlay.key_color_en = pTopSLPriv->keyColorEnable;
 		overlay.alpha = pTopSLPriv->alpha;
 		overlay.key_color = pTopSLPriv->keyColor;
@@ -605,7 +605,7 @@ SLRetCode _CombScreenLayers(ScreenLayer *pBotSL, ScreenLayer *pTopSL)
 		}
 	}
 
-	if (mxc_ipu_lib_task_buf_update(&ipu_handle, 0, 0, 0, 0) < 0) {
+	if (mxc_ipu_lib_task_buf_update(&ipu_handle, 0, 0, 0, 0, 0) < 0) {
 		ret = E_RET_TASK_RUN_ERR;
 		goto done;
 	}
