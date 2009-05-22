@@ -399,6 +399,7 @@ static int _ipu_task_check(ipu_lib_input_param_t * input,
 		if ((input->input_crop_win.win_h + input->input_crop_win.pos.y) > input->height)
 			input->input_crop_win.win_h = input->height - input->input_crop_win.pos.y;
 		ipu_priv_handle->iwidth = input->input_crop_win.win_w;
+		ipu_priv_handle->iwidth = ipu_priv_handle->iwidth  - ipu_priv_handle->iwidth%8;
 		ipu_priv_handle->iheight = input->input_crop_win.win_h;
 
 		if ((ipu_priv_handle->iwidth != input->width) || (ipu_priv_handle->iheight != input->height)) {
@@ -448,6 +449,7 @@ static int _ipu_task_check(ipu_lib_input_param_t * input,
 		}
 	} else {
 		ipu_priv_handle->iwidth = input->width;
+		ipu_priv_handle->iwidth = ipu_priv_handle->iwidth - ipu_priv_handle->iwidth%8;
 		ipu_priv_handle->iheight = input->height;
 	}
 
@@ -458,6 +460,7 @@ static int _ipu_task_check(ipu_lib_input_param_t * input,
 			if ((overlay->ov_crop_win.win_h + overlay->ov_crop_win.pos.y) > overlay->height)
 				overlay->ov_crop_win.win_h = overlay->height - overlay->ov_crop_win.pos.y;
 			ipu_priv_handle->ovwidth = overlay->ov_crop_win.win_w;
+			ipu_priv_handle->ovwidth = ipu_priv_handle->ovwidth  - ipu_priv_handle->ovwidth%8;
 			ipu_priv_handle->ovheight = overlay->ov_crop_win.win_h;
 
 			if ((ipu_priv_handle->ovwidth != overlay->width) || (ipu_priv_handle->ovheight != overlay->height)) {
@@ -507,6 +510,7 @@ static int _ipu_task_check(ipu_lib_input_param_t * input,
 			}
 		} else {
 			ipu_priv_handle->ovwidth = overlay->width;
+			ipu_priv_handle->ovwidth = ipu_priv_handle->ovwidth - ipu_priv_handle->ovwidth%8;
 			ipu_priv_handle->ovheight = overlay->height;
 		}
 	}
