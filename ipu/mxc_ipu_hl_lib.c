@@ -1840,7 +1840,7 @@ void mxc_ipu_lib_task_uninit(ipu_lib_handle_t * ipu_handle)
 
 	/* if stream mode, wait for latest frame finish */
 	if (ipu_priv_handle->mode & OP_STREAM_MODE) {
-		if (_ipu_wait_for_irq(ipu_priv_handle->irq, 1000)) {
+		if (_ipu_wait_for_irq(ipu_priv_handle->irq, 20)) {
 			dbg(DBG_ERR, "wait for irq %d time out!\n", ipu_priv_handle->irq);
 		} else
 			ipu_priv_handle->output_fr_cnt++;
@@ -2040,6 +2040,7 @@ int _ipu_wait_for_irq(int irq, int times)
 
 	while (ipu_get_interrupt_event(&info) < 0) {
 		dbg(DBG_INFO, "Can not get wait irq %d, try again!\n", irq);
+		usleep(1000);
 		wait += 1;
 		if (wait >= times)
 			break;
@@ -2115,7 +2116,7 @@ int mxc_ipu_lib_task_buf_update(ipu_lib_handle_t * ipu_handle,
 		else
 			ipu_priv_handle->input_fr_cnt = 1;
 
-		if (_ipu_wait_for_irq(ipu_priv_handle->irq, 1000)) {
+		if (_ipu_wait_for_irq(ipu_priv_handle->irq, 20)) {
 			dbg(DBG_ERR, "wait for irq %d time out!\n", ipu_priv_handle->irq);
 			return -1;
 		}
@@ -2139,7 +2140,7 @@ int mxc_ipu_lib_task_buf_update(ipu_lib_handle_t * ipu_handle,
 		dbg(DBG_DEBUG, "output pingpang %d\n", ipu_priv_handle->output_bufnum);
 
 		if (ipu_priv_handle->mode & OP_STREAM_MODE) {
-			if (_ipu_wait_for_irq(ipu_priv_handle->irq, 1000)) {
+			if (_ipu_wait_for_irq(ipu_priv_handle->irq, 20)) {
 				dbg(DBG_ERR, "wait for irq %d time out!\n", ipu_priv_handle->irq);
 				return -1;
 			}
@@ -2171,7 +2172,7 @@ int mxc_ipu_lib_task_buf_update(ipu_lib_handle_t * ipu_handle,
 		if (ipu_priv_handle->mode & OP_STREAM_MODE)
 			ipu_priv_handle->update_bufnum = ipu_priv_handle->update_bufnum ? 0 : 1;
 		else {
-			if (_ipu_wait_for_irq(ipu_priv_handle->irq, 1000)) {
+			if (_ipu_wait_for_irq(ipu_priv_handle->irq, 20)) {
 				dbg(DBG_ERR, "wait for irq %d time out!\n", ipu_priv_handle->irq);
 				return -1;
 			}
