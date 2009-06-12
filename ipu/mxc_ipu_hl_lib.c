@@ -954,16 +954,9 @@ static int _ipu_mem_alloc(ipu_lib_input_param_t * input,
 				goto err;
 			}
 
-			if (strcmp(fb_fix.id, "DISP3 FG") == 0)
-				ipu_priv_handle->output[j].fb_chan = MEM_FG_SYNC;
-			else if (strcmp(fb_fix.id, "DISP3 BG") == 0)
-				ipu_priv_handle->output[j].fb_chan = MEM_BG_SYNC;
-			else if (strcmp(fb_fix.id, "DISP3 BG - DI1") == 0)
-				ipu_priv_handle->output[j].fb_chan = MEM_DC_SYNC;
-
-			if (!ipu_priv_handle->output[j].fb_chan) {
-				dbg(DBG_WARNING,
-					"Get FB ipu channel failed, fix id %s\n", fb_fix.id);
+			if (ioctl(ipu_priv_handle->output[j].fd_fb, MXCFB_GET_FB_IPU_CHAN,
+				&ipu_priv_handle->output[j].fb_chan) < 0) {
+				dbg(DBG_WARNING,"Get FB ipu channel failed, use default\n");
 				if (output->fb_disp.fb_num == 0)
 					ipu_priv_handle->output[j].fb_chan = MEM_BG_SYNC;
 				else if (output->fb_disp.fb_num == 1)
