@@ -39,7 +39,7 @@ typedef enum {
 	E_RET_NOSUCH_METHODTYPE,
 	E_RET_DESTORY_PRI_WITH_SUBSL,
 	E_RET_ALPHA_BLENDING_CONFLICT,
-	E_RET_ALPHA_BLENDING_DISABLE,
+	E_RET_LOCAL_ALPHA_BLENDING_DISABLE,
 	E_RET_ALPHA_BUF_NOT_ALLOC_ERR,
 } SLRetCode;
 
@@ -51,7 +51,7 @@ typedef enum {
 
 typedef struct {
 	u8	globalAlphaEnable;
-	u8	localAlphaEnable;
+	u8	sepLocalAlphaEnable;
 	u32	alpha;
 } MethodAlphaData;
 
@@ -72,7 +72,7 @@ typedef struct {
 	u32 		fmt;
 	u32		bufSize;
 	u32		bufAlphaSize;
-	bool		supportLocalAlpha;
+	bool		supportSepLocalAlpha;
 	void 		** bufVaddr;
 	dma_addr_t 	* bufPaddr;
 	void 		** bufAlphaVaddr;
