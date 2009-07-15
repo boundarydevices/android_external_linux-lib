@@ -41,6 +41,8 @@ typedef enum {
 	E_RET_ALPHA_BLENDING_CONFLICT,
 	E_RET_LOCAL_ALPHA_BLENDING_DISABLE,
 	E_RET_ALPHA_BUF_NOT_ALLOC_ERR,
+	E_RET_IPC_SEM_OPEN_FAILED,
+	E_RET_IPC_SHM_FAILED,
 } SLRetCode;
 
 typedef enum {
@@ -100,6 +102,30 @@ SLRetCode FlipScreenLayerBuf(ScreenLayer *pSL, u8 nBufIdx);
 SLRetCode UpdateScreenLayer(ScreenLayer *pSL);
 SLRetCode SetScreenLayer(ScreenLayer *pSL, SetMethodType eType, void *setData);
 SLRetCode DestoryScreenLayer(ScreenLayer *pSL);
+
+/*
+** Get the handle of Primaray screen layer, which will be used to create the others Non-primary screen layer.
+**
+** Input  : fbdev, this is the fixed id of frame buffer
+** Return : The handle of the Primary Screen Layer
+*/
+void* GetPrimarySLHandle(char * pFbdev) ;
+
+/*
+** Get the width of Primary screen layer.
+**
+** Input  : pPrimaryHandle, this is the handle of primary screen layer
+** Return : the width of Primary screen layer
+*/
+u32   GetPrimarySLWidth(void * pPrimaryHandle);
+
+/*
+** Get the height of Primary screen layer.
+**
+** Input  : pPrimaryHandle, this is the handle of primary screen layer
+** Return : the height of Primary screen layer
+*/
+u32   GetPrimarySLHeight(void * pPrimaryHandle);
 
 #ifdef __cplusplus
 }
