@@ -1,6 +1,6 @@
 /*
  * User Space library to access the Security hardware
- * Copyright 2005-2008 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2005-2009 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -306,7 +306,7 @@ static inline fsl_shw_return_t add_assoc_preamble(sah_Head_Desc ** desc_chain,
 	uint32_t header = SAH_HDR_SKHA_ENC_DEC;
 	uint32_t temp_buf_flag;
 	unsigned chain_s2 = 1;
-	
+
 #if defined (FSL_HAVE_SAHARA4) && !defined (USE_S2_CCM_DECRYPT_CHAIN)
 	if (!encrypt) {
 		chain_s2 = 0;
@@ -340,7 +340,7 @@ static inline fsl_shw_return_t add_assoc_preamble(sah_Head_Desc ** desc_chain,
 								auth_data,
 								auth_data_length,
 								&temp_buf);
-			
+
 			if (status != FSL_RETURN_OK_S) {
 				goto out;
 			}
@@ -360,12 +360,12 @@ static inline fsl_shw_return_t add_assoc_preamble(sah_Head_Desc ** desc_chain,
 			}
 			/* for next/first use of temp_buf */
 			temp_buf_flag = SAH_OWNS_LINK_DATA;
-			
+
 			cbc_data_length = auth_data_length;
 		}		/* else not NIST */
 #if defined (FSL_HAVE_SAHARA2) || defined (USE_S2_CCM_ENCRYPT_CHAIN)   \
 	|| defined (USE_S2_CCM_DECRYPT_CHAIN)
-		
+
 	if (!chain_s2) {
 		header = SAH_HDR_SKHA_CBC_ICV
 				^ sah_insert_skha_mode_cbc ^ sah_insert_skha_aux0
@@ -417,7 +417,7 @@ static inline fsl_shw_return_t add_assoc_preamble(sah_Head_Desc ** desc_chain,
 		/* Crank through auth data */
 		status = sah_Append_Desc(user_ctx->mem_util, desc_chain,
 					 header, link1, link2);
-		
+
 out:
 
 		if (status != FSL_RETURN_OK_S) {
@@ -428,7 +428,7 @@ out:
 				sah_Destroy_Link(user_ctx->mem_util, link2);
 			}
 		}
-	
+
     (void)encrypt;
 
 	return status;
@@ -673,7 +673,7 @@ fsl_shw_return_t fsl_shw_gen_encrypt(fsl_shw_uco_t * user_ctx,
 		ret = FSL_RETURN_BAD_FLAG_S;
 		goto out;
 	}
-	
+
 	/* Load CTR0 and Key */
 	header = (SAH_HDR_SKHA_SET_MODE_IV_KEY
 		  ^ sah_insert_skha_mode_ctr
@@ -687,7 +687,7 @@ fsl_shw_return_t fsl_shw_gen_encrypt(fsl_shw_uco_t * user_ctx,
 	header = SAH_HDR_SKHA_ENC_DEC;
 	DESC_IN_OUT(header, auth_ctx->mac_length, garbage_output,
 		auth_ctx->mac_length, garbage_output);
-	
+
 #if defined(FSL_HAVE_SAHARA2) || defined(USE_S2_CCM_ENCRYPT_CHAIN)
 #ifndef NO_ZERO_IV_LOAD
 	header = (SAH_HDR_SKHA_SET_MODE_IV_KEY
@@ -718,7 +718,7 @@ fsl_shw_return_t fsl_shw_gen_encrypt(fsl_shw_uco_t * user_ctx,
 #if defined (FSL_HAVE_SAHARA4) && !defined (USE_S2_CCM_ENCRYPT_CHAIN)
 
 	/* Pull out the CBC-MAC value. */
-	
+
 	DESC_OUT_OUT(SAH_HDR_SKHA_READ_CONTEXT_IV, 0, NULL,
 				 auth_ctx->mac_length, auth_value);
 #else
@@ -727,14 +727,14 @@ fsl_shw_return_t fsl_shw_gen_encrypt(fsl_shw_uco_t * user_ctx,
 		0, NULL, auth_ctx->mac_length, auth_ctx->unencrypted_mac);
 
 	/* Now load CTR0 in, and encrypt the MAC */
-	
+
 	header = SAH_HDR_SKHA_SET_MODE_IV_KEY
 			^ sah_insert_skha_encrypt
 			^ sah_insert_skha_mode_ctr ^ sah_insert_skha_modulus_128;
 		DESC_IN_IN(header,
 			   auth_ctx->cipher_ctx_info.block_size_bytes,
 			   auth_ctx->cipher_ctx_info.context, 0, NULL);
-	
+
 		header = SAH_HDR_SKHA_ENC_DEC;	/* Desc. #4 SKHA Enc/Dec */
 		DESC_IN_OUT(header,
 				auth_ctx->mac_length, auth_ctx->unencrypted_mac,
@@ -790,7 +790,7 @@ fsl_shw_return_t fsl_shw_auth_decrypt(fsl_shw_uco_t * user_ctx,
 		ret = FSL_RETURN_BAD_MODE_S;
 		goto out;
 	}
-	
+
 	/* Only support INIT and FINALIZE flags right now. */
 	if ((auth_ctx->flags & (FSL_ACCO_CTX_INIT | FSL_ACCO_CTX_LOAD |
 				FSL_ACCO_CTX_SAVE | FSL_ACCO_CTX_FINALIZE))
@@ -807,7 +807,7 @@ fsl_shw_return_t fsl_shw_auth_decrypt(fsl_shw_uco_t * user_ctx,
 	DESC_IN_KEY(header,
 		    auth_ctx->cipher_ctx_info.block_size_bytes,
 			auth_ctx->cipher_ctx_info.context, cipher_key_info);
-	
+
 	/* Decrypt the MAC which the user passed in */
 	header = SAH_HDR_SKHA_ENC_DEC;
 	DESC_IN_OUT(header,
@@ -831,7 +831,7 @@ fsl_shw_return_t fsl_shw_auth_decrypt(fsl_shw_uco_t * user_ctx,
 		}
 	}
 	/* if auth_data_length > 0 */
-	
+
 	/* Process the payload */
 	header = (SAH_HDR_SKHA_SET_MODE_ENC_DEC
 		^ sah_insert_skha_mode_ccm ^ sah_insert_skha_modulus_128);
@@ -839,7 +839,7 @@ fsl_shw_return_t fsl_shw_auth_decrypt(fsl_shw_uco_t * user_ctx,
 	header ^= sah_insert_skha_aux0;
 #endif
 	DESC_IN_OUT(header, payload_length, ct, payload_length, payload);
-	
+
 #if defined (FSL_HAVE_SAHARA2) || defined (USE_S2_CCM_DECRYPT_CHAIN)
 
 	/* Now pull CBC context (unencrypted MAC) out for comparison. */
