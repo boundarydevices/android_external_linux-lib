@@ -579,11 +579,20 @@ SLRetCode DestoryScreenLayer(ScreenLayer *pSL)
 	pthread_counter--;
 	if(pthread_counter == 0)
 	{
-		munmap(vshmSLPriv, 3*sizeof(ScreenLayerPriv));
-		vshmSLPriv = NULL;
-		sem_post(semID);
-		sem_unlink(semName);
-		shm_unlink(shmName);
+		if(pSLPriv->isPrimary)
+		{
+			munmap(vshmSLPriv, 3*sizeof(ScreenLayerPriv));
+			vshmSLPriv = NULL;
+			sem_post(semID);
+			sem_close(semID);
+			shm_unlink(shmName);
+		}
+		else
+		{
+			munmap(vshmSLPriv, 3*sizeof(ScreenLayerPriv));
+			vshmSLPriv = NULL;
+			sem_post(semID);
+		}
 		goto done;
 	}
 
@@ -994,7 +1003,7 @@ void* GetPrimarySLHandle(char * pFbdev)
 
 	if(vshmSLPriv == NULL)
 		ret = PreScreenLayerIPC(pFbdev);
-	if(ret != E_RET_SUCCESS)
+	if(ret != E_RET_SUCCESS || vshmSLPriv == NULL)
 	{
 		dbg(DBG_ERR, "Prepared semaphore & shm failed !\n");
 		return (void*)0;
@@ -1003,13 +1012,13 @@ void* GetPrimarySLHandle(char * pFbdev)
 	sem_wait(semID);
 	if(vshmSLPriv->isPrimary)
 	{
-		dbg(DBG_DEBUG, "GetPrimarySLHandle end1!\n");
+		dbg(DBG_DEBUG, "GetPrimarySLHandle is OK!\n");
 		sem_post(semID);
 		return	(void *)1;
 	}
 	else
 	{
-		dbg(DBG_DEBUG, "GetPrimarySLHandle end2!\n");
+		dbg(DBG_ERR, "GetPrimarySLHandle Error!\n");
 		sem_post(semID);
 		return  (void *)0;
 	}
