@@ -1,6 +1,6 @@
 /*
  * User Space library to access the Security hardware
- * Copyright 2005-2008 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2005-2009 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -565,7 +565,7 @@ fsl_shw_return_t sah_Create_Key_Link(
             status = FSL_RETURN_OK_S;
         } else {
             if (key_info->flags & FSL_SKO_KEY_ESTABLISHED) {
-				
+
 				if (key_info->keystore == NULL) {
 					/* System Keystore */
                 	(*link)->slot = key_info->handle;
@@ -585,14 +585,14 @@ fsl_shw_return_t sah_Create_Key_Link(
 					(*link)->data =
 						keystore->slot_get_address(keystore->user_data,
 												 key_info->handle);
-				
+
 					flags |= SAH_IN_USER_KEYSTORE;
 					status = FSL_RETURN_OK_S;
 #else
 					/* User keystores only supported in SCC2 */
 					status = FSL_RETURN_BAD_FLAG_S;
 #endif				/* FSL_HAVE_SCC2 */
-				
+
 				}
             } else {
                 /* the flag is bad. Should never get here */
@@ -958,13 +958,13 @@ fsl_shw_return_t sah_add_in_key_desc(uint32_t header,
 
     status = sah_Create_Key_Link(mu, &link2, key_info);
 
-	
+
 	if (status != FSL_RETURN_OK_S) {
 		goto out;
 	}
 
 	status = sah_Append_Desc(mu, desc_chain, header, link1, link2);
-	
+
 out:
     if (status != FSL_RETURN_OK_S) {
         if (link1 != NULL) {
@@ -1059,7 +1059,7 @@ fsl_shw_return_t sah_add_in_keyout_desc(uint32_t header,
     }
 
 	status = sah_Create_Key_Link(mu, &link2, key_info);
-    
+
 	if (status != FSL_RETURN_OK_S) {
 		goto out;
 	}
@@ -1269,7 +1269,7 @@ fsl_shw_return_t sah_add_key_out_desc(uint32_t header,
 	if (status != FSL_RETURN_OK_S) {
 		goto out;
 	}
-    
+
 
     if (out != NULL)  {
         status = sah_Create_Link(mu, &link2,
@@ -1281,7 +1281,7 @@ fsl_shw_return_t sah_add_key_out_desc(uint32_t header,
 	   }
     }
 status = sah_Append_Desc(mu, desc_chain, header, link1, link2);
-	
+
 out:
     if (status != FSL_RETURN_OK_S) {
         if (link1 != NULL) {
