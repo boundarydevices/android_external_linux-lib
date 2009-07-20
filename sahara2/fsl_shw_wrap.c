@@ -1,6 +1,6 @@
 /*
  * User Space library to access the Security hardware
- * Copyright 2005-2008 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2005-2009 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -74,14 +74,14 @@
 #include "sahara.h"
 #include "fsl_platform.h"
 #include "fsl_shw_keystore.h"
- 
+
 #include "sf_util.h"
 #include "adaptor.h"
- 
+
 #if defined(DIAG_SECURITY_FUNC)
 #include "diagnostic.h"
 #endif
- 
+
 #if defined(NEED_CTR_WORKAROUND)
  /* CTR mode needs block-multiple data in/out */
 #define LENGTH_PATCH  16
@@ -90,7 +90,7 @@
 #define LENGTH_PATCH  4
 #define LENGTH_PATCH_MASK  3
 #endif
- 
+
 #if LENGTH_PATCH
 #define ROUND_LENGTH(len)                                                  \
  ({ 																		\
@@ -109,26 +109,26 @@
 #else
 #define ROUND_LENGTH(len) (len)
 #endif
- 
+
 #ifdef __KERNEL__
  EXPORT_SYMBOL(fsl_shw_establish_key);
  EXPORT_SYMBOL(fsl_shw_extract_key);
  EXPORT_SYMBOL(fsl_shw_release_key);
 #endif
- 
+
 #define ICV_LENGTH 16
 #define T_LENGTH 16
 #define KEK_LENGTH 16
 #define LENGTH_LENGTH 1
 #define ALGORITHM_LENGTH 1
- 
+
  /* ICV | T' | LEN | ALG | KEY' */
 #define ICV_OFFSET       0
 #define T_PRIME_OFFSET   (ICV_OFFSET + ICV_LENGTH)
 #define LENGTH_OFFSET    (T_PRIME_OFFSET + T_LENGTH)
 #define ALGORITHM_OFFSET (LENGTH_OFFSET + LENGTH_LENGTH)
 #define KEY_PRIME_OFFSET (ALGORITHM_OFFSET + ALGORITHM_LENGTH)
- 
+
  /*
   * For testing of the algorithm implementation,, the DO_REPEATABLE_WRAP flag
   * causes the T_block to go into the T field during a wrap operation.	This
@@ -147,7 +147,7 @@
 	 0x42, 0, 0, 0x42, 0x42, 0, 0, 0x42
  };
 #endif
- 
+
  /*
   * Insert descriptors to calculate ICV = HMAC(key=T, data=LEN|ALG|KEY')
   *
@@ -172,7 +172,7 @@
 	 uint32_t header;
 	 sah_Link *link1 = NULL;
 	 sah_Link *link2 = NULL;
- 
+
 	 /* Load up T as key for the HMAC */
 	 header = (SAH_HDR_MDHA_SET_MODE_MD_KEY  /* #6 */
 		   ^ sah_insert_mdha_algorithm_sha1
@@ -183,10 +183,10 @@
 	 if (sah_code != FSL_RETURN_OK_S) {
 		 goto out;
 	 }
- 
+
 	 /* Previous step loaded key; Now set up to hash the data */
 	 header = SAH_HDR_MDHA_HASH; /* #10 */
- 
+
 	 /* Input - start with ownerid */
 	 sah_code = sah_Create_Link(user_ctx->mem_util, &link1,
 					(void *)&t_key_info->userid,
@@ -195,14 +195,14 @@
 	 if (sah_code != FSL_RETURN_OK_S) {
 		 goto out;
 	 }
- 
+
 	 /* Still input  - Append black-key fields len, alg, key' */
 	 sah_code = sah_Append_Link(user_ctx->mem_util, link1,
 					(void *)black_key + LENGTH_OFFSET,
 					(LENGTH_LENGTH
 					 + ALGORITHM_LENGTH
 					 + key_length), SAH_USES_LINK_DATA);
- 
+
 	 if (sah_code != FSL_RETURN_OK_S) {
 		 goto out;
 	 }
@@ -213,19 +213,19 @@
 	 if (sah_code != FSL_RETURN_OK_S) {
 		 goto out;
 	 }
- 
+
 	 sah_code = sah_Append_Desc(user_ctx->mem_util, desc_chain,
 					header, link1, link2);
- 
+
 	   out:
 	 if (sah_code != FSL_RETURN_OK_S) {
 		 (void)sah_Destroy_Link(user_ctx->mem_util, link1);
 		 (void)sah_Destroy_Link(user_ctx->mem_util, link2);
 	 }
- 
+
 	 return sah_code;
  }				 /* create_icv_calc */
- 
+
  /*!
   * Perform unwrapping of a black key into a RED slot
   *
@@ -248,9 +248,9 @@
 	 unsigned i;
 	 unsigned rounded_key_length;
 	 unsigned original_key_length = key_info->key_length;
- 
+
 	 hmac = DESC_TEMP_ALLOC(ICV_LENGTH);
- 
+
 	 /* Set up key_info for "T" - use same slot as eventual key */
 	 fsl_shw_sko_init(&t_key_info, FSL_KEY_ALG_AES);
 	 t_key_info.userid = key_info->userid;
@@ -258,7 +258,7 @@
 	 t_key_info.flags = key_info->flags;
 	 t_key_info.key_length = T_LENGTH;
 	 t_key_info.keystore = key_info->keystore;
- 
+
 	 /* Compute T = SLID_decrypt(T'); leave in RED slot */
 	 if (key_info->keystore == NULL) {
 		 /* Key goes in system keystore */
@@ -266,7 +266,7 @@
 					 key_info->userid,
 					 t_key_info.handle,
 					 T_LENGTH, black_key + T_PRIME_OFFSET);
-	 
+
 	 } else {
 			 /* Key goes in user keystore */
 			 ret = keystore_slot_decrypt(user_ctx,
@@ -279,7 +279,7 @@
 	 if (ret != FSL_RETURN_OK_S) {
 		 goto out;
 	 }
- 
+
 	 /* Compute ICV = HMAC(T, ownerid | len | alg | key' */
 	 ret = create_icv_calc(user_ctx, &desc_chain, &t_key_info,
 				   black_key, original_key_length, hmac);
@@ -298,13 +298,13 @@
 		 goto out;
 	 }
 	 SAH_SF_DESC_CLEAN();
- 
+
 	 /* Check computed ICV against value in Black Key */
 	 for (i = 0; i < ICV_LENGTH; i++) {
 		 if (black_key[ICV_OFFSET + i] != hmac[i]) {
 #ifdef DIAG_SECURITY_FUNC
 			 LOG_DIAG_ARGS("computed ICV fails at offset %i\n", i);
- 
+
 			 {
 				 char buff[300];
 				 int a;
@@ -313,7 +313,7 @@
 						 black_key[ICV_OFFSET + a]);
 				 buff[a * 2 + 1] = 0;
 				 LOG_DIAG_ARGS("black key: %s", buff);
- 
+
 				 for (a = 0; a < ICV_LENGTH; a++)
 					 sprintf(&(buff[a * 2]), "%02x",
 						 hmac[a]);
@@ -325,21 +325,21 @@
 			 goto out;
 		 }
 	 }
- 
+
 	 /* This is no longer needed. */
 	 DESC_TEMP_FREE(hmac);
- 
+
 	 /* Compute KEK = SHA1(T | ownerid).  Rewrite slot with value */
 	 header = (SAH_HDR_MDHA_SET_MODE_HASH	 /* #8 */
 		   ^ sah_insert_mdha_init
 		   ^ sah_insert_mdha_algorithm_sha1 ^ sah_insert_mdha_pdata);
- 
+
 	 /* Input - Start with T */
 	 ret = sah_Create_Key_Link(user_ctx->mem_util, &link1, &t_key_info);
 	 if (ret != FSL_RETURN_OK_S) {
 		 goto out;
 	 }
- 
+
 	 /* Still input - append ownerid */
 	 ret = sah_Append_Link(user_ctx->mem_util, link1,
 				   (void *)&key_info->userid,
@@ -347,20 +347,20 @@
 	 if (ret != FSL_RETURN_OK_S) {
 		 goto out;
 	 }
- 
+
 	 /* Output - KEK goes into RED slot */
 	 ret = sah_Create_Key_Link(user_ctx->mem_util, &link2, &t_key_info);
 	 if (ret != FSL_RETURN_OK_S) {
 		 goto out;
 	 }
- 
+
 	 /* Put the Hash calculation into the chain. */
 	 ret = sah_Append_Desc(user_ctx->mem_util, &desc_chain,
 				   header, link1, link2);
 	 if (ret != FSL_RETURN_OK_S) {
 		 goto out;
 	 }
- 
+
 	 /* Compute KEY = AES-decrypt(KEK, KEY') */
 	 header = (SAH_HDR_SKHA_SET_MODE_IV_KEY  /* #1 */
 		   ^ sah_insert_skha_mode_ctr
@@ -368,34 +368,34 @@
 		   ^ sah_insert_skha_modulus_128);
 	 /* Load KEK in as the key to use */
 	 DESC_IN_KEY(header, 0, NULL, &t_key_info);
- 
+
 	 rounded_key_length = ROUND_LENGTH(original_key_length);
 	 key_info->key_length = rounded_key_length;
- 
+
 	 /* Now set up for computation.  Result in RED */
 	 header = SAH_HDR_SKHA_ENC_DEC;  /* #4 */
 	 DESC_IN_KEY(header, rounded_key_length, black_key + KEY_PRIME_OFFSET,
 			 key_info);
- 
+
 	 /* Perform the operation */
 #ifdef DIAG_SECURITY_FUNC
 	 LOG_DIAG("Decrypting key with KEK");
 #endif
 	 SAH_SF_EXECUTE();
- 
+
 	   out:
 	 key_info->key_length = original_key_length;
 	 SAH_SF_DESC_CLEAN();
- 
+
 	 DESC_TEMP_FREE(hmac);
- 
+
 	 /* Erase tracks */
 	 t_key_info.userid = 0xdeadbeef;
 	 t_key_info.handle = 0xdeadbeef;
- 
+
 	 return ret;
  }				 /* unwrap */
- 
+
  /*!
   * Perform wrapping of a black key from a RED slot
   *
@@ -417,23 +417,23 @@
 	 unsigned rounded_key_length;
 	 sah_Link *link1;
 	 sah_Link *link2;
- 
+
 	 black_key[LENGTH_OFFSET] = key_info->key_length;
 	 black_key[ALGORITHM_OFFSET] = key_info->algorithm;
- 
+
 	 memcpy(&T_key_info, key_info, sizeof(T_key_info));
 	 fsl_shw_sko_set_key_length(&T_key_info, T_LENGTH);
 	 T_key_info.algorithm = FSL_KEY_ALG_HMAC;
- 
+
 	 memcpy(&KEK_key_info, &T_key_info, sizeof(KEK_key_info));
 	 KEK_key_info.algorithm = FSL_KEY_ALG_AES;
- 
+
 	 if (key_info->keystore == NULL) {
 		 /* Key goes in system keystore */
 		 ret = do_system_keystore_slot_alloc(user_ctx,
 				 T_LENGTH, key_info->userid,
 				 &T_key_info.handle);
-	 
+
 	 } else {
 		 /* Key goes in user keystore */
 		 ret = keystore_slot_alloc(key_info->keystore,
@@ -443,20 +443,20 @@
 	 if (ret != FSL_RETURN_OK_S) {
 		 goto out;
 	 }
- 
+
 	 if (key_info->keystore == NULL) {
 		 /* Key goes in system keystore */
 		 ret = do_system_keystore_slot_alloc(user_ctx,
 				 KEK_LENGTH, key_info->userid,
 				 &KEK_key_info.handle);
-		 
+
 	 } else {
 		 /* Key goes in user keystore */
 		 ret = keystore_slot_alloc(key_info->keystore,
 			   KEK_LENGTH,	key_info->userid,
 			   &KEK_key_info.handle);
 	 }
- 
+
 	 if (ret != FSL_RETURN_OK_S) {
 #ifdef DIAG_SECURITY_FUNC
 		 LOG_DIAG("do_scc_slot_alloc() failed");
@@ -465,7 +465,7 @@
 			 /* Key goes in system keystore */
 			 ret = do_system_keystore_slot_dealloc(user_ctx,
 				 key_info->userid, T_key_info.handle);
-	 
+
 		 } else {
 			 /* Key goes in user keystore */
 			 ret = keystore_slot_dealloc(key_info->keystore,
@@ -474,7 +474,7 @@
 	 } else {
 		 slots_allocated = 1;
 	 }
- 
+
 	 /* Set up to compute everything except T' ... */
 #ifndef DO_REPEATABLE_WRAP
 	 /* Compute T = RND() */
@@ -494,12 +494,12 @@
 				  T_key_info.handle,
 				  T_block, T_key_info.key_length);
 	 }
- 
+
 	 if (ret != FSL_RETURN_OK_S) {
 		 goto out;
 	 }
 #endif
- 
+
 	 /* Compute KEK = SHA1(T | Ownerid) */
 	 header = (SAH_HDR_MDHA_SET_MODE_HASH	 /* #8 */
 		   ^ sah_insert_mdha_init
@@ -544,7 +544,7 @@
 	 header = SAH_HDR_SKHA_ENC_DEC;
 	 DESC_KEY_OUT(header, key_info,
 			  key_info->key_length, black_key + KEY_PRIME_OFFSET);
- 
+
 	 /* Compute and store ICV into Black Key */
 	 ret = create_icv_calc(user_ctx, &desc_chain, &T_key_info,
 				   black_key, original_key_length,
@@ -556,7 +556,7 @@
 #endif				/*DIAG_SECURITY_FUNC */
 		 goto out;
 	 }
- 
+
 	 /* Now get Sahara to do the work. */
 #ifdef DIAG_SECURITY_FUNC
 	 LOG_DIAG("Encrypting key with KEK");
@@ -568,7 +568,7 @@
 #endif
 		 goto out;
 	 }
- 
+
 	 /* Compute T' = SLID_encrypt(T); Result goes to Black Key */
 	 if (key_info->keystore == NULL) {
 		 /* Key goes in system keystore */
@@ -584,17 +584,17 @@
 						 T_LENGTH,
 						 black_key + T_PRIME_OFFSET);
 	 }
- 
+
 	 if (ret != FSL_RETURN_OK_S) {
 #ifdef DIAG_SECURITY_FUNC
 		 LOG_DIAG("do_scc_slot_encrypt() failed");
 #endif
 		 goto out;
 	 }
- 
+
 	   out:
 	 key_info->key_length = original_key_length;
- 
+
 	 SAH_SF_DESC_CLEAN();
 	 if (slots_allocated) {
 		 if (key_info->keystore == NULL) {
@@ -617,10 +617,10 @@
 					 KEK_key_info.handle);
 		 }
 	 }
- 
+
 	 return ret;
  }				 /* wrap */
- 
+
  /*!
   * Place a key into a protected location for use only by cryptographic
   * algorithms.
@@ -667,11 +667,11 @@
 	 unsigned rounded_key_length;
 	 unsigned slot_allocated = 0;
 	 uint32_t old_flags;
- 
+
 	 header = SAH_HDR_RNG_GENERATE;  /* Desc. #18 for rand */
 
  	 /* TODO: THIS STILL NEEDS TO BE REFACTORED */
- 
+
 	 /* Write operations into SCC memory require word-multiple number of
 	  * bytes.	For ACCEPT and CREATE functions, the key length may need
 	  * to be rounded up.  Calculate. */
@@ -681,9 +681,9 @@
 	 } else {
 		 rounded_key_length = original_key_length;
 	 }
- 
+
 	 SAH_SF_USER_CHECK();
- 
+
 	 if (key_info->keystore == NULL) {
 		 /* Key goes in system keystore */
 		 ret = do_system_keystore_slot_alloc(user_ctx,
@@ -696,7 +696,7 @@
 			  key_info->key_length, key_info->handle,
 			  rounded_key_length);
 #endif
- 
+
 	 } else {
 		 /* Key goes in user keystore */
 		 ret = keystore_slot_alloc(key_info->keystore,
@@ -711,7 +711,7 @@
 		 goto out;
 	 }
 	 slot_allocated = 1;
- 
+
 	 key_info->flags |= FSL_SKO_KEY_ESTABLISHED;
 	 switch (establish_type) {
 	 case FSL_KEY_WRAP_CREATE:
@@ -724,7 +724,7 @@
 		 DESC_KEY_OUT(header, key_info, 0, NULL);
 		 /* Restore actual, desired key length */
 		 key_info->key_length = original_key_length;
- 
+
 		 old_flags = user_ctx->flags;
 		 /* Now put random value into key */
 		 SAH_SF_EXECUTE();
@@ -738,7 +738,7 @@
 		 }
 #endif
 		 break;
- 
+
 	 case FSL_KEY_WRAP_ACCEPT:
 #ifdef DIAG_SECURITY_FUNC
 		 LOG_DIAG("Accepting plaintext key\n");
@@ -765,7 +765,7 @@
 								  key_info->key_length);
 		 }
 		 break;
- 
+
 	 case FSL_KEY_WRAP_UNWRAP:
 #ifdef DIAG_SECURITY_FUNC
 		 LOG_DIAG("Unwrapping wrapped key\n");
@@ -779,16 +779,16 @@
 			 ret = unwrap(user_ctx, key_info, key);
 		 }
 		 break;
- 
+
 	 default:
 		 ret = FSL_RETURN_BAD_FLAG_S;
 		 break;
 	 }			 /* switch */
- 
+
 	   out:
 	 if (slot_allocated && (ret != FSL_RETURN_OK_S)) {
 		 fsl_shw_return_t scc_err;
-		 
+
 		 if (key_info->keystore == NULL) {
 			 /* Key goes in system keystore */
 			 scc_err = do_system_keystore_slot_dealloc(user_ctx,
@@ -799,15 +799,15 @@
 			 scc_err = keystore_slot_dealloc(key_info->keystore,
 						 key_info->userid,	key_info->handle);
 		 }
-		 
+
 		 key_info->flags &= ~FSL_SKO_KEY_ESTABLISHED;
 	 }
-	 
+
 	 SAH_SF_DESC_CLEAN();
- 
+
 	 return ret;
  }				 /* fsl_shw_establish_key() */
- 
+
  /*!
   * Wrap a key and retrieve the wrapped value.
   *
@@ -833,9 +833,9 @@
 					  uint8_t * covered_key)
  {
 	 SAH_SF_DCLS;
- 
+
 	 SAH_SF_USER_CHECK();
- 
+
 	 /* For now, only blocking mode calls are supported */
 	 if (user_ctx->flags & FSL_UCO_BLOCKING_MODE) {
 		 if (key_info->flags & FSL_SKO_KEY_ESTABLISHED) {
@@ -843,7 +843,7 @@
 			 if (ret != FSL_RETURN_OK_S) {
 				 goto out;
 			 }
- 
+
 			 /* Need to deallocate on successful extraction */
 			 if (key_info->keystore == NULL) {
 				 /* Key goes in system keystore */
@@ -859,13 +859,13 @@
 				 ~(FSL_SKO_KEY_ESTABLISHED | FSL_SKO_KEY_PRESENT);
 		 }
 	 }
- 
+
  out:
 	 SAH_SF_DESC_CLEAN();
- 
+
 	 return ret;
  }
- 
+
  /*!
   * De-establish a key so that it can no longer be accessed.
   *
@@ -883,9 +883,9 @@
 					  fsl_shw_sko_t * key_info)
  {
 	 SAH_SF_DCLS;
- 
+
 	 SAH_SF_USER_CHECK();
- 
+
 	 if (key_info->flags & FSL_SKO_KEY_ESTABLISHED) {
 		 if (key_info->keystore == NULL) {
 			 /* Key goes in system keystore */
@@ -901,9 +901,9 @@
 		 key_info->flags &= ~(FSL_SKO_KEY_ESTABLISHED |
 					  FSL_SKO_KEY_PRESENT);
 	 }
- 
+
  out:
 	 SAH_SF_DESC_CLEAN();
- 
+
 	 return ret;
  }
