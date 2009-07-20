@@ -1,6 +1,6 @@
 /*
  * User Space library to access the Security hardware
- * Copyright 2008 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2008-2009 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -1484,7 +1484,7 @@ void um_Dump_Chain(const sah_Desc * chain)
 
 		output_bytes += snprintf(desc_name + output_bytes,
 					 buf_size - output_bytes, ")\nDesc  ");
-		
+
 		um_Dump_Words(desc_name, (unsigned *)chain,
 			      6 /*sizeof(*chain)/sizeof(unsigned) */ );
 		/* place this definition elsewhere */
