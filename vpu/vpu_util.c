@@ -593,7 +593,7 @@ RetCode CopyBufferData(Uint8 *dst, Uint8 *src, int size)
 		memcpy(dst, src, size);
 	else if (cpu_is_mx51()) {
 		int i;
-		for (i = 0; i < size / 8; i += 2) {
+		for (i = 0; i < size / 8; i++) {
 			/* swab odd and even words and swab32 for mx51 */
 			temp = *((Uint32 *)src + i * 2 + 1);
 			*((Uint32 *)dst + i * 2) = swab32(temp);
