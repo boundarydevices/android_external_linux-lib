@@ -536,6 +536,10 @@ RetCode vpu_EncClose(EncHandle handle)
 		while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	}
 
+	/* Free memory allocated for data report functions */
+	IOFreeVirtMem(&pEncInfo->picParaBaseMem);
+	IOFreePhyMem(&pEncInfo->picParaBaseMem);
+
 	FreeCodecInstance(pCodecInst);
 	UnlockVpu(vpu_semap);
 
@@ -1241,10 +1245,11 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 		memcpy((char *)tempBuf, (void *)virt_addr + 16, 8);
 		address = *tempBuf;
 		val = *(tempBuf + 1);
+
 		info->sliceInfo.size = val & 0xFFFF;
 		info->sliceInfo.enable = (val >> 24) & 0xFF;
 		info->sliceInfo.type = (val >> 16) & 0xFF;
-		info->sliceInfo.addr = pEncInfo->encReportMBInfo.addr;
+		info->sliceInfo.addr = pEncInfo->encReportSliceInfo.addr;
 		if (info->sliceInfo.addr && info->sliceInfo.size) {
 			size = (info->sliceInfo.size + 7) / 8 * 8;
 			dst_addr = (Uint8 *)info->sliceInfo.addr;
@@ -1807,6 +1812,13 @@ RetCode vpu_DecClose(DecHandle handle)
 				SEQ_END);
 		while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	}
+
+	/* Free memory allocated for data report functions */
+	IOFreeVirtMem(&pDecInfo->picParaBaseMem);
+	IOFreePhyMem(&pDecInfo->picParaBaseMem);
+	IOFreeVirtMem(&pDecInfo->userDataBufMem);
+	IOFreePhyMem(&pDecInfo->userDataBufMem);
+
 	FreeCodecInstance(pCodecInst);
 	UnlockVpu(vpu_semap);
 
