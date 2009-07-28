@@ -30,7 +30,7 @@
 #define SIZE_MV_DATA                    0x20000
 #define SIZE_MB_DATA                    0x4000
 #define SIZE_FRAME_BUF_STAT             0x100
-#define SIZE_SLICE_INFO                 0x100
+#define SIZE_SLICE_INFO                 0x4000
 #define USER_DATA_INFO_OFFSET           8*17
 
 #define ADDR_PIC_PARA_BASE_OFFSET       0
