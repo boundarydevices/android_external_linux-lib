@@ -701,8 +701,20 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 		data |= (encOP.EncStdParam.avcParam.avc_audEnable << 2);
 		data |= (encOP.EncStdParam.avcParam.avc_fmoEnable << 4);
 	}
+	if(pEncInfo->openParam.userQpMax) {
+		data |= (1 << 6);
+		VpuWriteReg(CMD_ENC_SEQ_RC_QP_MAX, pEncInfo->openParam.userQpMax);
+	}
+	if(pEncInfo->openParam.userGamma) {
+		data |= (1 << 7);
+		VpuWriteReg(CMD_ENC_SEQ_RC_GAMMA, pEncInfo->openParam.userGamma);
+	}
 
 	VpuWriteReg(CMD_ENC_SEQ_OPTION, data);
+
+	VpuWriteReg(CMD_ENC_SEQ_RC_INTERVAL_MODE,
+			(pEncInfo->openParam.MbInterval << 2) |
+			pEncInfo->openParam.RcIntervalMode);
 
 	if (cpu_is_mx27() && (pCodecInst->codecMode == AVC_ENC)) {
 		data = (encOP.EncStdParam.avcParam.avc_fmoType << 4) |
@@ -1940,7 +1952,11 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 
 	VpuWriteReg(CMD_DEC_SEQ_OPTION, val);
 
-	if( pCodecInst->codecMode == MP4_DEC ) {
+	if(pCodecInst->codecMode == VC1_DEC) {
+		VpuWriteReg(CMD_DEC_SEQ_VC1_STREAM_FMT, 0);
+	}
+
+	if(pCodecInst->codecMode == MP4_DEC) {
 		VpuWriteReg(CMD_DEC_SEQ_MP4_ASP_CLASS, pDecInfo->openParam.mp4Class);
 	}
 
@@ -1982,6 +1998,15 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		info->picHeight = (val & 0x3ff);
 	}
 
+	if (pCodecInst->codecMode  == MJPG_DEC) {
+		if (info->picWidth < 16 || info->picHeight < 16)
+			return RETCODE_FAILURE;
+	}
+	else {
+		if (info->picWidth < 64 || info->picHeight < 64)
+			return RETCODE_FAILURE;
+	}
+
 	val = VpuReadReg(RET_DEC_SEQ_SRC_F_RATE);
 	info->frameRateInfo = val;
 
@@ -2008,13 +2033,13 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		} else {
 			if (cpu_is_mx51()) {
 				info->picCropRect.left =
-				    ((val >> 16) & 0xFFFF) * 2;
+				    ((val >> 16) & 0xFFFF);
 				info->picCropRect.right =
-				    info->picWidth - ((val & 0xFFFF) * 2);
+				    info->picWidth - ((val & 0xFFFF));
 				info->picCropRect.top =
-				    ((val2 >> 16) & 0xFFFF) * 2;
+				    ((val2 >> 16) & 0xFFFF);
 				info->picCropRect.bottom =
-				    info->picHeight - ((val2 & 0xFFFF) * 2);
+				    info->picHeight - ((val2 & 0xFFFF));
 
 			} else {
 				info->picCropRect.left =
@@ -2719,15 +2744,14 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		} else {
 			if (cpu_is_mx51()) {
 				info->decPicCrop.left =
-				    ((val >> 16) & 0xFFFF) * 2;
+				    ((val >> 16) & 0xFFFF);
 				info->decPicCrop.right =
-				    info->decPicWidth - ((val & 0xFFFF) * 2);
+				    info->decPicWidth - ((val & 0xFFFF));
 				info->decPicCrop.top =
-				    ((val2 >> 16) & 0xFFFF) * 2;
+				    ((val2 >> 16) & 0xFFFF);
 				info->decPicCrop.bottom =
-				    info->decPicHeight - ((val2 & 0xFFFF) * 2);
+				    info->decPicHeight - ((val2 & 0xFFFF));
 			} else if (cpu_is_mx37()) {
-
 				info->decPicCrop.left =
 				    ((val>>10) & 0x3FF) * 2;
 				info->decPicCrop.right =
@@ -2738,6 +2762,11 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 				    info->decPicHeight - ((val2 & 0x3FF) * 2);
 			}
 		}
+	} else {
+		info->decPicCrop.left = 0;
+		info->decPicCrop.right = 0;
+		info->decPicCrop.top = 0;
+		info->decPicCrop.bottom = 0;
 	}
 
 	val = VpuReadReg(RET_DEC_PIC_TYPE);
@@ -2745,6 +2774,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	info->interlacedFrame = (val >> 16) & 0x1;
 
 	if (cpu_is_mx37() || cpu_is_mx51()) {
+		info->h264Npf = (val >> 16) & 0x3;
 		info->interlacedFrame = (val >> 18) & 0x1;
 		info->pictureStructure = (val >> 19) & 0x0003;	/* MbAffFlag[17], FieldPicFlag[16] */
 		info->topFieldFirst = (val >> 21) & 0x0001;	/* TopFieldFirst[18] */
@@ -2957,8 +2987,12 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	if (cpu_is_mx37() || cpu_is_mx51()) {
 		if (pCodecInst->codecMode == VC1_DEC) {
 			val = VpuReadReg(RET_DEC_PIC_POST);
-			info->hScaleFlag = val >> 1 & 1;
-			info->vScaleFlag = val >> 2 & 1;
+			info->hScaleFlag = (val >> 1) & 1;
+			info->vScaleFlag = (val >> 2) & 1;
+			info->indexFrameRangemap = -1;
+			if (val & 1)
+				info->indexFrameRangemap = (val >> 3) & 31;
+
 		}
 	}
 
