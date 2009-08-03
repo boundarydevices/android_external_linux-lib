@@ -115,6 +115,7 @@
 #define CMD_DEC_SEQ_PS_BB_SIZE      	0x198
 #define CMD_DEC_SEQ_JPG_THUMB_EN        0x19C
 #define CMD_DEC_SEQ_MP4_ASP_CLASS	0x19C
+#define CMD_DEC_SEQ_VC1_STREAM_FMT	0x19C
 
 #define CMD_DEC_SEQ_INIT_ESCAPE		0x114
 
@@ -165,6 +166,10 @@
 #else
 #define CMD_ENC_SEQ_INTRA_QP		0x1C4
 #endif
+
+#define CMD_ENC_SEQ_RC_QP_MAX		0x1C8
+#define CMD_ENC_SEQ_RC_GAMMA		0x1CC
+#define CMD_ENC_SEQ_RC_INTERVAL_MODE	0x1D0	/* MbInterval[32:2], RcIntervalMode[1:0] */
 
 #define CMD_ENC_SEQ_JPG_PARA	        0x198
 #define CMD_ENC_SEQ_JPG_RST_INTERVAL	0x19C
