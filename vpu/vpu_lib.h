@@ -261,12 +261,14 @@ typedef struct {
 	Uint32 *qpInfo;
 	int hScaleFlag;
 	int vScaleFlag;
+	int indexFrameRangemap;
 	int prescanresult;
 	int notSufficientPsBuffer;
 	int notSufficientSliceBuffer;
 	int decodingSuccess;
 	int interlacedFrame;
 	int mp4PackedPBframe;
+	int h264Npf;
 
 	int pictureStructure;
 	int topFieldFirst;
@@ -365,6 +367,12 @@ typedef struct {
 		EncAvcParam avcParam;
 		EncMjpgParam mjpgParam;
 	} EncStdParam;
+
+	int userQpMax;
+	Uint32 userGamma;
+	int RcIntervalMode;		/* 0:normal, 1:frame_level, 2:slice_level, 3: user defined Mb_level */
+	int MbInterval;			/* use when RcintervalMode is 3 */
+
 } EncOpenParam;
 
 typedef struct {
@@ -468,6 +476,7 @@ typedef struct vpu_versioninfo {
 
 /*
  * Revision History:
+ * v4.7.0 [2009.08.03] upgrade mx51 fw to v1.2.0
  * v4.6.5 [2009.04.30] upgrade mx37 fw to v1.1.2
  * v4.5.5 [2009.04.28] upgrade mx51 fw to v1.1.5
  * v4.5.4 [2009.03.19] upgrade mx37 fw to v1.1.0
@@ -478,7 +487,7 @@ typedef struct vpu_versioninfo {
  * v4.1.2 [2008.08.22] update MX37 VPU firmware to V1.0.5
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 6, 5)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 7, 0)
 
 extern unsigned int system_rev;
 
