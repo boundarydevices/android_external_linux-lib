@@ -8,7 +8,7 @@ CFLAGS += $(INCLUDE)
 LIBNAME=libsim
 
 # list of platforms which want this test case
-INCLUDE_LIST:= IMX51
+INCLUDE_LIST:= IMX51 IMX25_3STACK
 
 ifeq ($(PLATFORM), $(findstring $(PLATFORM), $(INCLUDE_LIST)))
 all: $(LIBNAME).so
