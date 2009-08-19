@@ -2597,6 +2597,7 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		/* if iframeSearch is Enable, other bit is ignored. */
 		if (param->iframeSearchEnable == 1) {
 			val |= ((param->iframeSearchEnable & 0x1) << 2);
+			pDecInfo->vc1BframeDisplayValid = 0;
 		} else if (param->skipframeMode) {
 			val |= (param->skipframeMode << 3);
 			val |= (param->prescanMode << 1);
@@ -2770,7 +2771,13 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	}
 
 	val = VpuReadReg(RET_DEC_PIC_TYPE);
-	info->picType = val & 0xff;
+
+	if (pCodecInst->codecMode == VC1_DEC &&
+	    pDecInfo->initialInfo.profile == 2) /* VC1 AP propile */
+		info->picType = val & 0x3f;
+	else
+		info->picType = val & 0x7;
+
 	info->interlacedFrame = (val >> 16) & 0x1;
 
 	if (cpu_is_mx37() || cpu_is_mx51()) {
@@ -2939,7 +2946,8 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 
 	if (pCodecInst->codecMode == VC1_DEC && info->indexFrameDisplay != -3) {
 		if (pDecInfo->vc1BframeDisplayValid == 0) {
-			if (info->picType == 2) {
+			if ((info->picType == 3 && pDecInfo->initialInfo.profile != 2) ||
+			    ((info->picType >> 3) == 3 && pDecInfo->initialInfo.profile == 2)) {
 				/* clear buffer for not displayed B frame */
 				val = ~(1 << info->indexFrameDisplay);
 				val &= VpuReadReg(pDecInfo->frameDisplayFlagRegAddr);
