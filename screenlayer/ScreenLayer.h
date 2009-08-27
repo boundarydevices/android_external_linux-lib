@@ -46,9 +46,20 @@ typedef enum {
 } SLRetCode;
 
 typedef enum {
+	F_FBDIRECT_PRIMARYONLY = 0x1,
+} SLFlag;
+
+typedef enum {
+	TVOUT_DISABLE = 0,
+	TVOUT_PAL,
+	TVOUT_NTSC,
+} TvMode;
+
+typedef enum {
 	E_SET_ALPHA,
 	E_SET_COLORKEY,
 	E_ENABLE_LAYER,
+	E_COPY_TVOUT,
 } SetMethodType;
 
 typedef struct {
@@ -61,6 +72,11 @@ typedef struct {
 	u8	enable;
 	u32	keyColor;
 } MethodColorKeyData;
+
+typedef struct {
+	u8	tvMode;
+	u32	lcd2tvRotation;
+} MethodTvoutData;
 
 typedef struct {
 	u16		left;
@@ -81,6 +97,7 @@ typedef struct {
 	dma_addr_t 	* bufAlphaPaddr;
 	void	 	* pPrimary;
 	char		fbdev[32];
+	u32		flag;
 	void 		* pPriv;
 } ScreenLayer;
 
