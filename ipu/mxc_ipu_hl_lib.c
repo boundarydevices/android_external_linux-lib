@@ -56,7 +56,8 @@ static int debug_level = DBG_ERR;
 
 /* this mutex only can protect within same process context,
  * for different process, pls add other mutex*/
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t prp_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t pp_mutex = PTHREAD_MUTEX_INITIALIZER;
 int g_task_in_use = 0;
 
 int _ipu_task_enable(ipu_lib_handle_t * ipu_handle);
@@ -1828,6 +1829,30 @@ static int _ipu_task_setup(ipu_lib_input_param_t * input,
 	return ret;
 }
 
+void mxc_ipu_lib_lock(ipu_lib_handle_t * ipu_handle)
+{
+	ipu_lib_priv_handle_t * ipu_priv_handle = (ipu_lib_priv_handle_t *)ipu_handle->priv;
+	unsigned int task = ipu_priv_handle->output[0].ipu_task |
+                                ipu_priv_handle->output[1].ipu_task;
+
+	if (task & (IC_ENC | ROT_ENC | IC_VF | ROT_VF))
+		pthread_mutex_lock(&prp_mutex);
+	if (task & (IC_PP | ROT_PP))
+		pthread_mutex_lock(&pp_mutex);
+}
+
+void mxc_ipu_lib_unlock(ipu_lib_handle_t * ipu_handle)
+{
+	ipu_lib_priv_handle_t * ipu_priv_handle = (ipu_lib_priv_handle_t *)ipu_handle->priv;
+	unsigned int task = ipu_priv_handle->output[0].ipu_task |
+                                ipu_priv_handle->output[1].ipu_task;
+
+	if (task & (IC_ENC | ROT_ENC | IC_VF | ROT_VF))
+		pthread_mutex_unlock(&prp_mutex);
+	if (task & (IC_PP | ROT_PP))
+		pthread_mutex_unlock(&pp_mutex);
+}
+
 /*!
  * This function init the ipu task according to param setting.
  *
@@ -1866,8 +1891,6 @@ int mxc_ipu_lib_task_init(ipu_lib_input_param_t * input,
 		return -1;
 	}
 
-	pthread_mutex_lock(&mutex);
-
 	memset(ipu_handle, 0, sizeof(ipu_lib_handle_t));
 
 	ipu_priv_handle = (ipu_lib_priv_handle_t *)malloc(sizeof(ipu_lib_priv_handle_t));
@@ -1876,8 +1899,8 @@ int mxc_ipu_lib_task_init(ipu_lib_input_param_t * input,
 		ret = -1;
 		goto done;
 	}
-
 	ipu_handle->priv = ipu_priv_handle;
+
 	memset(ipu_priv_handle, 0, sizeof(ipu_lib_priv_handle_t));
 
 	ipu_priv_handle->mode = mode;
@@ -1890,14 +1913,18 @@ int mxc_ipu_lib_task_init(ipu_lib_input_param_t * input,
 		goto done;
 	}
 
+	mxc_ipu_lib_lock(ipu_handle);
+
 	if (ipu_priv_handle->output[0].task_mode & COPY_MODE) {
 		if ((ret = _ipu_copy_setup(input, output0, ipu_handle)) < 0) {
 			ipu_close();
+			mxc_ipu_lib_unlock(ipu_handle);
 			goto done;
 		}
 	} else {
 		if ((ret = _ipu_task_setup(input, overlay, output0, output1, ipu_handle)) < 0) {
 			ipu_close();
+			mxc_ipu_lib_unlock(ipu_handle);
 			goto done;
 		}
 	}
@@ -1905,8 +1932,9 @@ int mxc_ipu_lib_task_init(ipu_lib_input_param_t * input,
 	g_task_in_use |= (ipu_priv_handle->output[0].ipu_task | ipu_priv_handle->output[1].ipu_task);
 
 	dbg(DBG_INFO, "g_task_in_use 0x%x\n", g_task_in_use);
+
+	mxc_ipu_lib_unlock(ipu_handle);
 done:
-	pthread_mutex_unlock(&mutex);
 
 	return ret;
 }
@@ -1934,7 +1962,7 @@ void mxc_ipu_lib_task_uninit(ipu_lib_handle_t * ipu_handle)
 			ipu_priv_handle->output_fr_cnt++;
 	}
 
-	pthread_mutex_lock(&mutex);
+	mxc_ipu_lib_lock(ipu_handle);
 
 	if (ipu_priv_handle->output[1].ipu_task)
 		output_num = 2;
@@ -1994,7 +2022,7 @@ void mxc_ipu_lib_task_uninit(ipu_lib_handle_t * ipu_handle)
 
 	free((void *)ipu_priv_handle);
 
-	pthread_mutex_unlock(&mutex);
+	mxc_ipu_lib_unlock(ipu_handle);
 }
 
 int _ipu_task_enable(ipu_lib_handle_t * ipu_handle)
@@ -2140,7 +2168,6 @@ int _ipu_wait_for_irq(int irq, int times)
 
 	while (ipu_get_interrupt_event(&info) < 0) {
 		dbg(DBG_INFO, "Can not get wait irq %d, try again!\n", irq);
-		usleep(1000);
 		wait += 1;
 		if (wait >= times)
 			break;
@@ -2201,14 +2228,14 @@ int mxc_ipu_lib_task_buf_update(ipu_lib_handle_t * ipu_handle,
 		output_num = 1;
 
 	if (ipu_priv_handle->enabled == 0) {
-		pthread_mutex_lock(&mutex);
+		mxc_ipu_lib_lock(ipu_handle);
 
 		if ((ret = _ipu_task_enable(ipu_handle)) < 0) {
-			pthread_mutex_unlock(&mutex);
+			mxc_ipu_lib_unlock(ipu_handle);
 			return ret;
 		}
 
-		pthread_mutex_unlock(&mutex);
+		mxc_ipu_lib_unlock(ipu_handle);
 
 		dbg(DBG_INFO, "\033[0;34mipu task begin:\033[0m\n");
 
