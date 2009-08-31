@@ -974,6 +974,7 @@ static int _ipu_mem_alloc(ipu_lib_input_param_t * input,
 				fb_var.xres_virtual = fb_var.xres;
 				fb_var.yres = oheight;
 				fb_var.yres_virtual = fb_var.yres * 2;
+				fb_var.activate |= FB_ACTIVATE_FORCE;
 				if ( ioctl(ipu_priv_handle->output[j].fd_fb, FBIOPUT_VSCREENINFO, &fb_var) < 0) {
 					dbg(DBG_ERR, "Set FB var info failed!\n");
 					close(ipu_priv_handle->output[j].fd_fb);
