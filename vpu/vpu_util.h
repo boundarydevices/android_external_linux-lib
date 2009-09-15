@@ -18,6 +18,7 @@
 
 #include <sys/types.h>
 #include <pthread.h>
+#include <errno.h>
 
 #include "vpu_reg.h"
 #include "vpu_lib.h"
@@ -191,9 +192,9 @@ typedef struct CodecInst {
 } CodecInst;
 
 typedef struct {
+	int is_initialized;
 	pthread_mutex_t lock;
-	pthread_cond_t nonzero;
-	unsigned count;
+
 	/* VPU data for sharing */
 	CodecInst codecInstPool[MAX_NUM_INSTANCE];
 	CodecInst *pendingInst;
@@ -228,7 +229,7 @@ RetCode SetIntraRefreshNum(EncHandle handle, Uint32 *pIntraRefreshNum);
 RetCode SetSliceMode(EncHandle handle, EncSliceMode *pSliceMode);
 RetCode SetHecMode(EncHandle handle, int mode);
 
-semaphore_t *vpu_semaphore_open(char *semaphore_name);
+semaphore_t *vpu_semaphore_open(void);
 void semaphore_post(semaphore_t *semap);
 void semaphore_wait(semaphore_t *semap);
 void vpu_semaphore_close(semaphore_t *semap);
