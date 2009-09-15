@@ -60,7 +60,7 @@ typedef struct iram_t {
 #define VPU_IOC_GET_PIC_PARA_ADDR   _IO(VPU_IOC_MAGIC, 9)
 #define VPU_IOC_GET_USER_DATA_ADDR   _IO(VPU_IOC_MAGIC, 10)
 #define VPU_IOC_SYS_SW_RESET	_IO(VPU_IOC_MAGIC, 11)
-
+#define VPU_IOC_GET_SHARE_MEM   _IO(VPU_IOC_MAGIC, 12)
 
 typedef void (*vpu_callback) (int status);
 
@@ -73,6 +73,7 @@ int IOFreeVirtMem(vpu_mem_desc * buff);
 int IOWaitForInt(int timeout_in_ms);
 int IOGetIramBase(iram_t * iram);
 int IOClkGateSet(int on);
+int IOGetPhyShareMem(vpu_mem_desc * buff);
 int IOFreePhyPicParaMem(vpu_mem_desc * buff);
 int IOFreePhyUserDataMem(vpu_mem_desc * buff);
 int IOSysSWReset(void);
