@@ -115,7 +115,6 @@ RetCode vpu_Init(void *cb)
 {
 	int i, err;
 	volatile Uint32 data;
-	CodecInst *pCodecInst;
 	Uint16 *bit_code = NULL;
 	PhysicalAddress workBuffer, codeBuffer, paraBuffer;
 
@@ -156,12 +155,6 @@ RetCode vpu_Init(void *cb)
 		if (!cpu_is_mx51())
 			VpuWriteReg(BIT_RESET_CTRL, 0);
 
-		for (i = 0; i < MAX_NUM_INSTANCE; ++i) {
-			pCodecInst =
-			    (CodecInst *) (&vpu_semap->codecInstPool[i]);
-			pCodecInst->instIndex = i;
-			pCodecInst->inUse = 0;
-		}
 		VpuWriteReg(BIT_BIT_STREAM_PARAM, 0);
 
 		if (!cpu_is_mx27()) {
@@ -224,52 +217,60 @@ void vpu_UnInit(void)
 /*
  * This function resets the VPU instance specified by handle or index that
  * exists in the current thread. If handle is not NULL, the index will be
- * ignored and the instance of handle will be reset; otherwise, the
- * instance of index will be reset.
+ * ignored and the instance of handle will be reset; otherwise, vpu will only
+ * clean the instance record per index, not do real vpu reset.
  */
 RetCode vpu_SWReset(DecHandle handle, int index)
 {
 	static unsigned int regBk[64];
 	int i = 0;
 	CodecInst *pCodecInst;
-	DecInfo *pDecInfo;
 	RetCode ret;
 
 	ENTER_FUNC();
 
-	if ((handle == NULL) && (index < 0 || index > MAX_NUM_INSTANCE))
-		return RETCODE_FAILURE;
-
+	info_msg("vpu_SWReset");
 	if (handle == NULL) {
-		LockVpu(vpu_semap);
-
-		handle = (CodecInst *) (&vpu_semap->codecInstPool[i]);
-		if (handle == NULL) {
-			UnlockVpu(vpu_semap);
+		if (index < 0 || index >= MAX_NUM_INSTANCE)
 			return RETCODE_FAILURE;
+
+		/* Free instance info per index */
+		pCodecInst = (CodecInst *)(&vpu_semap->codecInstPool[index]);
+		if (pCodecInst == NULL)
+			warn_msg("The instance is freed\n");
+		else {
+			LockVpu(vpu_semap);
+			FreeCodecInstance(pCodecInst);
+			UnlockVpu(vpu_semap);
 		}
+		return RETCODE_SUCCESS;
 	}
+
 	ret = CheckDecInstanceValidity(handle);
-	if (ret != RETCODE_SUCCESS)
-		return ret;
+	if (ret != RETCODE_SUCCESS) {
+		ret = CheckEncInstanceValidity(handle);
+		if (ret != RETCODE_SUCCESS)
+			return ret;
+	}
 
 	pCodecInst = handle;
 
-	pDecInfo = &pCodecInst->CodecInfo.decInfo;
+	if (*ppendingInst && (pCodecInst != *ppendingInst))
+		return RETCODE_FAILURE;
+	else {
+		/* Need to unlock VPU since mutex is locked when StartOneFrame */
+		UnlockVpu(vpu_semap);
+	}
 
-	IOClkGateSet(true);
+	LockVpu(vpu_semap);
 	for (i = 0 ; i < 64 ; i++)
 		regBk[i] = VpuReadReg(BIT_CODE_BUF_ADDR + (i * 4));
-
 	IOSysSWReset();
-
 	for (i = 0 ; i < 64 ; i++)
 		VpuWriteReg(BIT_CODE_BUF_ADDR + (i * 4), regBk[i]);
-
-	VpuWriteReg(BIT_RESET_CTRL, 0);
 	VpuWriteReg(BIT_CODE_RUN, 0);
 
-	Uint32 *p = (Uint32 *) virt_codeBuf;
+	Uint32 *p = (Uint32 *)virt_codeBuf;
 	Uint32 data;
 	Uint16 data_hi;
 	Uint16 data_lo;
@@ -303,26 +304,14 @@ RetCode vpu_SWReset(DecHandle handle, int index)
 
 	VpuWriteReg(BIT_BUSY_FLAG, 1);
 	VpuWriteReg(BIT_CODE_RUN, 1);
-
 	while (vpu_IsBusy());
 
 	BitIssueCommand(0, 0, VPU_WAKE);
 	while (vpu_IsBusy());
 
-	if (pDecInfo->initialInfoObtained) {
-		if (cpu_is_mx51()) {
-			if (pDecInfo->openParam.bitstreamFormat == STD_DIV3)
-				VpuWriteReg(BIT_RUN_AUX_STD, 1);
-			else
-				VpuWriteReg(BIT_RUN_AUX_STD, 0);
-		}
-		BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
-				SEQ_END);
-		while (VpuReadReg(BIT_BUSY_FLAG)) ;
-	}
-
-	FreeCodecInstance(pCodecInst);
+	/* The handle cannot be used after restore */
 	UnlockVpu(vpu_semap);
+
 	return RETCODE_SUCCESS;
 }
 
@@ -2417,7 +2406,6 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 	pDecParam = &pCodecInst->CodecParam.decParam;
 	memcpy(pDecParam, param, sizeof(*pDecParam));
 
-
 	/* This means frame buffers have not been registered. */
 	if (pDecInfo->frameBufPool == 0) {
 		return RETCODE_WRONG_CALL_SEQUENCE;
@@ -3006,6 +2994,9 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 
 	*ppendingInst = 0;
 	UnlockVpu(vpu_semap);
+
+	/* Workaround for multi-instances competition */
+	usleep(10);
 
 	return RETCODE_SUCCESS;
 }
