@@ -21,12 +21,11 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <errno.h>
+#include <pthread.h>
 
 #include "vpu_util.h"
 #include "vpu_io.h"
 #include "vpu_debug.h"
-
-#define TIMEOUT  10		/* condition timeout is 10s */
 
 /*
  * VPU binary file header format:
@@ -40,6 +39,8 @@ typedef struct {
 
 extern unsigned long *virt_paraBuf;
 extern semaphore_t *vpu_semap;
+static int mutex_timeout;
+static vpu_mem_desc share_mem;
 
 RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 {
@@ -814,66 +815,67 @@ RetCode SetHecMode(EncHandle handle, int mode)
 	return RETCODE_SUCCESS;
 }
 
-semaphore_t *vpu_semaphore_open(char *semaphore_name)
+semaphore_t *vpu_semaphore_open(void)
 {
-	int fd;
 	semaphore_t *semap;
 	pthread_mutexattr_t psharedm;
-	pthread_condattr_t psharedc;
+	CodecInst *pCodecInst;
+	char *timeout_env;
+	int i;
 
-	fd = open(semaphore_name, O_RDWR, 0666);
-	if (fd < 0) {
-		fd = open(semaphore_name, O_RDWR | O_CREAT | O_EXCL, 0666);
-		if (fd < 0)
-			return NULL;
-		ftruncate(fd, sizeof(semaphore_t));
+	share_mem.size = sizeof(semaphore_t);
+	if (IOGetPhyShareMem(&share_mem)) {
+		err_msg("Unable to obtain physical of share memory\n");
+		return NULL;
+	}
+	semap = (semaphore_t *)IOGetVirtMem(&share_mem);
+	if (semap == NULL) {
+		err_msg("Unable to map physical of share memory\n");
+		return NULL;
+	}
+	if (!semap->is_initialized) {
 		pthread_mutexattr_init(&psharedm);
 		pthread_mutexattr_setpshared(&psharedm, PTHREAD_PROCESS_SHARED);
-		semap = (semaphore_t *) mmap(NULL, sizeof(semaphore_t),
-					     PROT_READ | PROT_WRITE, MAP_SHARED,
-					     fd, 0);
 		pthread_mutex_init(&semap->lock, &psharedm);
-		pthread_cond_init(&semap->nonzero, &psharedc);
-		semap->count = 1;
-	} else {
-		semap = (semaphore_t *) mmap(NULL, sizeof(semaphore_t),
-					     PROT_READ | PROT_WRITE, MAP_SHARED,
-					     fd, 0);
+		for (i = 0; i < MAX_NUM_INSTANCE; ++i) {
+			pCodecInst = (CodecInst *) (&semap->codecInstPool[i]);
+			pCodecInst->instIndex = i;
+			pCodecInst->inUse = 0;
+		}
+		semap->is_initialized = 1;
 	}
-	close(fd);
+
+	timeout_env = getenv("VPU_MUTEX_TIMEOUT");
+	if (timeout_env == NULL)
+		mutex_timeout = 10;
+	else
+		mutex_timeout = atoi(timeout_env);
+
 	return semap;
 }
 
-void semaphore_post(semaphore_t * semap)
+void semaphore_post(semaphore_t *semap)
 {
-	pthread_mutex_lock(&semap->lock);
-	if (semap->count == 0)
-		pthread_cond_signal(&semap->nonzero);
-	semap->count++;
 	pthread_mutex_unlock(&semap->lock);
 }
 
-void semaphore_wait(semaphore_t * semap)
+void semaphore_wait(semaphore_t *semap)
 {
+#ifdef ANDROID
+	pthread_mutex_lock(&semap->lock);
+#else
 	struct timespec ts;
 
-	ts.tv_sec = time(NULL) + TIMEOUT;
+	ts.tv_sec = time(NULL) + mutex_timeout;
 	ts.tv_nsec = 0;
-	pthread_mutex_lock(&semap->lock);
-	while (semap->count == 0) {
-		if (pthread_cond_timedwait(&semap->nonzero, &semap->lock, &ts)
-		    == ETIMEDOUT) {
-			pthread_mutex_unlock(&semap->lock);
-			printf
-			    ("VPU: Another thread/task is possibly exited abnormally.\n");
-			return;
-		}
-	}
-	semap->count--;
-	pthread_mutex_unlock(&semap->lock);
+	if (pthread_mutex_timedlock(&semap->lock, &ts) == ETIMEDOUT)
+		warn_msg("VPU mutex couldn't be locked before timeout expired\n");
+#endif
 }
 
 void vpu_semaphore_close(semaphore_t * semap)
 {
-	munmap((void *)semap, sizeof(semaphore_t));
+	if (munmap((void *)semap, sizeof(semaphore_t)) != 0)
+		err_msg("munmap share mem failed\n");
+
 }
