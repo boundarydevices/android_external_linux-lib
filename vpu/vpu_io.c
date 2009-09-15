@@ -212,25 +212,10 @@ inline unsigned long *reg_map(unsigned long offset)
 int IOSystemInit(void *callback)
 {
 	int ret;
-	char *shm_path, shm_file[256];
 
-	shm_path = getenv("VPU_SHM_PATH");
-
-	if (shm_path == NULL)
-		strcpy(shm_file, "/dev/shm");	/* default path */
-	else
-		strcpy(shm_file, shm_path);
-
-	strcat(shm_file, "/");
-	strcat(shm_file, "vpu.shm");
-
-	vpu_semap = vpu_semaphore_open(shm_file);
-
-	if (vpu_semap == NULL) {
-		err_msg("Error: Unable to open vpu shared memory file\n");
-		err_msg("Please export VPU_SHM_PATH env for putting vpu shared memory file\n");
-		return -1;
-	}
+	/* Exit directly if already initialized */
+	if (vpu_fd > 0)
+		return 0;
 
 	ret = get_system_rev();
 	if (ret == -1) {
@@ -238,13 +223,21 @@ int IOSystemInit(void *callback)
 		return -1;
 	}
 
-	semaphore_wait(vpu_semap);
 	vpu_fd = open("/dev/mxc_vpu", O_RDWR);
 	if (vpu_fd < 0) {
 		err_msg("Can't open /dev/mxc_vpu\n");
-		semaphore_post(vpu_semap);
 		return -1;
 	}
+
+	vpu_semap = vpu_semaphore_open();
+	if (vpu_semap == NULL) {
+		err_msg("Error: Unable to open vpu shared memory file\n");
+		close(vpu_fd);
+		vpu_fd = -1;
+		return -1;
+	}
+
+	semaphore_wait(vpu_semap);
 
 	vpu_reg_base = (unsigned long)mmap(NULL, BIT_REG_MARGIN,
 					   PROT_READ | PROT_WRITE,
@@ -310,6 +303,11 @@ void vpu_setting_iram()
  */
 int IOSystemShutdown(void)
 {
+
+	/* Exit directly if already shutdown */
+	if (vpu_fd == -1)
+		return 0;
+
 	semaphore_wait(vpu_semap);
 
 	/*
@@ -323,13 +321,13 @@ int IOSystemShutdown(void)
 	if (munmap((void *)vpu_reg_base, BIT_REG_MARGIN) != 0)
 		err_msg("munmap failed\n");
 
+	semaphore_post(vpu_semap);
+	vpu_semaphore_close(vpu_semap);
+
 	if (vpu_fd >= 0) {
 		close(vpu_fd);
 		vpu_fd = -1;
 	}
-
-	semaphore_post(vpu_semap);
-	vpu_semaphore_close(vpu_semap);
 
 	return 0;
 }
@@ -381,6 +379,12 @@ int _IOGetPhyMem(int which, vpu_mem_desc *buff)
 int IOGetPhyMem(vpu_mem_desc * buff)
 {
 	return _IOGetPhyMem(VPU_IOC_PHYMEM_ALLOC, buff);
+}
+
+/* User cannot free physical share memory, this is done in driver */
+int IOGetPhyShareMem(vpu_mem_desc * buff)
+{
+        return _IOGetPhyMem(VPU_IOC_GET_SHARE_MEM, buff);
 }
 
 int IOGetPhyPicParaMem(vpu_mem_desc * buff)
