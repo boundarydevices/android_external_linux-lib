@@ -476,6 +476,7 @@ typedef struct vpu_versioninfo {
 
 /*
  * Revision History:
+ * v4.7.1 [2009.09.18] remove share memory file and update SWReset function
  * v4.7.0 [2009.08.03] upgrade mx51 fw to v1.2.0
  * v4.6.5 [2009.04.30] upgrade mx37 fw to v1.1.2
  * v4.5.5 [2009.04.28] upgrade mx51 fw to v1.1.5
@@ -487,7 +488,7 @@ typedef struct vpu_versioninfo {
  * v4.1.2 [2008.08.22] update MX37 VPU firmware to V1.0.5
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 7, 0)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 7, 1)
 
 extern unsigned int system_rev;
 
