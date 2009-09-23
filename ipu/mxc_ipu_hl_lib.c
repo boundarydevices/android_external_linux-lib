@@ -984,6 +984,20 @@ static int _ipu_mem_alloc(ipu_lib_input_param_t * input,
 				if ( ioctl(ipu_priv_handle->output[j].fd_fb, MXCFB_SET_OVERLAY_POS,
 						&(output->fb_disp.pos)) < 0)
 					dbg(DBG_ERR, "Set FB position failed!\n");
+			} else if (ipu_priv_handle->output[j].fb_chan == MEM_DC_SYNC) {
+				fb_var.xres = owidth;
+				fb_var.xres_virtual = fb_var.xres;
+				fb_var.yres = oheight;
+				fb_var.yres_virtual = fb_var.yres * 2;
+				fb_var.activate |= FB_ACTIVATE_FORCE;
+				fb_var.nonstd = output->fmt;
+				fb_var.bits_per_pixel = fmt_to_bpp(output->fmt);
+				if ( ioctl(ipu_priv_handle->output[j].fd_fb, FBIOPUT_VSCREENINFO, &fb_var) < 0) {
+					dbg(DBG_ERR, "Set FB var info failed!\n");
+					close(ipu_priv_handle->output[j].fd_fb);
+					ret = -1;
+					goto err;
+				}
 			} else if ((fb_var.yres == fb_var.yres_virtual)) {
 				fb_var.yres_virtual = fb_var.yres * 2;
 				if ( ioctl(ipu_priv_handle->output[j].fd_fb, FBIOPUT_VSCREENINFO, &fb_var) < 0) {
