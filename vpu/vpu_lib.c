@@ -1293,8 +1293,6 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 	pCodecInst = handle;
 	pEncInfo = &pCodecInst->CodecInfo.encInfo;
 
-	LockVpu(vpu_semap);
-
 	switch (cmd) {
 	case ENABLE_ROTATION:
 		{
@@ -1370,7 +1368,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
+			LockVpu(vpu_semap);
 			GetParaSet(handle, 0, param);
+			UnlockVpu(vpu_semap);
 			break;
 		}
 
@@ -1384,7 +1384,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
+			LockVpu(vpu_semap);
 			GetParaSet(handle, 1, param);
+			UnlockVpu(vpu_semap);
 			break;
 		}
 
@@ -1406,7 +1408,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
+			LockVpu(vpu_semap);
 			EncodeHeader(handle, encHeaderParam);
+			UnlockVpu(vpu_semap);
 			break;
 		}
 
@@ -1428,7 +1432,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
+			LockVpu(vpu_semap);
 			EncodeHeader(handle, encHeaderParam);
+			UnlockVpu(vpu_semap);
 			break;
 		}
 
@@ -1445,6 +1451,7 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 
 			scRamParam = (SearchRamParam *) param;
 
+			LockVpu(vpu_semap);
 			if (cpu_is_mx51()) {
 				VpuWriteReg(CMD_ENC_SEARCH_BASE,
 					    scRamParam->searchRamAddr);
@@ -1453,6 +1460,7 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 			} else
 				VpuWriteReg(BIT_SEARCH_RAM_BASE_ADDR,
 					    scRamParam->searchRamAddr);
+			UnlockVpu(vpu_semap);
 
 			break;
 		}
@@ -1465,7 +1473,11 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 			if (param == 0) {
 				return RETCODE_INVALID_PARAM;
 			}
+
+			LockVpu(vpu_semap);
 			GetParaSet(handle, 1, param);
+			UnlockVpu(vpu_semap);
+
 			break;
 		}
 
@@ -1477,7 +1489,11 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 			if (param == 0) {
 				return RETCODE_INVALID_PARAM;
 			}
+
+			LockVpu(vpu_semap);
 			GetParaSet(handle, 2, param);
+			UnlockVpu(vpu_semap);
+
 			break;
 		}
 
@@ -1489,7 +1505,11 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 			if (param == 0) {
 				return RETCODE_INVALID_PARAM;
 			}
+
+			LockVpu(vpu_semap);
 			GetParaSet(handle, 0, param);
+			UnlockVpu(vpu_semap);
+
 			break;
 		}
 
@@ -1505,7 +1525,10 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
+			LockVpu(vpu_semap);
 			SetGopNumber(handle, (Uint32 *) pGopNumber);
+			UnlockVpu(vpu_semap);
+
 			break;
 		}
 
@@ -1526,7 +1549,11 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				if (*pIntraQp < 0 || *pIntraQp > 51)
 					return RETCODE_INVALID_PARAM;
 			}
+
+			LockVpu(vpu_semap);
 			SetIntraQp(handle, (Uint32 *) pIntraQp);
+			UnlockVpu(vpu_semap);
+
 			break;
 		}
 
@@ -1542,7 +1569,10 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
+			LockVpu(vpu_semap);
 			SetBitrate(handle, (Uint32 *) pBitrate);
+			UnlockVpu(vpu_semap);
+
 			break;
 		}
 
@@ -1557,14 +1587,22 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 			if (*pFramerate <= 0) {
 				return RETCODE_INVALID_PARAM;
 			}
+
+			LockVpu(vpu_semap);
 			SetFramerate(handle, (Uint32 *) pFramerate);
+			UnlockVpu(vpu_semap);
+
 			break;
 		}
 
 	case ENC_SET_INTRA_MB_REFRESH_NUMBER:
 		{
 			int *pIntraRefreshNum = (int *)param;
+
+			LockVpu(vpu_semap);
 			SetIntraRefreshNum(handle, (Uint32 *) pIntraRefreshNum);
+			UnlockVpu(vpu_semap);
+
 			break;
 		}
 
@@ -1581,7 +1619,10 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
+			LockVpu(vpu_semap);
 			SetSliceMode(handle, (EncSliceMode *) pSliceMode);
+			UnlockVpu(vpu_semap);
+
 			break;
 		}
 
@@ -1591,7 +1632,10 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_COMMAND;
 			}
 
+			LockVpu(vpu_semap);
 			SetHecMode(handle, 1);
+			UnlockVpu(vpu_semap);
+
 			break;
 		}
 
@@ -1601,7 +1645,10 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_COMMAND;
 			}
 
+			LockVpu(vpu_semap);
 			SetHecMode(handle, 0);
+			UnlockVpu(vpu_semap);
+
 			break;
 		}
 
@@ -1643,7 +1690,6 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 		return RETCODE_INVALID_COMMAND;
 	}
 
-	UnlockVpu(vpu_semap);
 	return RETCODE_SUCCESS;
 }
 
@@ -3233,7 +3279,10 @@ RetCode vpu_DecGiveCommand(DecHandle handle, CodecCommand cmd, void *param)
 			if (param == 0) {
 				return RETCODE_INVALID_PARAM;
 			}
+
+			LockVpu(vpu_semap);
 			SetParaSet(handle, 0, param);
+			UnlockVpu(vpu_semap);
 			break;
 		}
 
