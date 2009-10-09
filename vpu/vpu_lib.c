@@ -2129,6 +2129,13 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		info->constraint_set_flag[3] = (val >> 22) & 0x01;
 	}
 
+	/*
+	 * Workaround to reverse interlace information of H.264, will
+	 * remove it once firmware fixes it.
+	 */
+	if (pCodecInst->codecMode == AVC_DEC)
+		info->interlace = (info->interlace == 0) ? 1: 0;
+
 	val = VpuReadReg(RET_DEC_SEQ_ASPECT);
 	info->aspectRateInfo = val;
 
