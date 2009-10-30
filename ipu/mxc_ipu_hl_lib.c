@@ -38,7 +38,6 @@ extern "C"{
 #include <sys/time.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
-#include <linux/autoconf.h>
 #include <linux/videodev.h>
 #include "mxc_ipu_hl_lib.h"
 
