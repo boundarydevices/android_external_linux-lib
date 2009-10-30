@@ -86,6 +86,13 @@
 extern "C"{
 #endif
 
+#ifdef IMX37_3STACK
+#define CONFIG_MXC_IPU_V3D
+#endif
+#ifdef IMX51
+#define CONFIG_MXC_IPU_V3
+#endif
+
 #include <linux/ipu.h>
 #include <linux/mxcfb.h>
 
