@@ -4,8 +4,12 @@ INC = $(INCLUDE) -I../ipu
 
 OBJS = ScreenLayer.o
 
+# list of platforms which want this test case
+INCLUDE_LIST:= IMX37_3STACK IMX51
+
 LIBNAME=libIpuScreenLayer
 
+ifeq ($(PLATFORM), $(findstring $(PLATFORM), $(INCLUDE_LIST)))
 all: $(LIBNAME).so
 
 install:
@@ -13,6 +17,10 @@ install:
 	cp $(LIBNAME).* $(DEST_DIR)/usr/lib
 	@mkdir -p $(DEST_DIR)/usr/include
 	cp ScreenLayer.h $(DEST_DIR)/usr/include
+else
+all install:
+	@echo "Not support platform, will not complile"
+endif
 
 $(LIBNAME).so: $(OBJS)
 	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^ -L../ipu -lipu
