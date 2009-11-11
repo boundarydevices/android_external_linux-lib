@@ -39,7 +39,7 @@ all install :
 endif
 
 %.o: %.c
-	$(CC) -D$(PLATFORM) -Wall -O2 -c $^ -o $@
+	$(CC) -D$(PLATFORM) -Wall -O2 -fPIC -c $^ -o $@
 
 $(LIBNAME).so: $(OBJ)
 	$(CC) -shared -nostartfiles -Wl,-soname,$@ $^ -o $@
