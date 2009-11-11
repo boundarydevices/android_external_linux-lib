@@ -28,7 +28,7 @@ $(LIBNAME).so: $(OBJS)
 ifeq "$(PLATFORM)" ""
 	$(error "Unspecified PLATFORM variable")
 endif
-	$(CC) -D$(PLATFORM) $(INCLUDE) -Wall -O2 -c $^ -o $@
+	$(CC) -D$(PLATFORM) $(INCLUDE) -Wall -O2 -fPIC -c $^ -o $@
 
 .PHONY: clean
 clean:
