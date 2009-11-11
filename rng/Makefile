@@ -6,7 +6,7 @@ LD=$(CROSS_COMPILE)ld
 INC := $(INCLUDE)
 
 # Add compilation checks
-CFLAGS += -g -Wall -W -Wmissing-prototypes -Wstrict-prototypes -Wdeclaration-after-statement
+CFLAGS += -g -Wall -W -Wmissing-prototypes -Wstrict-prototypes -Wdeclaration-after-statement -fPIC
 
 # In absence of kernel CONFIG flags, set API library to build on
 # 'unknown' platform.

@@ -23,7 +23,7 @@ $(LIBNAME).so: $(OBJS)
 	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^ -lpthread
 
 %.o: %.c
-	$(CC) -D$(PLATFORM) $(INCLUDE) -Wall -O2 -c $^ -o $@
+	$(CC) -D$(PLATFORM) $(INCLUDE) -Wall -O2 -fPIC -c $^ -o $@
 
 else
 all install :
