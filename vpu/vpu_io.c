@@ -42,6 +42,7 @@
 
 static int vpu_fd = -1;
 static unsigned long vpu_reg_base;
+static int vpu_active_num = 0;
 
 unsigned int system_rev;
 semaphore_t *vpu_semap;
@@ -214,8 +215,10 @@ int IOSystemInit(void *callback)
 	int ret;
 
 	/* Exit directly if already initialized */
-	if (vpu_fd > 0)
+	if (vpu_fd > 0) {
+		vpu_active_num++;
 		return 0;
+	}
 
 	ret = get_system_rev();
 	if (ret == -1) {
@@ -237,7 +240,12 @@ int IOSystemInit(void *callback)
 		return -1;
 	}
 
-	semaphore_wait(vpu_semap);
+	if (!semaphore_wait(vpu_semap)) {
+		err_msg("Error: Unable to get mutex\n");
+		close (vpu_fd);
+		vpu_fd = -1;
+		return -1;
+	}
 
 	vpu_reg_base = (unsigned long)mmap(NULL, BIT_REG_MARGIN,
 					   PROT_READ | PROT_WRITE,
@@ -250,6 +258,8 @@ int IOSystemInit(void *callback)
 		semaphore_post(vpu_semap);
 		return -1;
 	}
+
+	vpu_active_num++;
 
 	IOClkGateSet(true);
 	bit_work_addr.size = WORK_BUF_SIZE + PARA_BUF_SIZE +
@@ -308,7 +318,20 @@ int IOSystemShutdown(void)
 	if (vpu_fd == -1)
 		return 0;
 
-	semaphore_wait(vpu_semap);
+	/* Make sure real shutdown is done when no instance needs
+	   to access vpu in the same process */
+	if (vpu_active_num > 1) {
+		vpu_active_num--;
+		return 0;
+	} else if (!vpu_active_num) {
+		warn_msg(" No instance is actived\n");
+		return 0;
+	}
+
+	if (!semaphore_wait(vpu_semap)) {
+		err_msg("Unable to get mutex\n");
+		return -1;
+	}
 
 	/*
 	 * Do not call IOFreePhyMem/IOFreePhyPicParaMem/IOFreePhyUserDataMem
@@ -320,6 +343,8 @@ int IOSystemShutdown(void)
 
 	if (munmap((void *)vpu_reg_base, BIT_REG_MARGIN) != 0)
 		err_msg("munmap failed\n");
+
+	vpu_active_num--;
 
 	semaphore_post(vpu_semap);
 	vpu_semaphore_close(vpu_semap);

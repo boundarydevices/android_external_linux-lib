@@ -231,13 +231,15 @@ RetCode SetHecMode(EncHandle handle, int mode);
 
 semaphore_t *vpu_semaphore_open(void);
 void semaphore_post(semaphore_t *semap);
-void semaphore_wait(semaphore_t *semap);
+bool semaphore_wait(semaphore_t *semap);
 void vpu_semaphore_close(semaphore_t *semap);
 
-static inline void LockVpu(semaphore_t *semap)
+static inline bool LockVpu(semaphore_t *semap)
 {
-	semaphore_wait(semap);
+	if (!semaphore_wait(semap))
+		return false;
 	IOClkGateSet(1);
+	return true;
 }
 
 static inline void UnlockVpu(semaphore_t *semap)
