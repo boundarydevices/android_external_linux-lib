@@ -1742,8 +1742,7 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 		pCodecInst->codecMode =
 		    pop->bitstreamFormat == STD_AVC ? AVC_DEC : MP4_DEC;
 	} else {
-		if (pop->bitstreamFormat == STD_MPEG4 ||
-		    pop->bitstreamFormat == STD_H263) {
+		if (pop->bitstreamFormat == STD_MPEG4) {
 			pCodecInst->codecMode = MP4_DEC;
 		} else if (pop->bitstreamFormat == STD_AVC) {
 			pCodecInst->codecMode = AVC_DEC;
