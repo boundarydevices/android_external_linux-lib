@@ -858,17 +858,21 @@ void semaphore_post(semaphore_t *semap)
 	pthread_mutex_unlock(&semap->lock);
 }
 
-void semaphore_wait(semaphore_t *semap)
+bool semaphore_wait(semaphore_t *semap)
 {
 #ifdef ANDROID
 	pthread_mutex_lock(&semap->lock);
+	return true;
 #else
 	struct timespec ts;
 
 	ts.tv_sec = time(NULL) + mutex_timeout;
 	ts.tv_nsec = 0;
-	if (pthread_mutex_timedlock(&semap->lock, &ts) == ETIMEDOUT)
+	if (pthread_mutex_timedlock(&semap->lock, &ts) == ETIMEDOUT) {
 		warn_msg("VPU mutex couldn't be locked before timeout expired\n");
+		return false;
+	}
+	return true;
 #endif
 }
 

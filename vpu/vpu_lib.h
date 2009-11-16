@@ -27,6 +27,9 @@
 typedef unsigned char Uint8;
 typedef unsigned long Uint32;
 typedef unsigned short Uint16;
+#ifndef bool
+typedef unsigned char bool;
+#endif
 typedef Uint32 PhysicalAddress;
 typedef Uint32 VirtualAddress;
 
@@ -76,7 +79,8 @@ typedef enum {
 	RETCODE_NOT_INITIALIZED = -13,
 	RETCODE_DEBLOCKING_OUTPUT_NOT_SET = -14,
 	RETCODE_NOT_SUPPORTED = -15,
-	RETCODE_REPORT_BUF_NOT_SET = -16
+	RETCODE_REPORT_BUF_NOT_SET = -16,
+	RETCODE_FAILURE_TIMEOUT = -17
 } RetCode;
 
 typedef enum {
@@ -488,7 +492,7 @@ typedef struct vpu_versioninfo {
  * v4.1.2 [2008.08.22] update MX37 VPU firmware to V1.0.5
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 7, 2)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 7, 3)
 
 extern unsigned int system_rev;
 
