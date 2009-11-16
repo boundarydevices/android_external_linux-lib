@@ -126,7 +126,10 @@ RetCode vpu_Init(void *cb)
 		return RETCODE_FAILURE;
 	}
 
-	LockVpu(vpu_semap);
+	if (!LockVpu(vpu_semap)) {
+		err = IOSystemShutdown();
+		return RETCODE_FAILURE_TIMEOUT;
+	}
 	codeBuffer = bit_work_addr.phy_addr;
 	workBuffer = codeBuffer + CODE_BUF_SIZE;
 	paraBuffer = workBuffer + WORK_BUF_SIZE + PARA_BUF2_SIZE;
@@ -144,6 +147,7 @@ RetCode vpu_Init(void *cb)
 		if (DownloadBitCodeTable((unsigned long *)virt_codeBuf,
 				bit_code) != RETCODE_SUCCESS) {
 			free(bit_code);
+			UnLockVpu(vpu_semap);
 			return RETCODE_FAILURE;
 		}
 
@@ -162,6 +166,7 @@ RetCode vpu_Init(void *cb)
 				/* IRQ is disabled during shutdown */
 				VpuWriteReg(BIT_INT_ENABLE, 8);
 				IOClkGateSet(false);
+				UnLockVpu(vpu_semap);
 				return RETCODE_SUCCESS;
 			}
 		}
@@ -239,7 +244,8 @@ RetCode vpu_SWReset(DecHandle handle, int index)
 		if (pCodecInst == NULL)
 			warn_msg("The instance is freed\n");
 		else {
-			LockVpu(vpu_semap);
+			if (!LockVpu(vpu_semap))
+				return RETCODE_FAILURE_TIMEOUT;
 			FreeCodecInstance(pCodecInst);
 			UnlockVpu(vpu_semap);
 		}
@@ -262,7 +268,9 @@ RetCode vpu_SWReset(DecHandle handle, int index)
 		UnlockVpu(vpu_semap);
 	}
 
-	LockVpu(vpu_semap);
+	if (!LockVpu(vpu_semap))
+		return RETCODE_FAILURE_TIMEOUT;
+
 	for (i = 0 ; i < 64 ; i++)
 		regBk[i] = VpuReadReg(BIT_CODE_BUF_ADDR + (i * 4));
 	IOSysSWReset();
@@ -331,7 +339,9 @@ RetCode vpu_GetVersionInfo(vpu_versioninfo * verinfo)
 		return RETCODE_NOT_INITIALIZED;
 	}
 
-	LockVpu(vpu_semap);
+	if (!LockVpu(vpu_semap))
+		return RETCODE_FAILURE_TIMEOUT;
+
 	VpuWriteReg(RET_VER_NUM, 0);
 
 	BitIssueCommand(0, 0, FIRMWARE_GET);
@@ -421,7 +431,9 @@ RetCode vpu_EncOpen(EncHandle * pHandle, EncOpenParam * pop)
 		return ret;
 	}
 
-	LockVpu(vpu_semap);
+	if (!LockVpu(vpu_semap))
+		return RETCODE_FAILURE_TIMEOUT;
+
 	ret = GetCodecInstance(&pCodecInst);
 	if (ret == RETCODE_FAILURE) {
 		*pHandle = 0;
@@ -462,7 +474,9 @@ RetCode vpu_EncOpen(EncHandle * pHandle, EncOpenParam * pop)
 	pEncInfo->dynamicAllocEnable = pop->dynamicAllocEnable;
 	pEncInfo->ringBufferEnable = pop->ringBufferEnable;
 
-	LockVpu(vpu_semap);
+	if (!LockVpu(vpu_semap))
+		return RETCODE_FAILURE_TIMEOUT;
+
 	VpuWriteReg(pEncInfo->streamRdPtrRegAddr, pEncInfo->streamRdPtr);
 	VpuWriteReg(pEncInfo->streamWrPtrRegAddr, pEncInfo->streamBufStartAddr);
 
@@ -518,7 +532,9 @@ RetCode vpu_EncClose(EncHandle handle)
 		return RETCODE_FRAME_NOT_COMPLETE;
 	}
 
-	LockVpu(vpu_semap);
+	if (!LockVpu(vpu_semap))
+		return RETCODE_FAILURE_TIMEOUT;
+
 	if (pEncInfo->initialInfoObtained) {
 		BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
 				SEQ_END);
@@ -582,7 +598,8 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 	picWidth = encOP.picWidth;
 	picHeight = encOP.picHeight;
 
-	LockVpu(vpu_semap);
+	if (!LockVpu(vpu_semap))
+		return RETCODE_FAILURE_TIMEOUT;
 
 	data = (picWidth << BIT_PIC_WIDTH_OFFSET) | picHeight;
 	VpuWriteReg(CMD_ENC_SEQ_SRC_SIZE, data);
@@ -794,7 +811,9 @@ RetCode vpu_EncRegisterFrameBuffer(EncHandle handle,
 	pEncInfo->numFrameBuffers = num;
 	pEncInfo->stride = stride;
 
-	LockVpu(vpu_semap);
+	if (!LockVpu(vpu_semap))
+		return RETCODE_FAILURE_TIMEOUT;
+
 	if (cpu_is_mx51()) {
 		if (pCodecInst->codecMode != MJPG_ENC) {
 			/* Need to swap word between Dword(64bit) */
@@ -989,7 +1008,8 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 	rotMirEnable = 0;
 	rotMirMode = 0;
 
-	LockVpu(vpu_semap);
+	if (!LockVpu(vpu_semap))
+		return RETCODE_FAILURE_TIMEOUT;
 
 	if (pEncInfo->rotationEnable) {
 		rotMirEnable = 0x10;	/* Enable rotator */
@@ -1368,7 +1388,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
-			LockVpu(vpu_semap);
+			if (!LockVpu(vpu_semap))
+				return RETCODE_FAILURE_TIMEOUT;
+
 			GetParaSet(handle, 0, param);
 			UnlockVpu(vpu_semap);
 			break;
@@ -1384,7 +1406,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
-			LockVpu(vpu_semap);
+			if (!LockVpu(vpu_semap))
+				return RETCODE_FAILURE_TIMEOUT;
+
 			GetParaSet(handle, 1, param);
 			UnlockVpu(vpu_semap);
 			break;
@@ -1408,7 +1432,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
-			LockVpu(vpu_semap);
+			if (!LockVpu(vpu_semap))
+				return RETCODE_FAILURE_TIMEOUT;
+
 			EncodeHeader(handle, encHeaderParam);
 			UnlockVpu(vpu_semap);
 			break;
@@ -1432,7 +1458,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
-			LockVpu(vpu_semap);
+			if (!LockVpu(vpu_semap))
+				return RETCODE_FAILURE_TIMEOUT;
+
 			EncodeHeader(handle, encHeaderParam);
 			UnlockVpu(vpu_semap);
 			break;
@@ -1451,7 +1479,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 
 			scRamParam = (SearchRamParam *) param;
 
-			LockVpu(vpu_semap);
+			if (!LockVpu(vpu_semap))
+				return RETCODE_FAILURE_TIMEOUT;
+
 			if (cpu_is_mx51()) {
 				VpuWriteReg(CMD_ENC_SEARCH_BASE,
 					    scRamParam->searchRamAddr);
@@ -1474,7 +1504,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
-			LockVpu(vpu_semap);
+			if (!LockVpu(vpu_semap))
+				return RETCODE_FAILURE_TIMEOUT;
+
 			GetParaSet(handle, 1, param);
 			UnlockVpu(vpu_semap);
 
@@ -1490,7 +1522,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
-			LockVpu(vpu_semap);
+			if (!LockVpu(vpu_semap))
+				return RETCODE_FAILURE_TIMEOUT;
+
 			GetParaSet(handle, 2, param);
 			UnlockVpu(vpu_semap);
 
@@ -1506,7 +1540,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
-			LockVpu(vpu_semap);
+			if (!LockVpu(vpu_semap))
+				return RETCODE_FAILURE_TIMEOUT;
+
 			GetParaSet(handle, 0, param);
 			UnlockVpu(vpu_semap);
 
@@ -1525,7 +1561,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
-			LockVpu(vpu_semap);
+			if (!LockVpu(vpu_semap))
+				return RETCODE_FAILURE_TIMEOUT;
+
 			SetGopNumber(handle, (Uint32 *) pGopNumber);
 			UnlockVpu(vpu_semap);
 
@@ -1550,7 +1588,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 					return RETCODE_INVALID_PARAM;
 			}
 
-			LockVpu(vpu_semap);
+			if (!LockVpu(vpu_semap))
+				return RETCODE_FAILURE_TIMEOUT;
+
 			SetIntraQp(handle, (Uint32 *) pIntraQp);
 			UnlockVpu(vpu_semap);
 
@@ -1569,7 +1609,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
-			LockVpu(vpu_semap);
+			if (!LockVpu(vpu_semap))
+				return RETCODE_FAILURE_TIMEOUT;
+
 			SetBitrate(handle, (Uint32 *) pBitrate);
 			UnlockVpu(vpu_semap);
 
@@ -1588,7 +1630,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
-			LockVpu(vpu_semap);
+			if (!LockVpu(vpu_semap))
+				return RETCODE_FAILURE_TIMEOUT;
+
 			SetFramerate(handle, (Uint32 *) pFramerate);
 			UnlockVpu(vpu_semap);
 
@@ -1599,7 +1643,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 		{
 			int *pIntraRefreshNum = (int *)param;
 
-			LockVpu(vpu_semap);
+			if (!LockVpu(vpu_semap))
+				return RETCODE_FAILURE_TIMEOUT;
+
 			SetIntraRefreshNum(handle, (Uint32 *) pIntraRefreshNum);
 			UnlockVpu(vpu_semap);
 
@@ -1619,7 +1665,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
-			LockVpu(vpu_semap);
+			if (!LockVpu(vpu_semap))
+				return RETCODE_FAILURE_TIMEOUT;
+
 			SetSliceMode(handle, (EncSliceMode *) pSliceMode);
 			UnlockVpu(vpu_semap);
 
@@ -1632,7 +1680,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_COMMAND;
 			}
 
-			LockVpu(vpu_semap);
+			if (!LockVpu(vpu_semap))
+				return RETCODE_FAILURE_TIMEOUT;
+
 			SetHecMode(handle, 1);
 			UnlockVpu(vpu_semap);
 
@@ -1645,7 +1695,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_COMMAND;
 			}
 
-			LockVpu(vpu_semap);
+			if (!LockVpu(vpu_semap))
+				return RETCODE_FAILURE_TIMEOUT;
+
 			SetHecMode(handle, 0);
 			UnlockVpu(vpu_semap);
 
@@ -1723,7 +1775,9 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 		return ret;
 	}
 
-	LockVpu(vpu_semap);
+	if (!LockVpu(vpu_semap))
+		return RETCODE_FAILURE_TIMEOUT;
+
 	ret = GetCodecInstance(&pCodecInst);
 	if (ret == RETCODE_FAILURE) {
 		*pHandle = 0;
@@ -1799,7 +1853,9 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 	pDecInfo->decReportUserData.enable = 0;
 	pDecInfo->decReportUserData.size = 0;
 
-	LockVpu(vpu_semap);
+	if (!LockVpu(vpu_semap))
+		return RETCODE_FAILURE_TIMEOUT;
+
 	VpuWriteReg(pDecInfo->streamRdPtrRegAddr, pDecInfo->streamBufStartAddr);
 	VpuWriteReg(pDecInfo->streamWrPtrRegAddr, pDecInfo->streamWrPtr);
 	VpuWriteReg(pDecInfo->frameDisplayFlagRegAddr, 0);
@@ -1846,7 +1902,9 @@ RetCode vpu_DecClose(DecHandle handle)
 		return RETCODE_FRAME_NOT_COMPLETE;
 	}
 
-	LockVpu(vpu_semap);
+	if (!LockVpu(vpu_semap))
+		return RETCODE_FAILURE_TIMEOUT;
+
 	if (pDecInfo->initialInfoObtained) {
 		if (cpu_is_mx51()) {
 			if (pDecInfo->openParam.bitstreamFormat == STD_DIV3)
@@ -1886,7 +1944,9 @@ RetCode vpu_DecSetEscSeqInit(DecHandle handle, int escape)
 	pCodecInst = handle;
 	pDecInfo = &pCodecInst->CodecInfo.decInfo;
 
-	LockVpu(vpu_semap);
+	if (!LockVpu(vpu_semap))
+		return RETCODE_FAILURE_TIMEOUT;
+
 	if (escape == 0)
 		VpuWriteReg(CMD_DEC_SEQ_INIT_ESCAPE,
 			    VpuReadReg(CMD_DEC_SEQ_INIT_ESCAPE) & ~0x01);
@@ -1937,7 +1997,9 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		return RETCODE_CALLED_BEFORE;
 	}
 
-	LockVpu(vpu_semap);
+	if (!LockVpu(vpu_semap))
+		return RETCODE_FAILURE_TIMEOUT;
+
 	if (DecBitstreamBufEmpty(pDecInfo)) {
 		UnlockVpu(vpu_semap);
 		return RETCODE_WRONG_CALL_SEQUENCE;
@@ -2218,7 +2280,9 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 	if (pDecInfo->openParam.bitstreamFormat == STD_MJPG)
 		return RETCODE_SUCCESS;
 
-	LockVpu(vpu_semap);
+	if (!LockVpu(vpu_semap))
+		return RETCODE_FAILURE_TIMEOUT;
+
 	if (!cpu_is_mx51()) {
 		/* Let the codec know the addresses of the frame buffers. */
 		for (i = 0; i < num; ++i) {
@@ -2507,7 +2571,8 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		}
 	}
 
-	LockVpu(vpu_semap);
+	if (!LockVpu(vpu_semap))
+		return RETCODE_FAILURE_TIMEOUT;
 
 	if ((cpu_is_mx37() || cpu_is_mx51()) && pDecInfo->deringEnable) {
 		rotMir |= 0x20;	/* Enable Dering Filter */
@@ -2553,12 +2618,14 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 			ret = IOGetPhyMem(&pDecInfo->picParaBaseMem);
 			if (ret) {
 				err_msg("Unable to obtain physical mem\n");
+				UnlockVpu(vpu_semap);
 				return RETCODE_FAILURE;
 			}
 			if (IOGetVirtMem(&pDecInfo->picParaBaseMem) <= 0) {
 				IOFreePhyMem(&pDecInfo->picParaBaseMem);
 				pDecInfo->picParaBaseMem.phy_addr = 0;
 				err_msg("Unable to obtain virtual mem\n");
+				UnlockVpu(vpu_semap);
 				return RETCODE_FAILURE;
 			}
 			VpuWriteReg(CMD_DEC_PIC_PARA_BASE_ADDR, pDecInfo->picParaBaseMem.phy_addr);
@@ -2608,12 +2675,14 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		ret = IOGetPhyMem(&pDecInfo->userDataBufMem);
 		if (ret) {
 			err_msg("Unable to obtain physical mem\n");
+			UnlockVpu(vpu_semap);
 			return RETCODE_FAILURE;
 		}
 		if (IOGetVirtMem(&pDecInfo->userDataBufMem) <= 0) {
 			IOFreePhyMem(&pDecInfo->userDataBufMem);
 			pDecInfo->userDataBufMem.phy_addr = 0;
 			err_msg("Unable to obtain virtual mem\n");
+			UnlockVpu(vpu_semap);
 			return RETCODE_FAILURE;
 		}
 
@@ -3073,7 +3142,9 @@ RetCode vpu_DecBitBufferFlush(DecHandle handle)
 		return RETCODE_WRONG_CALL_SEQUENCE;
 	}
 
-	LockVpu(vpu_semap);
+	if (!LockVpu(vpu_semap))
+		return RETCODE_FAILURE_TIMEOUT;
+
 	if (cpu_is_mx51()) {
 		if (pDecInfo->openParam.bitstreamFormat == STD_DIV3)
 			VpuWriteReg(BIT_RUN_AUX_STD, 1);
@@ -3115,7 +3186,9 @@ RetCode vpu_DecClrDispFlag(DecHandle handle, int index)
 	if ((index < 0) || (index > (pDecInfo->numFrameBuffers - 1)))
 		return RETCODE_INVALID_PARAM;
 
-	LockVpu(vpu_semap);
+	if (!LockVpu(vpu_semap))
+		return RETCODE_FAILURE_TIMEOUT;
+
 	val = (~(1 << index) & VpuReadReg(pDecInfo->frameDisplayFlagRegAddr));
 	VpuWriteReg(pDecInfo->frameDisplayFlagRegAddr, val);
 	UnlockVpu(vpu_semap);
@@ -3286,7 +3359,9 @@ RetCode vpu_DecGiveCommand(DecHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_PARAM;
 			}
 
-			LockVpu(vpu_semap);
+			if (!LockVpu(vpu_semap))
+				return RETCODE_FAILURE_TIMEOUT;
+
 			SetParaSet(handle, 0, param);
 			UnlockVpu(vpu_semap);
 			break;
