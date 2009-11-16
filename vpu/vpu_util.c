@@ -516,20 +516,23 @@ RetCode CheckDecOpenParam(DecOpenParam * pop)
 	    pop->bitstreamBufferSize > 16383 * 1024) {
 		return RETCODE_INVALID_PARAM;
 	}
+
+	/* Workaround for STD_H263 support: Force to convert STD_H263
+           to STD_MPEG4 since VPU treats all H263 as MPEG4 in decoder*/
+	if (pop->bitstreamFormat == STD_H263)
+		pop->bitstreamFormat = STD_MPEG4;
+
 	if (cpu_is_mx27()) {
 		if (pop->bitstreamFormat != STD_MPEG4 &&
-		    pop->bitstreamFormat != STD_H263 &&
 		    pop->bitstreamFormat != STD_AVC)
 			return RETCODE_INVALID_PARAM;
 	} else if (cpu_is_mx32()) {
 		if (pop->bitstreamFormat != STD_MPEG4 &&
-		    pop->bitstreamFormat != STD_H263 &&
 		    pop->bitstreamFormat != STD_AVC &&
 		    pop->bitstreamFormat != STD_VC1)
 			return RETCODE_INVALID_PARAM;
 	} else if (cpu_is_mx37()) {
 		if (pop->bitstreamFormat != STD_MPEG4 &&
-		    pop->bitstreamFormat != STD_H263 &&
 		    pop->bitstreamFormat != STD_AVC &&
 		    pop->bitstreamFormat != STD_VC1 &&
 		    pop->bitstreamFormat != STD_MPEG2 &&
@@ -537,7 +540,6 @@ RetCode CheckDecOpenParam(DecOpenParam * pop)
 			return RETCODE_INVALID_PARAM;
 	} else if (cpu_is_mx51()) {
 		if (pop->bitstreamFormat != STD_MPEG4 &&
-		    pop->bitstreamFormat != STD_H263 &&
 		    pop->bitstreamFormat != STD_AVC &&
 		    pop->bitstreamFormat != STD_VC1 &&
 		    pop->bitstreamFormat != STD_MPEG2 &&
@@ -547,8 +549,7 @@ RetCode CheckDecOpenParam(DecOpenParam * pop)
 			return RETCODE_INVALID_PARAM;
 	}
 	if (cpu_is_mx27()) {
-		if (pop->bitstreamFormat == STD_MPEG4 ||
-		    pop->bitstreamFormat == STD_H263) {
+		if (pop->bitstreamFormat == STD_MPEG4) {
 			if (pop->qpReport != 0 && pop->qpReport != 1) {
 				return RETCODE_INVALID_PARAM;
 			}
@@ -556,8 +557,6 @@ RetCode CheckDecOpenParam(DecOpenParam * pop)
 	} else {
 		if (pop->mp4DeblkEnable == 1 && !(pop->bitstreamFormat ==
 						  STD_MPEG4
-						  || pop->bitstreamFormat ==
-						  STD_H263
 						  || pop->bitstreamFormat ==
 						  STD_MPEG2
 						  || pop->bitstreamFormat ==
