@@ -79,6 +79,8 @@ typedef struct {
 	bool		supportSepLocalAlpha;
 	dma_addr_t 	bufPaddr[BUF_POOL_NUMBER];
 	dma_addr_t 	bufAlphaPaddr[BUF_POOL_NUMBER];
+	u8		userAllocSLbuf;
+	u8		userAllocAlpbuf;
 	u32		flag;
 	char		fbdev[32];
 
@@ -367,7 +369,7 @@ SLRetCode _MemAllocSL(ScreenLayer *pSL)
 		}
 
 		if ((pSL->fmt == v4l2_fourcc('U', 'Y', 'V', 'Y')) ||
-			(pSL->fmt == v4l2_fourcc('Y', '4', '4', '4'))) {
+				(pSL->fmt == v4l2_fourcc('Y', '4', '4', '4'))) {
 			fb_var.nonstd = pSL->fmt;
 			if (pSL->fmt == v4l2_fourcc('U', 'Y', 'V', 'Y'))
 				fb_var.bits_per_pixel = 16;
@@ -411,16 +413,6 @@ SLRetCode _MemAllocSL(ScreenLayer *pSL)
 		pSLPriv->dispPaddr[0] = fb_fix.smem_start;
 		pSLPriv->dispPaddr[1] = fb_fix.smem_start + screen_size;
 
-		if (pSL->flag & F_FBDIRECT_PRIMARYONLY) {
-			pSL->bufPaddr = (dma_addr_t *)malloc(pSLPriv->bufNum * sizeof(dma_addr_t));
-			pSL->bufPaddr[0] =  pSLPriv->dispPaddr[0];
-			pSL->bufPaddr[1] =  pSLPriv->dispPaddr[1];
-			dbg(DBG_DEBUG, "screen layer directly display to %s, dispPaddr 0x%x 0x%x\n",
-				pSL->fbdev, pSLPriv->dispPaddr[0], pSLPriv->dispPaddr[1]);
-			close(fd_fb);
-			goto done;
-		}
-
 		dbg(DBG_DEBUG, "screen layer display to %s, dispPaddr 0x%x 0x%x\n", pSL->fbdev, pSLPriv->dispPaddr[0], pSLPriv->dispPaddr[1]);
 
 		close(fd_fb);
@@ -429,38 +421,53 @@ SLRetCode _MemAllocSL(ScreenLayer *pSL)
 	width = pSL->screenRect.right - pSL->screenRect.left;
 	height = pSL->screenRect.bottom - pSL->screenRect.top;
 
-	pSL->bufPaddr = (dma_addr_t *)malloc(pSLPriv->bufNum * sizeof(dma_addr_t));
-	pSL->bufVaddr = (void **)malloc(pSLPriv->bufNum * sizeof(void *));
-	pSLPriv->bufMinfo = (ipu_mem_info *)malloc(pSLPriv->bufNum * sizeof(ipu_mem_info));
+	/* For Screenlayer buffer */
+	if (!pSL->bufPaddr) {
+		pSL->bufPaddr = (dma_addr_t *)malloc(pSLPriv->bufNum * sizeof(dma_addr_t));
+		pSL->bufVaddr = (void **)malloc(pSLPriv->bufNum * sizeof(void *));
+		pSLPriv->bufMinfo = (ipu_mem_info *)malloc(pSLPriv->bufNum * sizeof(ipu_mem_info));
+	} else {
+		dbg(DBG_DEBUG, "screen layer user define SL buffer\n");
+		pSLPriv->userAllocSLbuf = 1;
+	}
 	pSL->bufSize = width/8*height*fmt_to_bpp(pSL->fmt);
+
 	/* For local alpha blending buffers */
 	if (pSL->supportSepLocalAlpha) {
-		pSL->bufAlphaPaddr = (dma_addr_t *)malloc(pSLPriv->bufNum * sizeof(dma_addr_t));
-		pSL->bufAlphaVaddr = (void **)malloc(pSLPriv->bufNum * sizeof(void *));
-		pSLPriv->bufAlphaMinfo = (ipu_mem_info *)malloc(pSLPriv->bufNum * sizeof(ipu_mem_info));
+		if (!pSL->bufAlphaPaddr) {
+			pSL->bufAlphaPaddr = (dma_addr_t *)malloc(pSLPriv->bufNum * sizeof(dma_addr_t));
+			pSL->bufAlphaVaddr = (void **)malloc(pSLPriv->bufNum * sizeof(void *));
+			pSLPriv->bufAlphaMinfo = (ipu_mem_info *)malloc(pSLPriv->bufNum * sizeof(ipu_mem_info));
+		} else {
+			dbg(DBG_DEBUG, "screen layer user define Alpha buffer\n");
+			pSLPriv->userAllocAlpbuf = 1;
+		}
 		pSL->bufAlphaSize = width * height;
 	}
 
 	for (i=0;i<pSLPriv->bufNum;i++) {
-		pSLPriv->bufMinfo[i].size = pSL->bufSize;
-		if (ioctl(pSLPriv->fdIpu, IPU_ALOC_MEM, &(pSLPriv->bufMinfo[i])) < 0) {
-			ret = E_RET_MEM_ALOC_FAIL;
-			goto err;
-		}
-		pSL->bufPaddr[i] = pSLPriv->bufMinfo[i].paddr;
-		/* mmap virtual addr for user*/
-		pSL->bufVaddr[i] = mmap (NULL, pSLPriv->bufMinfo[i].size,
-				PROT_READ | PROT_WRITE, MAP_SHARED,
-				pSLPriv->fdIpu, pSLPriv->bufMinfo[i].paddr);
-		if (pSL->bufVaddr[i] == MAP_FAILED) {
-			ret = E_RET_MMAP_FAIL;
-			goto err;
-		}
+		if (!pSLPriv->userAllocSLbuf) {
+			pSLPriv->bufMinfo[i].size = pSL->bufSize;
+			if (ioctl(pSLPriv->fdIpu, IPU_ALOC_MEM, &(pSLPriv->bufMinfo[i])) < 0) {
+				ret = E_RET_MEM_ALOC_FAIL;
+				goto err;
+			}
+			pSL->bufPaddr[i] = pSLPriv->bufMinfo[i].paddr;
+			/* mmap virtual addr for user*/
+			pSL->bufVaddr[i] = mmap (NULL, pSLPriv->bufMinfo[i].size,
+					PROT_READ | PROT_WRITE, MAP_SHARED,
+					pSLPriv->fdIpu, pSLPriv->bufMinfo[i].paddr);
+			if (pSL->bufVaddr[i] == MAP_FAILED) {
+				ret = E_RET_MMAP_FAIL;
+				goto err;
+			}
 
-		dbg(DBG_DEBUG, "allocate %d memory paddr 0x%x, mmap to %p for current layer\n", pSLPriv->bufMinfo[i].size, pSL->bufPaddr[i], pSL->bufVaddr[i]);
+			dbg(DBG_DEBUG, "allocate %d memory paddr 0x%x, mmap to %p for current layer\n",
+					pSLPriv->bufMinfo[i].size, pSL->bufPaddr[i], pSL->bufVaddr[i]);
+		}
 
 		/* Allocate local alpha blending buffers */
-		if (pSL->supportSepLocalAlpha) {
+		if (pSL->supportSepLocalAlpha && !pSLPriv->userAllocAlpbuf) {
 			pSLPriv->bufAlphaMinfo[i].size = pSL->bufAlphaSize;
 			if (ioctl(pSLPriv->fdIpu, IPU_ALOC_MEM,
 				  &(pSLPriv->bufAlphaMinfo[i])) < 0) {
@@ -479,22 +486,23 @@ SLRetCode _MemAllocSL(ScreenLayer *pSL)
 				goto err;
 			}
 
-			dbg(DBG_DEBUG, "allocate %d memory paddr 0x%x, mmap to %p for local alpha blending buffers of current layer\n", pSLPriv->bufAlphaMinfo[i].size, pSL->bufAlphaPaddr[i], pSL->bufAlphaVaddr[i]);
+			dbg(DBG_DEBUG, "allocate %d memory paddr 0x%x, mmap to %p for local alpha blending buffers of \
+				current layer\n", pSLPriv->bufAlphaMinfo[i].size, pSL->bufAlphaPaddr[i], pSL->bufAlphaVaddr[i]);
 		}
 	}
 
 	goto done;
 
 err:
-	if (pSL->bufPaddr)
+	if (pSL->bufPaddr && !pSLPriv->userAllocSLbuf)
 		free(pSL->bufPaddr);
-	if (pSL->bufVaddr)
+	if (pSL->bufVaddr && !pSLPriv->userAllocSLbuf)
 		free(pSL->bufVaddr);
 	if (pSLPriv->bufMinfo)
 		free(pSLPriv->bufMinfo);
-	if (pSL->bufAlphaPaddr)
+	if (pSL->bufAlphaPaddr && !pSLPriv->userAllocAlpbuf)
 		free(pSL->bufAlphaPaddr);
-	if (pSL->bufAlphaVaddr)
+	if (pSL->bufAlphaVaddr && !pSLPriv->userAllocAlpbuf)
 		free(pSL->bufAlphaVaddr);
 	if (pSLPriv->bufAlphaMinfo)
 		free(pSLPriv->bufAlphaMinfo);
@@ -507,18 +515,19 @@ void _MemFreeSL(ScreenLayer *pSL)
 	ScreenLayerPriv *pSLPriv = (ScreenLayerPriv *)(vshmSLPriv +(int)pSL->pPriv-1);
 	u8 i;
 
-	if (pSL->flag & F_FBDIRECT_PRIMARYONLY)
-		goto done;
-
 	for (i=0;i<pSLPriv->bufNum;i++) {
-		dbg(DBG_DEBUG, "free %d memory paddr 0x%x, mmap to %p for current layer\n", pSLPriv->bufMinfo[i].size, pSL->bufPaddr[i], pSL->bufVaddr[i]);
-		if (pSL->bufVaddr[i])
-			munmap(pSL->bufVaddr[i], pSLPriv->bufMinfo[i].size);
-		ioctl(pSLPriv->fdIpu, IPU_FREE_MEM, &(pSLPriv->bufMinfo[i]));
+		if (!pSLPriv->userAllocSLbuf) {
+			dbg(DBG_DEBUG, "free %d memory paddr 0x%x, mmap to %p for current layer\n",
+					pSLPriv->bufMinfo[i].size, pSL->bufPaddr[i], pSL->bufVaddr[i]);
+			if (pSL->bufVaddr[i])
+				munmap(pSL->bufVaddr[i], pSLPriv->bufMinfo[i].size);
+			ioctl(pSLPriv->fdIpu, IPU_FREE_MEM, &(pSLPriv->bufMinfo[i]));
+		}
 
 		/* Free local alpha blending buffers */
-		if (pSL->supportSepLocalAlpha) {
-			dbg(DBG_DEBUG, "free %d memory paddr 0x%x, mmap to %p for local alpha blending buffers of current layer\n", pSLPriv->bufAlphaMinfo[i].size, pSL->bufAlphaPaddr[i], pSL->bufAlphaVaddr[i]);
+		if (pSL->supportSepLocalAlpha && !pSLPriv->userAllocAlpbuf) {
+			dbg(DBG_DEBUG, "free %d memory paddr 0x%x, mmap to %p for local alpha blending buffers of \
+				current layer\n", pSLPriv->bufAlphaMinfo[i].size, pSL->bufAlphaPaddr[i], pSL->bufAlphaVaddr[i]);
 			if (pSL->bufAlphaVaddr[i])
 				munmap(pSL->bufAlphaVaddr[i],
 				       pSLPriv->bufAlphaMinfo[i].size);
@@ -551,7 +560,6 @@ void _MemFreeSL(ScreenLayer *pSL)
 		}
 	}
 
-done:
 	if (pSLPriv->isPrimary) {
 		s32 fd_fb;
 		struct fb_var_screeninfo fb_var;
@@ -565,15 +573,15 @@ done:
 		}
 		close(fd_fb);
 	}
-	if (pSL->bufPaddr)
+	if (pSL->bufPaddr && !pSLPriv->userAllocSLbuf)
 		free(pSL->bufPaddr);
-	if (pSL->bufVaddr)
+	if (pSL->bufVaddr && !!pSLPriv->userAllocSLbuf)
 		free(pSL->bufVaddr);
 	if (pSLPriv->bufMinfo)
 		free(pSLPriv->bufMinfo);
-	if (pSL->bufAlphaPaddr)
+	if (pSL->bufAlphaPaddr && !pSLPriv->userAllocAlpbuf)
 		free(pSL->bufAlphaPaddr);
-	if (pSL->bufAlphaVaddr)
+	if (pSL->bufAlphaVaddr && !pSLPriv->userAllocAlpbuf)
 		free(pSL->bufAlphaVaddr);
 	if (pSLPriv->bufAlphaMinfo)
 		free(pSLPriv->bufAlphaMinfo);
@@ -655,6 +663,7 @@ SLRetCode PreScreenLayerIPC(char *pFbdev)
 pre_err0:
 	return ret;
 }
+
 SLRetCode CreateScreenLayer(ScreenLayer *pSL, u8 nBufNum)
 {
 	SLRetCode ret = E_RET_SUCCESS;
@@ -691,12 +700,6 @@ SLRetCode CreateScreenLayer(ScreenLayer *pSL, u8 nBufNum)
 		/* Non Primary SL*/
 		ScreenLayerPriv *pPriSLPriv = vshmSLPriv;
 		ScreenLayerPriv *pCurSLPriv;
-
-		if (pPriSLPriv->flag & F_FBDIRECT_PRIMARYONLY) {
-			dbg(DBG_ERR, "Can not create SL for primary which direct use framebuffer!\n");
-			ret = E_RET_PRIMARY_ERR;
-			goto err;
-		}
 
 		if(pPriSLPriv->nextLayerId == 0){
 			/* The seconde layer*/
@@ -753,11 +756,7 @@ SLRetCode CreateScreenLayer(ScreenLayer *pSL, u8 nBufNum)
 		pSLPriv->isPrimary = 1;
 	}
 
-	if ((pSL->flag & F_FBDIRECT_PRIMARYONLY) && (nBufNum > 2)) {
-		dbg(DBG_WARNING, "Only support 2 buffers for direct use framebuffer!\n");
-		pSLPriv->bufNum = 2;
-	} else
-		pSLPriv->bufNum = nBufNum;
+	pSLPriv->bufNum = nBufNum;
 
 	ret = _MemAllocSL(pSL);
 	/* Back up SL infor from external to private struct */
@@ -958,11 +957,6 @@ SLRetCode FlipScreenLayerBuf(ScreenLayer *pSL, u8 nBufIdx)
 	sem_wait(semDispID);
 	pSLPriv->curBufIdx = nBufIdx;
 	sem_post(semDispID);
-
-	if (pSL->flag & F_FBDIRECT_PRIMARYONLY) {
-		pSLPriv->curDispIdx = nBufIdx;
-		return _UpdateFramebuffer(pSLPriv);
-	}
 
 	return E_RET_SUCCESS;
 }
@@ -1225,11 +1219,6 @@ SLRetCode UpdateScreenLayer(ScreenLayer *pSL)
 	SLRetCode ret = E_RET_SUCCESS;
 	ScreenLayerPriv *pSLPriv = (ScreenLayerPriv *)(vshmSLPriv + (int)pSL->pPriv-1);
 	ScreenLayerPriv *pCurSLPriv;
-
-	if (pSL->flag & F_FBDIRECT_PRIMARYONLY) {
-		dbg(DBG_DEBUG, "Do nothing to update for direct framebuffer SL!\n");
-		goto done;
-	}
 
 	sem_wait(semMainID);
 	sem_wait(semDispID);
