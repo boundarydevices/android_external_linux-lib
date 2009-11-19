@@ -46,7 +46,7 @@ typedef enum {
 } SLRetCode;
 
 typedef enum {
-	F_FBDIRECT_PRIMARYONLY = 0x1,
+	F_DUMMY = 0x1,
 } SLFlag;
 
 typedef enum {
