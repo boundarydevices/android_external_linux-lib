@@ -147,7 +147,7 @@ RetCode vpu_Init(void *cb)
 		if (DownloadBitCodeTable((unsigned long *)virt_codeBuf,
 				bit_code) != RETCODE_SUCCESS) {
 			free(bit_code);
-			UnLockVpu(vpu_semap);
+			UnlockVpu(vpu_semap);
 			return RETCODE_FAILURE;
 		}
 
@@ -166,7 +166,7 @@ RetCode vpu_Init(void *cb)
 				/* IRQ is disabled during shutdown */
 				VpuWriteReg(BIT_INT_ENABLE, 8);
 				IOClkGateSet(false);
-				UnLockVpu(vpu_semap);
+				UnlockVpu(vpu_semap);
 				return RETCODE_SUCCESS;
 			}
 		}
@@ -2189,13 +2189,6 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		info->constraint_set_flag[2] = (val >> 21) & 0x01;
 		info->constraint_set_flag[3] = (val >> 22) & 0x01;
 	}
-
-	/*
-	 * Workaround to reverse interlace information of H.264, will
-	 * remove it once firmware fixes it.
-	 */
-	if (pCodecInst->codecMode == AVC_DEC)
-		info->interlace = (info->interlace == 0) ? 1: 0;
 
 	val = VpuReadReg(RET_DEC_SEQ_ASPECT);
 	info->aspectRateInfo = val;
