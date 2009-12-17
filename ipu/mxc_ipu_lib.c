@@ -243,3 +243,57 @@ int ipu_is_channel_busy(ipu_channel_t chan)
 {
 	return ioctl(fd_ipu,IPU_IS_CHAN_BUSY,&chan);
 }
+
+int ipu_calc_stripes_sizes(const unsigned int input_frame_width, /* input frame width;>1 */
+                           unsigned int output_frame_width, /* output frame width; >1 */
+                           const unsigned int maximal_stripe_width, /* the maximal width allowed for a stripe */
+                           const unsigned long long cirr, /* see above */
+                           const unsigned int equal_stripes, /* see above */
+                           u32 input_pixelformat,/* pixel format after of read channel*/
+                           u32 output_pixelformat,/* pixel format after of write channel*/
+                           struct stripe_param *left,
+                           struct stripe_param *right)
+{
+	ipu_stripe_parm stripe_parm;
+	int ret;
+
+	stripe_parm.input_width = input_frame_width;
+	stripe_parm.output_width = output_frame_width;
+	stripe_parm.maximal_stripe_width = maximal_stripe_width;
+	stripe_parm.cirr = cirr;
+	stripe_parm.equal_stripes = equal_stripes;
+	stripe_parm.input_pixelformat = input_pixelformat;
+	stripe_parm.output_pixelformat = output_pixelformat;
+
+	ret = ioctl(fd_ipu, IPU_CALC_STRIPES_SIZE, &stripe_parm);
+	if (ret == 0) {
+		memcpy(left, &stripe_parm.left, sizeof(stripe_parm.left));
+		memcpy(right, &stripe_parm.right, sizeof(stripe_parm.right));
+	}
+	return ret;
+}
+
+int ipu_update_channel_offset(ipu_channel_t channel, ipu_buffer_t type,
+                                uint32_t pixel_fmt,
+                                uint16_t width, uint16_t height,
+                                uint32_t stride,
+                                uint32_t u, uint32_t v,
+                                uint32_t vertical_offset, uint32_t horizontal_offset)
+{
+	ipu_buf_offset_parm offset_parm;
+	int ret;
+
+	offset_parm.channel = channel;
+	offset_parm.type = type;
+	offset_parm.pixel_fmt = pixel_fmt;
+	offset_parm.width = width;
+	offset_parm.height = height;
+	offset_parm.stride = stride;
+	offset_parm.u_offset = u;
+	offset_parm.v_offset = v;
+	offset_parm.vertical_offset = vertical_offset;
+	offset_parm.horizontal_offset = horizontal_offset;
+
+	ret = ioctl(fd_ipu, IPU_UPDATE_BUF_OFFSET, &offset_parm);
+	return ret;
+}
