@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2009-2010 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  */
 
@@ -379,7 +379,7 @@ static void _ipu_update_offset(unsigned int fmt, unsigned int width, unsigned in
 		case IPU_PIX_FMT_NV12:
 			*off = pos_y * width + pos_x;
 			*uoff = (width * (height - pos_y) - pos_x)
-				+ width * pos_y + pos_x;
+				+ width * pos_y/2 + pos_x;
 			break;
 		default:
 			*off = (pos_y * width + pos_x) * fmt_to_bpp(fmt)/8;
