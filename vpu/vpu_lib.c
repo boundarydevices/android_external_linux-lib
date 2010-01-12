@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2009 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2010 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -2028,12 +2028,14 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		ret = IOGetPhyMem(&pDecInfo->userDataBufMem);
 		if (ret) {
 			err_msg("Unable to obtain physical mem\n");
+			UnlockVpu(vpu_semap);
 			return RETCODE_FAILURE;
 		}
 		if (IOGetVirtMem(&pDecInfo->userDataBufMem) <= 0) {
 			IOFreePhyMem(&pDecInfo->userDataBufMem);
 			pDecInfo->userDataBufMem.phy_addr = 0;
 			err_msg("Unable to obtain virtual mem\n");
+			UnlockVpu(vpu_semap);
 			return RETCODE_FAILURE;
 		}
 		VpuWriteReg(CMD_DEC_PIC_USER_DATA_BASE_ADDR, pDecInfo->userDataBufMem.phy_addr);
@@ -2095,12 +2097,16 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	}
 
 	if (pCodecInst->codecMode  == MJPG_DEC) {
-		if (info->picWidth < 16 || info->picHeight < 16)
+		if (info->picWidth < 16 || info->picHeight < 16) {
+			UnlockVpu(vpu_semap);
 			return RETCODE_FAILURE;
+		}
 	}
 	else {
-		if (info->picWidth < 64 || info->picHeight < 64)
+		if (info->picWidth < 64 || info->picHeight < 64) {
+			UnlockVpu(vpu_semap);
 			return RETCODE_FAILURE;
+		}
 	}
 
 	val = VpuReadReg(RET_DEC_SEQ_SRC_F_RATE);
