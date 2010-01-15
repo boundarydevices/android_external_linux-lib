@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2009 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2010 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -41,6 +41,54 @@
 #define ADDR_SLICE_BASE_OFFSET          ADDR_MB_BASE_OFFSET + SIZE_MB_DATA
 #define ENC_ADDR_END_OF_RPT_BUF         ADDR_FRAME_BUF_STAT_BASE_OFFSET + SIZE_SLICE_INFO
 #define DEC_ADDR_END_OF_RPT_BUF         ADDR_FRAME_BUF_STAT_BASE_OFFSET + SIZE_FRAME_BUF_STAT
+
+/* This is calculated by reserved iram size for vpu and requirement */
+#if defined(IMX51_3STACK) || defined(IMX51)
+/* 720P for decoder, D1 for encoder on i.MX51 */
+#define DEC_MAX_WIDTH_IRAM_SUPPORT      1280
+#define ENC_MAX_WIDTH_IRAM_SUPPORT      720
+#else
+/* Not used in any platform yet */
+#define DEC_MAX_WIDTH_IRAM_SUPPORT      1920
+#define ENC_MAX_WIDTH_IRAM_SUPPORT      1280
+#endif
+
+/* Following IRAM setting is for max size for Decoder */
+/* To save intermediate data such as MB prediction data */
+#define VPU_DEC_BIT_IRAM_OFFSET         0
+#define VPU_DEC_BIT_IRAM_SIZE           ((128 * DEC_MAX_WIDTH_IRAM_SUPPORT / 16 + 1023) & ~1023)
+/* To save intermediate data such as intra/ACDC prediction */
+#define VPU_DEC_IP_IRAM_OFFSET          (VPU_DEC_BIT_IRAM_OFFSET + VPU_DEC_BIT_IRAM_SIZE)
+#define VPU_DEC_IP_IRAM_SIZE            ((128 * DEC_MAX_WIDTH_IRAM_SUPPORT / 16 + 1023) & ~1023)
+/* To save intermediate data for deblocking filter */
+#define VPU_DEC_DBKY_IRAM_OFFSET        (VPU_DEC_IP_IRAM_OFFSET + VPU_DEC_IP_IRAM_SIZE)
+#define VPU_DEC_DBKY_IRAM_SIZE          ((256 * DEC_MAX_WIDTH_IRAM_SUPPORT / 16 + 1023) & ~1023)
+#define VPU_DEC_DBKC_IRAM_OFFSET        (VPU_DEC_DBKY_IRAM_OFFSET + VPU_DEC_DBKY_IRAM_SIZE)
+#define VPU_DEC_DBKC_IRAM_SIZE          ((256 * DEC_MAX_WIDTH_IRAM_SUPPORT / 16 + 1023) & ~1023)
+/* To save intermediate data for overlap filter */
+#define VPU_DEC_OVL_IRAM_OFFSET         (VPU_DEC_DBKC_IRAM_OFFSET + VPU_DEC_DBKC_IRAM_SIZE)
+#define VPU_DEC_OVL_IRAM_SIZE           ((80 * DEC_MAX_WIDTH_IRAM_SUPPORT / 16 + 1023) & ~1023)
+#define VPU_DEC_TOTAL_IRAM_SIZE         (VPU_DEC_OVL_IRAM_OFFSET + VPU_DEC_OVL_IRAM_SIZE)
+
+/* Following IRAM setting is for max size for Encoder */
+#define VPU_ENC_SEARCH_IRAM_OFFSET      0
+#define VPU_ENC_SEARCH_IRAM_SIZE        ((ENC_MAX_WIDTH_IRAM_SUPPORT * 36 + 2048 + 1023) & ~1023)
+/* To save intermediate data such as MB prediction data */
+#define VPU_ENC_BIT_IRAM_OFFSET         (VPU_ENC_SEARCH_IRAM_OFFSET + VPU_ENC_SEARCH_IRAM_SIZE)
+#define VPU_ENC_BIT_IRAM_SIZE           ((128 * ENC_MAX_WIDTH_IRAM_SUPPORT / 16 + 1023) & ~1023)
+/* To save intermediate data such as intra/ACDC prediction */
+#define VPU_ENC_IP_IRAM_OFFSET          (VPU_ENC_BIT_IRAM_OFFSET + VPU_ENC_BIT_IRAM_SIZE)
+#define VPU_ENC_IP_IRAM_SIZE            ((128 * ENC_MAX_WIDTH_IRAM_SUPPORT / 16 + 1023) & ~1023)
+/* To save intermediate data for deblocking filter */
+/* Max size is calculated by H264/H263 encoder */
+#define VPU_ENC_DBKY_IRAM_OFFSET        (VPU_ENC_IP_IRAM_OFFSET + VPU_ENC_IP_IRAM_SIZE)
+#define VPU_ENC_DBKY_IRAM_SIZE          ((128 * DEC_MAX_WIDTH_IRAM_SUPPORT / 16 + 1023) & ~1023)
+#define VPU_ENC_DBKC_IRAM_OFFSET        (VPU_ENC_DBKY_IRAM_OFFSET + VPU_ENC_DBKY_IRAM_SIZE)
+#define VPU_ENC_DBKC_IRAM_SIZE          ((128 * DEC_MAX_WIDTH_IRAM_SUPPORT / 16 + 1023) & ~1023)
+/* No need for overlap filter for encoder */
+#define VPU_ENC_OVL_IRAM_OFFSET         (VPU_ENC_DBKC_IRAM_OFFSET + VPU_ENC_DBKC_IRAM_SIZE)
+#define VPU_ENC_OVL_IRAM_SIZE           0
+#define VPU_ENC_TOTAL_IRAM_SIZE         (VPU_ENC_OVL_IRAM_OFFSET + VPU_ENC_OVL_IRAM_SIZE)
 
 #if defined(IMX37_3STACK)
 enum {
@@ -100,6 +148,30 @@ enum {
 };
 
 typedef struct {
+	int useBitEnable;
+	int useIpEnable;
+	int useDbkEnable;
+	int useOvlEnable;
+	int useMeEnable;
+
+	int useHostBitEnable;
+	int useHostIpEnable;
+	int useHostDbkEnable;
+	int useHostOvlEnable;
+	int useHostMeEnable;
+
+	PhysicalAddress bufBitUse;
+	PhysicalAddress bufIpAcDcUse;
+	PhysicalAddress bufDbkYUse;
+	PhysicalAddress bufDbkCUse;
+	PhysicalAddress bufOvlUse;
+
+	PhysicalAddress searchRamAddr;
+	int searchRamSize;
+
+} SecAxiUse;
+
+typedef struct {
 	EncOpenParam openParam;
 	EncInitialInfo initialInfo;
 
@@ -122,6 +194,8 @@ typedef struct {
 	int initialInfoObtained;
 	int dynamicAllocEnable;
 	int ringBufferEnable;
+
+	SecAxiUse secAxiUse;
 
 	EncReportInfo encReportMBInfo;
 	EncReportInfo encReportMVInfo;
@@ -167,6 +241,8 @@ typedef struct {
 	int vc1BframeDisplayValid;
 
 	DbkOffset dbkOffset;
+
+	SecAxiUse secAxiUse;
 
 	vpu_mem_desc picParaBaseMem;
 	vpu_mem_desc userDataBufMem;
@@ -228,6 +304,9 @@ RetCode SetFramerate(EncHandle handle, Uint32 *framerate);
 RetCode SetIntraRefreshNum(EncHandle handle, Uint32 *pIntraRefreshNum);
 RetCode SetSliceMode(EncHandle handle, EncSliceMode *pSliceMode);
 RetCode SetHecMode(EncHandle handle, int mode);
+
+void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, int width);
+void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, int width);
 
 semaphore_t *vpu_semaphore_open(void);
 void semaphore_post(semaphore_t *semap);
