@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2009 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2010 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -295,6 +295,12 @@
 #define CMD_SET_FRAME_BUF_STRIDE	0x184
 #define CMD_SET_FRAME_SLICE_BB_START    0x188
 #define CMD_SET_FRAME_SLICE_BB_SIZE     0x18C
+
+#define CMD_SET_FRAME_AXI_BIT_ADDR      0x190
+#define CMD_SET_FRAME_AXI_IPACDC_ADDR   0x194
+#define CMD_SET_FRAME_AXI_DBKY_ADDR     0x198
+#define CMD_SET_FRAME_AXI_DBKC_ADDR     0x19C
+#define CMD_SET_FRAME_AXI_OVL_ADDR      0x1A0
 
 /*---------------------------------------------------------------------------
  * [ENC HEADER] COMMAND
