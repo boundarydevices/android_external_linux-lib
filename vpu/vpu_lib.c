@@ -729,6 +729,12 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 		VpuWriteReg(CMD_ENC_SEQ_FMO, data);
 	}
 
+	/* Set secondAXI IRAM */
+	SetEncSecondAXIIRAM(&pEncInfo->secAxiUse, encOP.picWidth);
+
+	VpuWriteReg(CMD_ENC_SEARCH_BASE, pEncInfo->secAxiUse.searchRamAddr);
+	VpuWriteReg(CMD_ENC_SEARCH_SIZE, pEncInfo->secAxiUse.searchRamSize);
+
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode, SEQ_INIT);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
@@ -843,6 +849,14 @@ RetCode vpu_EncRegisterFrameBuffer(EncHandle handle,
 	/* Tell the codec how much frame buffers were allocated. */
 	VpuWriteReg(CMD_SET_FRAME_BUF_NUM, num);
 	VpuWriteReg(CMD_SET_FRAME_BUF_STRIDE, stride);
+
+	if (cpu_is_mx51()) {
+		VpuWriteReg(CMD_SET_FRAME_AXI_BIT_ADDR, pEncInfo->secAxiUse.bufBitUse);
+		VpuWriteReg(CMD_SET_FRAME_AXI_IPACDC_ADDR, pEncInfo->secAxiUse.bufIpAcDcUse);
+		VpuWriteReg(CMD_SET_FRAME_AXI_DBKY_ADDR, pEncInfo->secAxiUse.bufDbkYUse);
+		VpuWriteReg(CMD_SET_FRAME_AXI_DBKC_ADDR, pEncInfo->secAxiUse.bufDbkCUse);
+		VpuWriteReg(CMD_SET_FRAME_AXI_OVL_ADDR, pEncInfo->secAxiUse.bufOvlUse);
+	}
 
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
 			SET_FRAME_BUF);
@@ -973,6 +987,7 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 	FrameBuffer *pSrcFrame;
 	Uint32 rotMirEnable;
 	Uint32 rotMirMode;
+	Uint32 val;
 	RetCode ret;
 
 	ENTER_FUNC();
@@ -1116,6 +1131,13 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 			}
 		}
 	}
+
+	val = (pEncInfo->secAxiUse.useBitEnable | pEncInfo->secAxiUse.useIpEnable << 1 |
+	       pEncInfo->secAxiUse.useDbkEnable << 2 | pEncInfo->secAxiUse.useOvlEnable << 3 |
+	       pEncInfo->secAxiUse.useMeEnable << 4 | pEncInfo->secAxiUse.useHostBitEnable << 7 |
+	       pEncInfo->secAxiUse.useHostIpEnable << 8 | pEncInfo->secAxiUse.useHostDbkEnable << 9 |
+	       pEncInfo->secAxiUse.useHostOvlEnable << 10 | pEncInfo->secAxiUse.useHostMeEnable << 11);
+	VpuWriteReg(BIT_AXI_SRAM_USE, val);
 
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode, PIC_RUN);
 
@@ -1468,6 +1490,10 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 
 	case ENC_SET_SEARCHRAM_PARAM:
 		{
+			/* dummy this command for i.MX51 platform */
+			if (cpu_is_mx51())
+				break;
+
 			SearchRamParam *scRamParam = NULL;
 			int EncPicX;
 			if (param == 0) {
@@ -1482,14 +1508,8 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 			if (!LockVpu(vpu_semap))
 				return RETCODE_FAILURE_TIMEOUT;
 
-			if (cpu_is_mx51()) {
-				VpuWriteReg(CMD_ENC_SEARCH_BASE,
-					    scRamParam->searchRamAddr);
-				VpuWriteReg(CMD_ENC_SEARCH_SIZE,
-					    scRamParam->SearchRamSize);
-			} else
-				VpuWriteReg(BIT_SEARCH_RAM_BASE_ADDR,
-					    scRamParam->searchRamAddr);
+			VpuWriteReg(BIT_SEARCH_RAM_BASE_ADDR,
+				    scRamParam->searchRamAddr);
 			UnlockVpu(vpu_semap);
 
 			break;
@@ -2213,6 +2233,10 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	pDecInfo->initialInfo = *info;
 	pDecInfo->initialInfoObtained = 1;
 
+	/* Set secondAXI IRAM */
+	if (!cpu_is_mx37())
+		SetDecSecondAXIIRAM(&pDecInfo->secAxiUse, (info->picWidth + 15) & ~15);
+
 	return RETCODE_SUCCESS;
 }
 
@@ -2338,8 +2362,14 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 
 	if (cpu_is_mx37() && pDecInfo->openParam.bitstreamFormat != STD_VC1)
 		vpu_setting_iram();
-	else
-		VpuWriteReg(BIT_AXI_SRAM_USE, 0);	/* not use SRAM */
+	else if (cpu_is_mx51()) {
+		VpuWriteReg(CMD_SET_FRAME_AXI_BIT_ADDR, pDecInfo->secAxiUse.bufBitUse);
+		VpuWriteReg(CMD_SET_FRAME_AXI_IPACDC_ADDR, pDecInfo->secAxiUse.bufIpAcDcUse);
+		VpuWriteReg(CMD_SET_FRAME_AXI_DBKY_ADDR, pDecInfo->secAxiUse.bufDbkYUse);
+		VpuWriteReg(CMD_SET_FRAME_AXI_DBKC_ADDR, pDecInfo->secAxiUse.bufDbkCUse);
+		VpuWriteReg(CMD_SET_FRAME_AXI_OVL_ADDR, pDecInfo->secAxiUse.bufOvlUse);
+	} else
+		VpuWriteReg(BIT_AXI_SRAM_USE, 0);       /* not use SRAM */
 
 	if (pCodecInst->codecMode == AVC_DEC) {
 		VpuWriteReg(CMD_SET_FRAME_SLICE_BB_START,
@@ -2767,6 +2797,12 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		else
 			VpuWriteReg(BIT_RUN_AUX_STD, 0);
 	}
+
+	val = (pDecInfo->secAxiUse.useBitEnable | pDecInfo->secAxiUse.useIpEnable << 1 |
+	       pDecInfo->secAxiUse.useDbkEnable << 2 | pDecInfo->secAxiUse.useOvlEnable << 3 |
+	       pDecInfo->secAxiUse.useHostBitEnable << 7 | pDecInfo->secAxiUse.useHostIpEnable << 8 |
+	       pDecInfo->secAxiUse.useHostDbkEnable << 9 | pDecInfo->secAxiUse.useHostOvlEnable << 10);
+	VpuWriteReg(BIT_AXI_SRAM_USE, val);
 
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode, PIC_RUN);
 
