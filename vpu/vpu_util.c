@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2009 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2010 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -812,6 +812,65 @@ RetCode SetHecMode(EncHandle handle, int mode)
 	IOClkGateSet(false);
 
 	return RETCODE_SUCCESS;
+}
+
+void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, int width)
+{
+	iram_t iram;
+
+	memset(psecAxiIramInfo, 0, sizeof(SecAxiUse));
+
+	IOGetIramBase(&iram);
+
+	if ((width > DEC_MAX_WIDTH_IRAM_SUPPORT) ||
+	    (iram.end - iram.start) < VPU_DEC_TOTAL_IRAM_SIZE) {
+		warn_msg("VPU iram is less than needed, not use iram\n");
+	} else {
+		/* i.MX51 has no secondary AXI memory, but use on chip RAM
+		   Set the useHoseXXX as 1 to enable corresponding IRAM
+		   Set the useXXXX as 0 at the same time to use IRAM  */
+		psecAxiIramInfo->useHostBitEnable = 1;
+		psecAxiIramInfo->useHostIpEnable = 1;
+		psecAxiIramInfo->useHostDbkEnable = 1;
+		psecAxiIramInfo->useHostOvlEnable = 1;
+
+		psecAxiIramInfo->bufBitUse = iram.start + VPU_DEC_BIT_IRAM_OFFSET;
+		psecAxiIramInfo->bufIpAcDcUse = iram.start + VPU_DEC_IP_IRAM_OFFSET;
+		psecAxiIramInfo->bufDbkYUse = iram.start + VPU_DEC_DBKY_IRAM_OFFSET;
+		psecAxiIramInfo->bufDbkCUse = iram.start + VPU_DEC_DBKC_IRAM_OFFSET;
+		psecAxiIramInfo->bufOvlUse = iram.start + VPU_DEC_OVL_IRAM_OFFSET;
+	}
+}
+
+void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, int width)
+{
+	iram_t iram;
+
+	memset(psecAxiIramInfo, 0, sizeof(SecAxiUse));
+
+	IOGetIramBase(&iram);
+	if (width > ENC_MAX_WIDTH_IRAM_SUPPORT ||
+	   (iram.end - iram.start) < VPU_ENC_TOTAL_IRAM_SIZE) {
+		warn_msg("VPU iram is less than needed, not use iram\n");
+	} else {
+		/* i.MX51 has no secondary AXI memory, but use on chip RAM
+		   Set the useHoseXXX as 1 to enable corresponding IRAM
+		   Set the useXXXX as 0 at the same time to use IRAM  */
+		psecAxiIramInfo->useHostBitEnable = 1;
+		psecAxiIramInfo->useHostIpEnable = 1;
+		psecAxiIramInfo->useHostDbkEnable = 1;
+		psecAxiIramInfo->useHostOvlEnable = 0; /* no need to enable ovl in encoder */
+		psecAxiIramInfo->useHostMeEnable = 1; /* For ME search */
+
+		psecAxiIramInfo->bufBitUse = iram.start + VPU_ENC_BIT_IRAM_OFFSET;
+		psecAxiIramInfo->bufIpAcDcUse = iram.start + VPU_ENC_IP_IRAM_OFFSET;
+		psecAxiIramInfo->bufDbkYUse = iram.start + VPU_ENC_DBKY_IRAM_OFFSET;
+		psecAxiIramInfo->bufDbkCUse = iram.start + VPU_ENC_OVL_IRAM_OFFSET;
+		psecAxiIramInfo->bufOvlUse = 0;
+
+		psecAxiIramInfo->searchRamAddr = iram.start + VPU_ENC_SEARCH_IRAM_OFFSET;
+		psecAxiIramInfo->searchRamSize = VPU_ENC_SEARCH_IRAM_SIZE;
+	}
 }
 
 semaphore_t *vpu_semaphore_open(void)
