@@ -1835,16 +1835,14 @@ static int _ipu_channel_setup(ipu_lib_input_param_t * input,
 				dbg(DBG_INFO, "\t\tMEM_DC_SYNC\n")
 			}
 
-			if (ipu_priv_handle->overlay_en) {
-				ret = ipu_link_channels(ipu_priv_handle->output[i].end_chan,
-						ipu_priv_handle->output[i].fb_chan);
-				if (ret < 0) {
-					ipu_unlink_channels(ipu_priv_handle->output[i].ic_chan,
-							ipu_priv_handle->output[i].rot_chan);
-					ipu_uninit_channel(ipu_priv_handle->output[i].ic_chan);
-					ipu_uninit_channel(ipu_priv_handle->output[i].rot_chan);
-					goto done;
-				}
+			ret = ipu_link_channels(ipu_priv_handle->output[i].end_chan,
+					ipu_priv_handle->output[i].fb_chan);
+			if (ret < 0) {
+				ipu_unlink_channels(ipu_priv_handle->output[i].ic_chan,
+						ipu_priv_handle->output[i].rot_chan);
+				ipu_uninit_channel(ipu_priv_handle->output[i].ic_chan);
+				ipu_uninit_channel(ipu_priv_handle->output[i].rot_chan);
+				goto done;
 			}
 		}
 	}
@@ -2167,11 +2165,9 @@ void mxc_ipu_lib_task_uninit(ipu_lib_handle_t * ipu_handle)
 	dbg(DBG_INFO, "total output frame cnt is %d\n", ipu_priv_handle->output_fr_cnt);
 
 	for (i=0;i<output_num;i++) {
-		if (ipu_priv_handle->overlay_en) {
-			if (ipu_priv_handle->output[i].show_to_fb) {
-				ipu_unlink_channels(ipu_priv_handle->output[i].end_chan,
-						ipu_priv_handle->output[i].fb_chan);
-			}
+		if (ipu_priv_handle->output[i].show_to_fb) {
+			ipu_unlink_channels(ipu_priv_handle->output[i].end_chan,
+					ipu_priv_handle->output[i].fb_chan);
 		}
 
 		if((ipu_priv_handle->output[i].task_mode & ROT_MODE) &&
@@ -2471,7 +2467,7 @@ int mxc_ipu_lib_task_buf_update(ipu_lib_handle_t * ipu_handle,
 		if (output_callback)
 			output_callback(output_cb_arg, ipu_priv_handle->output_bufnum);
 
-		if (ipu_priv_handle->output[0].show_to_fb && !ipu_priv_handle->overlay_en)
+		if (ipu_priv_handle->split_mode && ipu_priv_handle->output[0].show_to_fb)
 			pan_display(ipu_priv_handle, 1);
 
 		if (ipu_priv_handle->split_mode && (ipu_priv_handle->mode & OP_STREAM_MODE)) {
@@ -2502,12 +2498,12 @@ int mxc_ipu_lib_task_buf_update(ipu_lib_handle_t * ipu_handle,
 			if (output_callback)
 				output_callback(output_cb_arg, ipu_priv_handle->output_bufnum);
 
-			if (ipu_priv_handle->output[0].show_to_fb && !ipu_priv_handle->overlay_en)
+			if (ipu_priv_handle->split_mode && ipu_priv_handle->output[0].show_to_fb)
 				pan_display(ipu_priv_handle, ipu_priv_handle->update_bufnum);
 		}
 
 		for (i=0;i<output_num;i++)
-			if (!ipu_priv_handle->overlay_en)
+			if (!ipu_priv_handle->output[i].show_to_fb && !ipu_priv_handle->split_mode)
 				ipu_select_buffer(ipu_priv_handle->output[i].end_chan,
 						IPU_OUTPUT_BUFFER, ipu_priv_handle->update_bufnum);
 
