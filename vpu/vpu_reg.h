@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2010 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2010 Freescale Semiconductor, Inc.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -129,6 +129,7 @@
 #define RET_DEC_SEQ_INFO		0x1D4
 #define RET_DEC_SEQ_CROP_LEFT_RIGHT	0x1D8
 #define RET_DEC_SEQ_CROP_TOP_BOTTOM	0x1DC
+#define RET_DEC_SEQ_ERR_REASON		0x1E0
 #define	RET_DEC_SEQ_JPG_PARA		0x1E4
 #define RET_DEC_SEQ_JPG_THUMB_IND	0x1E8
 #define RET_DEC_SEQ_HEADER_REPORT	0x1EC
