@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2010 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2010 Freescale Semiconductor, Inc.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -2103,6 +2103,9 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
 	if (VpuReadReg(RET_DEC_SEQ_SUCCESS) == 0) {
+		val = VpuReadReg(RET_DEC_SEQ_ERR_REASON);
+		info->errorcode = val;
+
 		UnlockVpu(vpu_semap);
 		return RETCODE_FAILURE;
 	}
