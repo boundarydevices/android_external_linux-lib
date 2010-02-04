@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2009-2010 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  */
 
@@ -655,11 +655,13 @@ SLRetCode PreScreenLayerIPC(char *pFbdev)
 		sem_close(semMainID);
 		sem_close(semLoadID);
 		sem_close(semDispID);
-		goto pre_err0;
+		goto pre_err1;
 	}
 
 	sem_post(semMainID);
 	dbg(DBG_DEBUG, "PreScreenLayerIPC end!\n");
+pre_err1:
+	close(shmID);
 pre_err0:
 	return ret;
 }
