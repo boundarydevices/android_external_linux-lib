@@ -724,16 +724,9 @@ static int _ipu_task_check(ipu_lib_input_param_t * input,
 	} else {
 		/* 1 output case */
 		if (ipu_priv_handle->output[0].task_mode == NULL_MODE) {
-			if (input->user_def_paddr[0] && output0->user_def_paddr[0]) {
 				ipu_priv_handle->output[0].task_mode = COPY_MODE;
 				dbg(DBG_INFO, "Copy case!\n");
 				goto done;
-
-			} else {
-				dbg(DBG_ERR, "Do not need any operation! Will do nothing!\n");
-				ret = -1;
-				goto done;
-			}
 		}
 
 		/* try ENC first */
