@@ -1848,25 +1848,50 @@ static int _ipu_channel_setup(ipu_lib_input_param_t * input,
 	}
 
 	/*only need one irq even for 2 output case*/
-	switch (ipu_priv_handle->output[0].begin_chan) {
-	case MEM_ROT_ENC_MEM:
-		ipu_priv_handle->irq = IPU_IRQ_PRP_ENC_ROT_IN_EOF;
-		break;
-	case MEM_ROT_VF_MEM:
-		ipu_priv_handle->irq = IPU_IRQ_PRP_VF_ROT_IN_EOF;
-		break;
-	case MEM_ROT_PP_MEM:
-		ipu_priv_handle->irq = IPU_IRQ_PP_ROT_IN_EOF;
-		break;
-	case MEM_PRP_ENC_MEM:
-	case MEM_PRP_VF_MEM:
-		ipu_priv_handle->irq = IPU_IRQ_PRP_IN_EOF;
-		break;
-	case MEM_PP_MEM:
-		ipu_priv_handle->irq = IPU_IRQ_PP_IN_EOF;
-		break;
-	default:
-		dbg(DBG_ERR, "Should not be here!\n");
+	if (output->show_to_fb) {
+		switch (ipu_priv_handle->output[0].begin_chan) {
+			case MEM_ROT_ENC_MEM:
+				ipu_priv_handle->irq = IPU_IRQ_PRP_ENC_ROT_IN_EOF;
+				break;
+			case MEM_ROT_VF_MEM:
+				ipu_priv_handle->irq = IPU_IRQ_PRP_VF_ROT_IN_EOF;
+				break;
+			case MEM_ROT_PP_MEM:
+				ipu_priv_handle->irq = IPU_IRQ_PP_ROT_IN_EOF;
+				break;
+			case MEM_PRP_ENC_MEM:
+			case MEM_PRP_VF_MEM:
+				ipu_priv_handle->irq = IPU_IRQ_PRP_IN_EOF;
+				break;
+			case MEM_PP_MEM:
+				ipu_priv_handle->irq = IPU_IRQ_PP_IN_EOF;
+				break;
+			default:
+				dbg(DBG_ERR, "Should not be here!\n");
+		}
+	} else {
+		switch (ipu_priv_handle->output[0].end_chan) {
+			case MEM_ROT_ENC_MEM:
+				ipu_priv_handle->irq = IPU_IRQ_PRP_ENC_ROT_OUT_EOF;
+				break;
+			case MEM_ROT_VF_MEM:
+				ipu_priv_handle->irq = IPU_IRQ_PRP_VF_ROT_OUT_EOF;
+				break;
+			case MEM_ROT_PP_MEM:
+				ipu_priv_handle->irq = IPU_IRQ_PP_ROT_OUT_EOF;
+				break;
+			case MEM_PRP_ENC_MEM:
+				ipu_priv_handle->irq = IPU_IRQ_PRP_ENC_OUT_EOF;
+				break;
+			case MEM_PRP_VF_MEM:
+				ipu_priv_handle->irq = IPU_IRQ_PRP_VF_OUT_EOF;
+				break;
+			case MEM_PP_MEM:
+				ipu_priv_handle->irq = IPU_IRQ_PP_OUT_EOF;
+				break;
+			default:
+				dbg(DBG_ERR, "Should not be here!\n");
+		}
 	}
 done:
 	return ret;
