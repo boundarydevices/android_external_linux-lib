@@ -348,7 +348,7 @@
 	#define PARA_BUF2_SIZE			(0) /* Not used */
 	#define PARA_BUF_SIZE			(10 * 1024)
 #elif defined(IMX51_3STACK) || defined(IMX51)
-        #define CODE_BUF_SIZE			( 136 * 1024 )
+        #define CODE_BUF_SIZE			( 144 * 1024 )
         #define FMO_SLICE_SAVE_BUF_SIZE	        ( 32 )
         #define WORK_BUF_SIZE			( 512 * 1024 ) + ( FMO_SLICE_SAVE_BUF_SIZE * 1024 * 8 )
         #define PARA_BUF2_SIZE			( 2 * 1024 )
