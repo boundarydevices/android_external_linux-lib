@@ -156,7 +156,7 @@ RetCode vpu_Init(void *cb)
 		VpuWriteReg(BIT_PARA_BUF_ADDR, paraBuffer);
 		VpuWriteReg(BIT_CODE_BUF_ADDR, codeBuffer);
 
-		if (!cpu_is_mx51())
+		if (!cpu_is_mx5x())
 			VpuWriteReg(BIT_RESET_CTRL, 0);
 
 		VpuWriteReg(BIT_BIT_STREAM_PARAM, 0);
@@ -189,8 +189,8 @@ RetCode vpu_Init(void *cb)
 		VpuWriteReg(BIT_FRAME_MEM_CTRL, IMAGE_ENDIAN);
 		VpuWriteReg(BIT_INT_ENABLE, 8);	/* PIC_RUN irq enable */
 
-		if (cpu_is_mx51())
-			VpuWriteReg(BIT_AXI_SRAM_USE, 0);	/* not use SRAM */
+		if (cpu_is_mx5x())
+			VpuWriteReg(BIT_AXI_SRAM_USE, 0);	/* init to not use SRAM */
 
 		if (cpu_is_mx27()) {
 			ResetVpu();
@@ -282,7 +282,7 @@ RetCode vpu_SWReset(DecHandle handle, int index)
 	Uint32 data;
 	Uint16 data_hi;
 	Uint16 data_lo;
-	if (cpu_is_mx51()) {
+	if (cpu_is_mx5x()) {
 		for (i = 0; i < 2048; i += 4) {
 			data = p[(i / 2) + 1];
 			data_hi = (data >> 16) & 0xFFFF;
@@ -373,6 +373,9 @@ RetCode vpu_GetVersionInfo(vpu_versioninfo * verinfo)
 		break;
 	case PRJ_CODAHX_14:
 		strcpy(productstr, "i.MX51");
+		break;
+	case PRJ_CODA7541:
+		strcpy(productstr, "i.MX53");
 		break;
 	default:
 		err_msg("Unknown VPU\n");
@@ -616,7 +619,7 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 			 ? 0 : 1) << 6;
 		VpuWriteReg(CMD_ENC_SEQ_MP4_PARA, data);
 	} else if (encOP.bitstreamFormat == STD_H263) {
-		if (cpu_is_mx51())
+		if (cpu_is_mx5x())
 			VpuWriteReg(CMD_ENC_SEQ_COD_STD, 8);
 		else
 			VpuWriteReg(CMD_ENC_SEQ_COD_STD, 1);
@@ -707,15 +710,17 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 		data |= (encOP.EncStdParam.avcParam.avc_audEnable << 2);
 		data |= (encOP.EncStdParam.avcParam.avc_fmoEnable << 4);
 	}
-	if(pEncInfo->openParam.userQpMax) {
+	if (pEncInfo->openParam.userQpMax) {
 		data |= (1 << 6);
 		VpuWriteReg(CMD_ENC_SEQ_RC_QP_MAX, pEncInfo->openParam.userQpMax);
 	}
-	if(pEncInfo->openParam.userGamma) {
+	if (pEncInfo->openParam.userGamma) {
 		data |= (1 << 7);
 		VpuWriteReg(CMD_ENC_SEQ_RC_GAMMA, pEncInfo->openParam.userGamma);
 	}
-
+	if (pEncInfo->openParam.avcIntra16x16OnlyModeEnable) {
+		data |= (1 << 8);
+	}
 	VpuWriteReg(CMD_ENC_SEQ_OPTION, data);
 
 	VpuWriteReg(CMD_ENC_SEQ_RC_INTERVAL_MODE,
@@ -820,7 +825,7 @@ RetCode vpu_EncRegisterFrameBuffer(EncHandle handle,
 	if (!LockVpu(vpu_semap))
 		return RETCODE_FAILURE_TIMEOUT;
 
-	if (cpu_is_mx51()) {
+	if (cpu_is_mx5x()) {
 		if (pCodecInst->codecMode != MJPG_ENC) {
 			/* Need to swap word between Dword(64bit) */
 			for (i = 0; i < num; i += 2) {
@@ -850,7 +855,7 @@ RetCode vpu_EncRegisterFrameBuffer(EncHandle handle,
 	VpuWriteReg(CMD_SET_FRAME_BUF_NUM, num);
 	VpuWriteReg(CMD_SET_FRAME_BUF_STRIDE, stride);
 
-	if (cpu_is_mx51()) {
+	if (cpu_is_mx5x()) {
 		VpuWriteReg(CMD_SET_FRAME_AXI_BIT_ADDR, pEncInfo->secAxiUse.bufBitUse);
 		VpuWriteReg(CMD_SET_FRAME_AXI_IPACDC_ADDR, pEncInfo->secAxiUse.bufIpAcDcUse);
 		VpuWriteReg(CMD_SET_FRAME_AXI_DBKY_ADDR, pEncInfo->secAxiUse.bufDbkYUse);
@@ -1491,7 +1496,7 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 	case ENC_SET_SEARCHRAM_PARAM:
 		{
 			/* dummy this command for i.MX51 platform */
-			if (cpu_is_mx51())
+			if (cpu_is_mx5x())
 				break;
 
 			SearchRamParam *scRamParam = NULL;
@@ -1926,7 +1931,7 @@ RetCode vpu_DecClose(DecHandle handle)
 		return RETCODE_FAILURE_TIMEOUT;
 
 	if (pDecInfo->initialInfoObtained) {
-		if (cpu_is_mx51()) {
+		if (cpu_is_mx5x()) {
 			if (pDecInfo->openParam.bitstreamFormat == STD_DIV3)
 				VpuWriteReg(BIT_RUN_AUX_STD, 1);
 			else
@@ -2092,7 +2097,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 
 	VpuWriteReg(CMD_DEC_SEQ_SRC_SIZE, pDecInfo->picSrcSize);
 
-	if (cpu_is_mx51()) {
+	if (cpu_is_mx5x()) {
 		if (pDecInfo->openParam.bitstreamFormat == STD_DIV3)
 			VpuWriteReg(BIT_RUN_AUX_STD, 1);
 		else
@@ -2111,7 +2116,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	}
 
 	val = VpuReadReg(RET_DEC_SEQ_SRC_SIZE);
-	if (cpu_is_mx37() || cpu_is_mx51()) {
+	if (cpu_is_mx37() || cpu_is_mx5x()) {
 		info->picWidth = ((val >> 16) & 0xffff);
 		info->picHeight = (val & 0xffff);
 	} else {
@@ -2156,7 +2161,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 			info->picCropRect.top = 0;
 			info->picCropRect.bottom = 0;
 		} else {
-			if (cpu_is_mx51()) {
+			if (cpu_is_mx5x()) {
 				info->picCropRect.left =
 				    ((val >> 16) & 0xFFFF);
 				info->picCropRect.right =
@@ -2206,7 +2211,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		info->level = (val >> 12) & 0xFF;
 		info->interlace = (val >> 20) & 0x0001;
 		info->vc1_psf = (val >>22) & 0x0001;
-	} else if (cpu_is_mx51()) {
+	} else if (cpu_is_mx5x()) {
 		val = VpuReadReg(RET_DEC_SEQ_HEADER_REPORT);
 		info->profile =	(val >> 0) & 0xFF;
 		info->level = (val >> 8) & 0xFF;
@@ -2226,7 +2231,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	info->reportBufSize.mbInfoBufSize = SIZE_MB_DATA;
 	info->reportBufSize.mvInfoBufSize = SIZE_MV_DATA;
 
-	if (cpu_is_mx37() || cpu_is_mx51())
+	if (cpu_is_mx37() || cpu_is_mx5x())
 		info->streamInfoObtained = 1;
 	else
 		info->streamInfoObtained = 0;
@@ -2309,7 +2314,7 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 	if (!LockVpu(vpu_semap))
 		return RETCODE_FAILURE_TIMEOUT;
 
-	if (!cpu_is_mx51()) {
+	if (!cpu_is_mx5x()) {
 		/* Let the codec know the addresses of the frame buffers. */
 		for (i = 0; i < num; ++i) {
 			if (cpu_is_mx37()) {
@@ -2365,7 +2370,7 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 
 	if (cpu_is_mx37() && pDecInfo->openParam.bitstreamFormat != STD_VC1)
 		vpu_setting_iram();
-	else if (cpu_is_mx51()) {
+	else if (cpu_is_mx5x()) {
 		VpuWriteReg(CMD_SET_FRAME_AXI_BIT_ADDR, pDecInfo->secAxiUse.bufBitUse);
 		VpuWriteReg(CMD_SET_FRAME_AXI_IPACDC_ADDR, pDecInfo->secAxiUse.bufIpAcDcUse);
 		VpuWriteReg(CMD_SET_FRAME_AXI_DBKY_ADDR, pDecInfo->secAxiUse.bufDbkYUse);
@@ -2382,7 +2387,7 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 			     1024));
 	}
 
-	if (cpu_is_mx51()) {
+	if (cpu_is_mx5x()) {
 		if (pDecInfo->openParam.bitstreamFormat == STD_DIV3)
 			VpuWriteReg(BIT_RUN_AUX_STD, 1);
 		else
@@ -2606,7 +2611,7 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 	if (!LockVpu(vpu_semap))
 		return RETCODE_FAILURE_TIMEOUT;
 
-	if ((cpu_is_mx37() || cpu_is_mx51()) && pDecInfo->deringEnable) {
+	if ((cpu_is_mx37() || cpu_is_mx5x()) && pDecInfo->deringEnable) {
 		rotMir |= 0x20;	/* Enable Dering Filter */
 	}
 
@@ -2662,7 +2667,7 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 			}
 			VpuWriteReg(CMD_DEC_PIC_PARA_BASE_ADDR, pDecInfo->picParaBaseMem.phy_addr);
 
-			if (cpu_is_mx51()) {
+			if (cpu_is_mx5x()) {
 				Uint32 *virt_addr, phy_addr;
 
 				virt_addr = (Uint32 *)pDecInfo->picParaBaseMem.virt_uaddr;
@@ -2726,7 +2731,7 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 	if (cpu_is_mx37())
 		val |= (pDecInfo->dbkOffset.DbkOffsetEnable << 9);
 
-	if (cpu_is_mx37() || cpu_is_mx51()) {
+	if (cpu_is_mx37() || cpu_is_mx5x()) {
 		if (cpu_is_mx37())
 			val |= (param->skipframeNum << 16);
 
@@ -2766,11 +2771,11 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 	}
 
 	/* TODO may be removed after next mx51 release be aligned with mx37 */
-	if (cpu_is_mx51())
+	if (cpu_is_mx5x())
 		VpuWriteReg(CMD_DEC_PIC_SKIP_NUM, param->skipframeNum);
 
 
-	if (!cpu_is_mx51()) {
+	if (!cpu_is_mx5x()) {
 		/* clear dispReorderBuf flag firstly */
 		val = VpuReadReg(CMD_DEC_DISPLAY_REORDER) & 0xFFFFFFFD;
 		val |= (param->dispReorderBuf & 0x1) << 1;
@@ -2794,7 +2799,7 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		VpuWriteReg(CMD_DEC_PIC_START_BYTE, param->picStartByteOffset);
 	}
 
-	if (cpu_is_mx51()) {
+	if (cpu_is_mx5x()) {
 		if (pDecInfo->openParam.bitstreamFormat == STD_DIV3)
 			VpuWriteReg(BIT_RUN_AUX_STD, 1);
 		else
@@ -2890,7 +2895,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 			info->decPicCrop.top = 0;
 			info->decPicCrop.bottom = 0;
 		} else {
-			if (cpu_is_mx51()) {
+			if (cpu_is_mx5x()) {
 				info->decPicCrop.left =
 				    ((val >> 16) & 0xFFFF);
 				info->decPicCrop.right =
@@ -2927,7 +2932,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 
 	info->interlacedFrame = (val >> 16) & 0x1;
 
-	if (cpu_is_mx37() || cpu_is_mx51()) {
+	if (cpu_is_mx37() || cpu_is_mx5x()) {
 		info->h264Npf = (val >> 16) & 0x3;
 		info->interlacedFrame = (val >> 18) & 0x1;
 		info->pictureStructure = (val >> 19) & 0x0003;	/* MbAffFlag[17], FieldPicFlag[16] */
@@ -3139,7 +3144,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		}
 	}
 
-	if (cpu_is_mx37() || cpu_is_mx51()) {
+	if (cpu_is_mx37() || cpu_is_mx5x()) {
 		if (pCodecInst->codecMode == VC1_DEC) {
 			val = VpuReadReg(RET_DEC_PIC_POST);
 			info->hScaleFlag = (val >> 1) & 1;
@@ -3183,7 +3188,7 @@ RetCode vpu_DecBitBufferFlush(DecHandle handle)
 	if (!LockVpu(vpu_semap))
 		return RETCODE_FAILURE_TIMEOUT;
 
-	if (cpu_is_mx51()) {
+	if (cpu_is_mx5x()) {
 		if (pDecInfo->openParam.bitstreamFormat == STD_DIV3)
 			VpuWriteReg(BIT_RUN_AUX_STD, 1);
 		else
@@ -3419,7 +3424,7 @@ RetCode vpu_DecGiveCommand(DecHandle handle, CodecCommand cmd, void *param)
 
 	case DEC_SET_DEBLOCK_OUTPUT:
 		{
-			if (!cpu_is_mx51()) {
+			if (!cpu_is_mx5x()) {
 				FrameBuffer *frame;
 				if (param == 0) {
 					return RETCODE_INVALID_PARAM;

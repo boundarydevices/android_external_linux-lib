@@ -2,7 +2,7 @@ CC=$(CROSS_COMPILE)gcc
 AR=$(CROSS_COMPILE)ar
 
 # list of platforms which want this test case
-INCLUDE_LIST:= IMX27ADS IMX31ADS IMX32ADS IMX37_3STACK IMX51_3STACK IMX51
+INCLUDE_LIST:= IMX27ADS IMX31ADS IMX32ADS IMX37_3STACK IMX51 IMX53
 
 OBJ = vpu_io.o vpu_util.o vpu_lib.o
 
@@ -20,8 +20,12 @@ else
 PLATFORM_STR = $(PLATFORM)
 endif
 
+ifeq ($(findstring IMX5, $(PLATFORM)), IMX5)
+VERSION = imx5
+else
 VERSION = $(shell echo $(PLATFORM_STR) | awk '{print substr($$0, 1, 5)}' \
 	| awk '{print  tolower($$0) }' )
+endif
 
 all: $(LIBNAME).so $(LIBNAME).a
 

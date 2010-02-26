@@ -50,6 +50,7 @@ typedef Uint32 VirtualAddress;
 #define PRJ_BODA_DX_4V			0xF405
 #define PRJ_BODADX7X			0xF009
 #define	PRJ_CODAHX_14			0xF00A
+#define PRJ_CODA7541			0xF012
 
 typedef enum {
 	STD_MPEG4 = 0,
@@ -377,6 +378,7 @@ typedef struct {
 	Uint32 userGamma;
 	int RcIntervalMode;		/* 0:normal, 1:frame_level, 2:slice_level, 3: user defined Mb_level */
 	int MbInterval;			/* use when RcintervalMode is 3 */
+	int avcIntra16x16OnlyModeEnable;
 
 } EncOpenParam;
 
@@ -481,6 +483,7 @@ typedef struct vpu_versioninfo {
 
 /*
  * Revision History:
+ * v5.0.1 [2010.03.03] Integrate mx53 vpu
  * v4.7.1 [2009.09.18] remove share memory file and update SWReset function
  * v4.7.0 [2009.08.03] upgrade mx51 fw to v1.2.0
  * v4.6.5 [2009.04.30] upgrade mx37 fw to v1.1.2
@@ -493,7 +496,7 @@ typedef struct vpu_versioninfo {
  * v4.1.2 [2008.08.22] update MX37 VPU firmware to V1.0.5
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(4, 7, 6)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 0, 1)
 
 extern unsigned int system_rev;
 
@@ -516,6 +519,8 @@ static inline int type## _rev (int rev)         \
 #define cpu_is_mx32()		mxc_is_cpu(0x32)
 #define cpu_is_mx37()		mxc_is_cpu(0x37)
 #define cpu_is_mx51()		mxc_is_cpu(0x51)
+#define cpu_is_mx53()		mxc_is_cpu(0x53)
+#define cpu_is_mx5x()		(mxc_is_cpu(0x51) || mxc_is_cpu(0x53))
 
 MXC_REV(cpu_is_mx27);
 MXC_REV(cpu_is_mx32);
