@@ -1,7 +1,7 @@
 /*
- * Copyright 2004-2010 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2010 Freescale Semiconductor, Inc.
  *
- * Copyright (c) 2006, Chips & Media.  All rights reserved.
+ * Copyright (c) 2006, Chips & Media. All rights reserved.
  */
 
 /*
@@ -122,7 +122,7 @@ RetCode DownloadBitCodeTable(unsigned long *virtCodeBuf, Uint16 *bit_code)
 
 	virt_codeBuf = virtCodeBuf;
 	/* Copy full Microcode to Code Buffer allocated on SDRAM */
-	if (cpu_is_mx51()) {
+	if (cpu_is_mx5x()) {
 		for (i = 0; i < size; i += 4) {
 			data =
 			    (bit_code[i + 0] << 16) | bit_code[i + 1];
@@ -210,7 +210,7 @@ RetCode CheckEncInstanceValidity(EncHandle handle)
 		if (pCodecInst->codecMode != MP4_ENC &&
 		    pCodecInst->codecMode != AVC_ENC)
 			return RETCODE_INVALID_HANDLE;
-	} else if (cpu_is_mx51()) {
+	} else if (cpu_is_mx5x()) {
 		if (pCodecInst->codecMode != MP4_ENC &&
 		    pCodecInst->codecMode != AVC_ENC &&
 		    pCodecInst->codecMode != MJPG_ENC)
@@ -249,7 +249,7 @@ RetCode CheckDecInstanceValidity(DecHandle handle)
 		    pCodecInst->codecMode != MP2_DEC &&
 		    pCodecInst->codecMode != DV3_DEC)
 			return RETCODE_INVALID_HANDLE;
-	} else if (cpu_is_mx51()) {
+	} else if (cpu_is_mx5x()) {
 		if (pCodecInst->codecMode != MP4_DEC &&
 		    pCodecInst->codecMode != AVC_DEC &&
 		    pCodecInst->codecMode != VC1_DEC &&
@@ -538,7 +538,7 @@ RetCode CheckDecOpenParam(DecOpenParam * pop)
 		    pop->bitstreamFormat != STD_MPEG2 &&
 		    pop->bitstreamFormat != STD_DIV3)
 			return RETCODE_INVALID_PARAM;
-	} else if (cpu_is_mx51()) {
+	} else if (cpu_is_mx5x()) {
 		if (pop->bitstreamFormat != STD_MPEG4 &&
 		    pop->bitstreamFormat != STD_AVC &&
 		    pop->bitstreamFormat != STD_VC1 &&
@@ -591,10 +591,10 @@ RetCode CopyBufferData(Uint8 *dst, Uint8 *src, int size)
 
 	if (cpu_is_mx37())
 		memcpy(dst, src, size);
-	else if (cpu_is_mx51()) {
+	else if (cpu_is_mx5x()) {
 		int i;
 		for (i = 0; i < size / 8; i++) {
-			/* swab odd and even words and swab32 for mx51 */
+			/* swab odd and even words and swab32 for mx5x */
 			temp = *((Uint32 *)src + i * 2 + 1);
 			*((Uint32 *)dst + i * 2) = swab32(temp);
 			temp = *((Uint32 *)src + i * 2);
@@ -649,7 +649,7 @@ void SetParaSet(DecHandle handle, int paraSetType, DecParamSet * para)
 	VpuWriteReg(CMD_DEC_PARA_SET_TYPE, paraSetType);
 	VpuWriteReg(CMD_DEC_PARA_SET_SIZE, para->size);
 
-	if (cpu_is_mx51()) {
+	if (cpu_is_mx5x()) {
 		if (pDecInfo->openParam.bitstreamFormat == STD_DIV3)
 			VpuWriteReg(BIT_RUN_AUX_STD, 1);
 		else
@@ -826,13 +826,21 @@ void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, int width)
 	    (iram.end - iram.start) < VPU_DEC_TOTAL_IRAM_SIZE) {
 		warn_msg("VPU iram is less than needed, not use iram\n");
 	} else {
-		/* i.MX51 has no secondary AXI memory, but use on chip RAM
-		   Set the useHoseXXX as 1 to enable corresponding IRAM
-		   Set the useXXXX as 0 at the same time to use IRAM  */
-		psecAxiIramInfo->useHostBitEnable = 1;
-		psecAxiIramInfo->useHostIpEnable = 1;
-		psecAxiIramInfo->useHostDbkEnable = 1;
-		psecAxiIramInfo->useHostOvlEnable = 1;
+		if (cpu_is_mx51()) {
+			/* i.MX51 has no secondary AXI memory, but use on chip RAM
+			   Set the useHoseXXX as 1 to enable corresponding IRAM
+			   Set the useXXXX as 0 at the same time to use IRAM  */
+			psecAxiIramInfo->useHostBitEnable = 1;
+			psecAxiIramInfo->useHostIpEnable = 1;
+			psecAxiIramInfo->useHostDbkEnable = 1;
+			psecAxiIramInfo->useHostOvlEnable = 1;
+		} else if (cpu_is_mx53()) {
+			/* i.MX53 uses secondary AXI for IRAM access */
+			psecAxiIramInfo->useBitEnable = 1;
+			psecAxiIramInfo->useIpEnable = 1;
+			psecAxiIramInfo->useDbkEnable = 1;
+			psecAxiIramInfo->useOvlEnable = 1;
+		}
 
 		psecAxiIramInfo->bufBitUse = iram.start + VPU_DEC_BIT_IRAM_OFFSET;
 		psecAxiIramInfo->bufIpAcDcUse = iram.start + VPU_DEC_IP_IRAM_OFFSET;
@@ -853,14 +861,23 @@ void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, int width)
 	   (iram.end - iram.start) < VPU_ENC_TOTAL_IRAM_SIZE) {
 		warn_msg("VPU iram is less than needed, not use iram\n");
 	} else {
-		/* i.MX51 has no secondary AXI memory, but use on chip RAM
-		   Set the useHoseXXX as 1 to enable corresponding IRAM
-		   Set the useXXXX as 0 at the same time to use IRAM  */
-		psecAxiIramInfo->useHostBitEnable = 1;
-		psecAxiIramInfo->useHostIpEnable = 1;
-		psecAxiIramInfo->useHostDbkEnable = 1;
-		psecAxiIramInfo->useHostOvlEnable = 0; /* no need to enable ovl in encoder */
-		psecAxiIramInfo->useHostMeEnable = 1; /* For ME search */
+		if (cpu_is_mx51()) {
+			/* i.MX51 has no secondary AXI memory, but use on chip RAM
+			   Set the useHoseXXX as 1 to enable corresponding IRAM
+			   Set the useXXXX as 0 at the same time to use IRAM  */
+			psecAxiIramInfo->useHostBitEnable = 1;
+			psecAxiIramInfo->useHostIpEnable = 1;
+			psecAxiIramInfo->useHostDbkEnable = 1;
+			psecAxiIramInfo->useHostOvlEnable = 0; /* no need to enable ovl in encoder */
+			psecAxiIramInfo->useHostMeEnable = 1; /* For ME search */
+		} else if (cpu_is_mx53()) {
+			/* i.MX53 uses secondary AXI for IRAM access */
+			psecAxiIramInfo->useBitEnable = 1;
+			psecAxiIramInfo->useIpEnable = 1;
+			psecAxiIramInfo->useDbkEnable = 1;
+			psecAxiIramInfo->useOvlEnable = 0;  /* no need to enable ovl in encoder */
+			psecAxiIramInfo->useMeEnable = 1;
+		}
 
 		psecAxiIramInfo->bufBitUse = iram.start + VPU_ENC_BIT_IRAM_OFFSET;
 		psecAxiIramInfo->bufIpAcDcUse = iram.start + VPU_ENC_IP_IRAM_OFFSET;
