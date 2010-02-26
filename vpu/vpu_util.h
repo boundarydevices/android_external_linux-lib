@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2010 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2010 Freescale Semiconductor, Inc.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -24,7 +24,7 @@
 #include "vpu_lib.h"
 #include "vpu_io.h"
 
-#define MAX_FW_BINARY_LEN		100000
+#define MAX_FW_BINARY_LEN		100 * 1024
 #define MAX_NUM_INSTANCE		4
 
 #define SIZE_PIC_PARA_BASE_BUF          0x100
@@ -43,12 +43,11 @@
 #define DEC_ADDR_END_OF_RPT_BUF         ADDR_FRAME_BUF_STAT_BASE_OFFSET + SIZE_FRAME_BUF_STAT
 
 /* This is calculated by reserved iram size for vpu and requirement */
-#if defined(IMX51_3STACK) || defined(IMX51)
+#if defined(IMX51) || defined(IMX53)
 /* 720P for decoder, D1 for encoder on i.MX51 */
 #define DEC_MAX_WIDTH_IRAM_SUPPORT      1280
 #define ENC_MAX_WIDTH_IRAM_SUPPORT      720
 #else
-/* Not used in any platform yet */
 #define DEC_MAX_WIDTH_IRAM_SUPPORT      1920
 #define ENC_MAX_WIDTH_IRAM_SUPPORT      1280
 #endif
@@ -104,7 +103,7 @@ enum {
 	MJPG_DEC = 0x82,
 	MJPG_ENC = 0x83
 };
-#elif defined(IMX51_3STACK) || defined(IMX51)
+#elif defined(IMX51) || defined(IMX53)
 enum {
 	AVC_DEC = 0,
 	VC1_DEC = 1,
