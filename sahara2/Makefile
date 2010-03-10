@@ -10,8 +10,8 @@ DIAGS=
 ifeq ("$(PLATFORM)", "IMX27ADS")
 TARGET_ARCH=-DCONFIG_ARCH_MX27
 endif
-ifeq ("$(PLATFORM)", "IMX51")
-TARGET_ARCH=-DCONFIG_ARCH_MX51
+ifeq ($(findstring IMX5, $(PLATFORM)), IMX5)
+TARGET_ARCH=-DCONFIG_ARCH_MX5
 endif
 
 # Add compilation checks
