@@ -318,10 +318,7 @@ RetCode CheckEncOpenParam(EncOpenParam * pop)
 	    pop->vbvBufferSize < 0) {
 		return RETCODE_INVALID_PARAM;
 	}
-	if (pop->enableAutoSkip != 0 && pop->enableAutoSkip != 1) {
-		return RETCODE_INVALID_PARAM;
-	}
-	if (pop->gopSize > 60) {
+	if (pop->gopSize > 32767) {
 		return RETCODE_INVALID_PARAM;
 	}
 	if (pop->slicemode.sliceMode != 0 && pop->slicemode.sliceMode != 1) {
@@ -474,6 +471,7 @@ void EncodeHeader(EncHandle handle, EncHeaderParam * encHeaderParam)
 	EncInfo *pEncInfo;
 	PhysicalAddress rdPtr;
 	PhysicalAddress wrPtr;
+	int data = 0;
 
 	pCodecInst = handle;
 	pEncInfo = &pCodecInst->CodecInfo.encInfo;
@@ -483,8 +481,17 @@ void EncodeHeader(EncHandle handle, EncHeaderParam * encHeaderParam)
 		VpuWriteReg(CMD_ENC_HEADER_BB_START, encHeaderParam->buf);
 		VpuWriteReg(CMD_ENC_HEADER_BB_SIZE, encHeaderParam->size);
 	}
-	// 0: SPS, 1: PPS
-	VpuWriteReg(CMD_ENC_HEADER_CODE, encHeaderParam->headerType);
+
+	if (encHeaderParam->headerType == VOS_HEADER ||
+	    encHeaderParam->headerType == SPS_RBSP) {
+		data = (((encHeaderParam->userProfileLevelIndication & 0xFF) << 8) |
+			((encHeaderParam->userProfileLevelEnable & 0x01) << 4) |
+			(encHeaderParam->headerType & 0x0F));
+		VpuWriteReg(CMD_ENC_HEADER_CODE, data);
+	} else {
+		VpuWriteReg(CMD_ENC_HEADER_CODE, encHeaderParam->headerType); /* 0: SPS, 1: PPS */
+	}
+
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
 			ENCODE_HEADER);
 
