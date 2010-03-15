@@ -168,7 +168,7 @@
 #define CMD_ENC_SEQ_INTRA_QP		0x1C4
 #endif
 
-#define CMD_ENC_SEQ_RC_QP_MAX		0x1C8
+#define CMD_ENC_SEQ_RC_QP_MIN_MAX	0x1C8
 #define CMD_ENC_SEQ_RC_GAMMA		0x1CC
 #define CMD_ENC_SEQ_RC_INTERVAL_MODE	0x1D0	/* MbInterval[32:2], RcIntervalMode[1:0] */
 
