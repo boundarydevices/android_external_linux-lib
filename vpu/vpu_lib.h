@@ -352,7 +352,6 @@ typedef struct {
 	int bitRate;
 	int initialDelay;
 	int vbvBufferSize;
-	int enableAutoSkip;
 	int gopSize;
 
 	EncSliceMode slicemode;
@@ -374,6 +373,7 @@ typedef struct {
 		EncMjpgParam mjpgParam;
 	} EncStdParam;
 
+	int userQpMin;
 	int userQpMax;
 	Uint32 userGamma;
 	int RcIntervalMode;		/* 0:normal, 1:frame_level, 2:slice_level, 3: user defined Mb_level */
@@ -400,6 +400,7 @@ typedef struct {
 	int quantParam;
 	PhysicalAddress picStreamBufferAddr;
 	int picStreamBufferSize;
+	int enableAutoSkip;
 } EncParam;
 
 typedef	struct {
@@ -413,6 +414,7 @@ typedef struct {
 	PhysicalAddress bitstreamBuffer;
 	Uint32 bitstreamSize;
 	int bitstreamWrapAround;
+	int skipEncoded;
 	int picType;
 	int numOfSlices;
 	Uint32 *pSliceInfo;
@@ -438,6 +440,8 @@ typedef struct {
 	PhysicalAddress buf;
 	int size;
 	int headerType;
+	int userProfileLevelEnable;
+	int userProfileLevelIndication;
 } EncHeaderParam;
 
 typedef enum {
@@ -496,7 +500,7 @@ typedef struct vpu_versioninfo {
  * v4.1.2 [2008.08.22] update MX37 VPU firmware to V1.0.5
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 0, 1)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 0, 2)
 
 extern unsigned int system_rev;
 
