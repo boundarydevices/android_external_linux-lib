@@ -683,8 +683,7 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 	}
 
 	if (encOP.bitRate) {	/* rate control enabled */
-		data = (!encOP.enableAutoSkip) << 31 |
-		    encOP.initialDelay << 16 | encOP.bitRate << 1 | 1;
+		data = encOP.initialDelay << 16 | encOP.bitRate << 1 | 1;
 		VpuWriteReg(CMD_ENC_SEQ_RC_PARA, data);
 	} else {
 		VpuWriteReg(CMD_ENC_SEQ_RC_PARA, 0);
@@ -710,9 +709,11 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 		data |= (encOP.EncStdParam.avcParam.avc_audEnable << 2);
 		data |= (encOP.EncStdParam.avcParam.avc_fmoEnable << 4);
 	}
-	if (pEncInfo->openParam.userQpMax) {
+	if (pEncInfo->openParam.userQpMax && pEncInfo->openParam.userQpMin) {
 		data |= (1 << 6);
-		VpuWriteReg(CMD_ENC_SEQ_RC_QP_MAX, pEncInfo->openParam.userQpMax);
+		VpuWriteReg(CMD_ENC_SEQ_RC_QP_MIN_MAX,
+			    (pEncInfo->openParam.userQpMin << 8) |
+			    (pEncInfo->openParam.userQpMax & 0xFF));
 	}
 	if (pEncInfo->openParam.userGamma) {
 		data |= (1 << 7);
@@ -1092,6 +1093,7 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 			    (pEncInfo->encReportSliceInfo.enable << 5) |
 			    (pEncInfo->encReportMVInfo.enable << 4) |
 			    (pEncInfo->encReportMBInfo.enable << 3) |
+			    ((!param->enableAutoSkip) << 2) |
 			    (param->forceIPicture << 1 & 0x2));
 	}
 
@@ -1170,6 +1172,7 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 	RetCode ret;
 	PhysicalAddress rdPtr;
 	PhysicalAddress wrPtr;
+	Uint32 val;
 
 	ENTER_FUNC();
 
@@ -1195,7 +1198,9 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 	/* Clock is gated off when received interrupt in driver, so need to gate on here. */
 	IOClkGateSet(true);
 
-	info->picType = VpuReadReg(RET_ENC_PIC_TYPE);
+	val = VpuReadReg(RET_ENC_PIC_TYPE);
+	info->skipEncoded = (val >> 2) && 0x01;
+	info->picType = val && 0x03;
 
 	if (pEncInfo->ringBufferEnable == 0) {
 		if (pEncInfo->dynamicAllocEnable == 1) {
@@ -1220,7 +1225,7 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 			int widthInMB, heightInMB, readPnt, writePnt;
 			Uint32 *virt_mbQpAddr;
 			int i, j;
-			Uint32 val, val1, val2;
+			Uint32 val1, val2;
 
 			virt_mbQpAddr = (Uint32 *)((Uint32) virt_paraBuf + 0x1300);
 			widthInMB = pEncInfo->openParam.picWidth / 16;
@@ -1245,7 +1250,7 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 
 	if (pEncInfo->encReportMBInfo.enable) {
 		int size = 0;
-		Uint32 tempBuf[2], val = 0, address = 0;
+		Uint32 tempBuf[2], address = 0;
 		Uint8 *dst_addr = NULL, *src_addr = NULL;
 		Uint32 virt_addr = pEncInfo->picParaBaseMem.virt_uaddr;
 
@@ -1265,7 +1270,7 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 
 	if (pEncInfo->encReportMVInfo.enable) {
 		int size = 0;
-		Uint32 tempBuf[2], val = 0, address = 0;
+		Uint32 tempBuf[2], address = 0;
 		Uint8 *dst_addr = NULL, *src_addr = NULL;
 		Uint32 virt_addr = pEncInfo->picParaBaseMem.virt_uaddr;
 
@@ -1286,7 +1291,7 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 
 	if (pEncInfo->encReportSliceInfo.enable) {
 		int size = 0;
-		Uint32 tempBuf[2], val = 0, address = 0;
+		Uint32 tempBuf[2], address = 0;
 		Uint8 *dst_addr = NULL, *src_addr = NULL;
 		Uint32 virt_addr = pEncInfo->picParaBaseMem.virt_uaddr;
 
@@ -1582,7 +1587,7 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				return RETCODE_INVALID_COMMAND;
 			}
 
-			if (*pGopNumber < 0 || *pGopNumber > 60) {
+			if (*pGopNumber < 0 || *pGopNumber > 32767) {
 				return RETCODE_INVALID_PARAM;
 			}
 
