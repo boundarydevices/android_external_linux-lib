@@ -847,6 +847,11 @@ void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, int width)
 			psecAxiIramInfo->useIpEnable = 1;
 			psecAxiIramInfo->useDbkEnable = 1;
 			psecAxiIramInfo->useOvlEnable = 1;
+
+			psecAxiIramInfo->useHostBitEnable = 1;
+			psecAxiIramInfo->useHostIpEnable = 1;
+			psecAxiIramInfo->useHostDbkEnable = 1;
+			psecAxiIramInfo->useHostOvlEnable = 1;
 		}
 
 		psecAxiIramInfo->bufBitUse = iram.start + VPU_DEC_BIT_IRAM_OFFSET;
@@ -884,6 +889,12 @@ void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, int width)
 			psecAxiIramInfo->useDbkEnable = 1;
 			psecAxiIramInfo->useOvlEnable = 0;  /* no need to enable ovl in encoder */
 			psecAxiIramInfo->useMeEnable = 1;
+
+			psecAxiIramInfo->useHostBitEnable = 1;
+			psecAxiIramInfo->useHostIpEnable = 1;
+			psecAxiIramInfo->useHostDbkEnable = 1;
+			psecAxiIramInfo->useHostOvlEnable = 0;
+			psecAxiIramInfo->useHostMeEnable = 1;
 		}
 
 		psecAxiIramInfo->bufBitUse = iram.start + VPU_ENC_BIT_IRAM_OFFSET;
