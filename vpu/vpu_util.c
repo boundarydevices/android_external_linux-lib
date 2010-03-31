@@ -870,7 +870,14 @@ void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, int width)
 
 	IOGetIramBase(&iram);
 	if (width > ENC_MAX_WIDTH_IRAM_SUPPORT ||
-	   (iram.end - iram.start) < VPU_ENC_TOTAL_IRAM_SIZE) {
+	   (iram.end - iram.start + 1) < VPU_ENC_TOTAL_IRAM_SIZE) {
+		/* Only search ram use iram */
+		if ((iram.end - iram.start + 1) < VPU_ENC_SEARCH_IRAM_SIZE)
+			err_msg("vpu iram is less than search ram size.\n");
+		else {
+			psecAxiIramInfo->searchRamAddr = iram.start;
+			psecAxiIramInfo->searchRamSize = VPU_ENC_SEARCH_IRAM_SIZE;
+		}
 		warn_msg("VPU iram is less than needed, not use iram\n");
 	} else {
 		if (cpu_is_mx51()) {
