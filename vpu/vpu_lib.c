@@ -1105,9 +1105,9 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 
 	if (pEncInfo->encReportMBInfo.enable || pEncInfo->encReportMVInfo.enable ||
 	    pEncInfo->encReportSliceInfo.enable) {
-		if (!pEncInfo->picParaBaseMem.phy_addr) {
-			Uint32 *virt_addr, phy_addr;
+		Uint32 *virt_addr, phy_addr;
 
+		if (!pEncInfo->picParaBaseMem.phy_addr) {
 			pEncInfo->picParaBaseMem.size = ENC_ADDR_END_OF_RPT_BUF;
 			ret = IOGetPhyMem(&pEncInfo->picParaBaseMem);
 			if (ret) {
@@ -1120,22 +1120,23 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 				err_msg("Unable to obtain virtual mem\n");
 				return RETCODE_FAILURE;
 			}
-			VpuWriteReg(CMD_ENC_PIC_PARA_BASE_ADDR, pEncInfo->picParaBaseMem.phy_addr);
+		}
 
-			virt_addr = (Uint32 *)pEncInfo->picParaBaseMem.virt_uaddr;
-			phy_addr = pEncInfo->picParaBaseMem.phy_addr;
-			/* Set mbParam buffer address */
-			if (pEncInfo->encReportMBInfo.enable) {
-				*virt_addr = phy_addr + ADDR_MB_BASE_OFFSET;
-			}
-			/* Set mvParam buffer address */
-			if (pEncInfo->encReportMVInfo.enable) {
-				*(virt_addr + 2) = phy_addr + ADDR_MV_BASE_OFFSET;
-			}
-			/* Set slice info address */
-			if (pEncInfo->encReportSliceInfo.enable) {
-				*(virt_addr + 4) = phy_addr + ADDR_SLICE_BASE_OFFSET;
-			}
+		VpuWriteReg(CMD_ENC_PIC_PARA_BASE_ADDR, pEncInfo->picParaBaseMem.phy_addr);
+
+		virt_addr = (Uint32 *)pEncInfo->picParaBaseMem.virt_uaddr;
+		phy_addr = pEncInfo->picParaBaseMem.phy_addr;
+		/* Set mbParam buffer address */
+		if (pEncInfo->encReportMBInfo.enable) {
+			*virt_addr = phy_addr + ADDR_MB_BASE_OFFSET;
+		}
+		/* Set mvParam buffer address */
+		if (pEncInfo->encReportMVInfo.enable) {
+			*(virt_addr + 2) = phy_addr + ADDR_MV_BASE_OFFSET;
+		}
+		/* Set slice info address */
+		if (pEncInfo->encReportSliceInfo.enable) {
+			*(virt_addr + 4) = phy_addr + ADDR_SLICE_BASE_OFFSET;
 		}
 	}
 
@@ -2670,43 +2671,44 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 				UnlockVpu(vpu_semap);
 				return RETCODE_FAILURE;
 			}
-			VpuWriteReg(CMD_DEC_PIC_PARA_BASE_ADDR, pDecInfo->picParaBaseMem.phy_addr);
+		}
 
-			if (cpu_is_mx5x()) {
-				Uint32 *virt_addr, phy_addr;
+		VpuWriteReg(CMD_DEC_PIC_PARA_BASE_ADDR, pDecInfo->picParaBaseMem.phy_addr);
 
-				virt_addr = (Uint32 *)pDecInfo->picParaBaseMem.virt_uaddr;
-				phy_addr = pDecInfo->picParaBaseMem.phy_addr;
-				/* Set frameStat buffer address */
-				if (pDecInfo->decReportFrameBufStat.enable) {
-					*virt_addr = phy_addr + ADDR_FRAME_BUF_STAT_BASE_OFFSET;
-				}
-				/* Set mbParam buffer address */
-				if (pDecInfo->decReportMBInfo.enable) {
-					*(virt_addr + 2) = phy_addr + ADDR_MB_BASE_OFFSET;
-				}
-				/* Set mvParam buffer address */
-				if (pDecInfo->decReportMVInfo.enable) {
-					*(virt_addr + 4) = phy_addr + ADDR_MV_BASE_OFFSET;
-				}
+		if (cpu_is_mx5x()) {
+			Uint32 *virt_addr, phy_addr;
+
+			virt_addr = (Uint32 *)pDecInfo->picParaBaseMem.virt_uaddr;
+			phy_addr = pDecInfo->picParaBaseMem.phy_addr;
+			/* Set frameStat buffer address */
+			if (pDecInfo->decReportFrameBufStat.enable) {
+				*virt_addr = phy_addr + ADDR_FRAME_BUF_STAT_BASE_OFFSET;
 			}
-			if (cpu_is_mx37()) {
-				Uint32 *virt_addr, phy_addr;
+			/* Set mbParam buffer address */
+			if (pDecInfo->decReportMBInfo.enable) {
+				*(virt_addr + 2) = phy_addr + ADDR_MB_BASE_OFFSET;
+			}
+			/* Set mvParam buffer address */
+			if (pDecInfo->decReportMVInfo.enable) {
+				*(virt_addr + 4) = phy_addr + ADDR_MV_BASE_OFFSET;
+			}
+		}
+		if (cpu_is_mx37()) {
+			Uint32 *virt_addr, phy_addr;
 
-				virt_addr = (Uint32 *)pDecInfo->picParaBaseMem.virt_uaddr;
-				phy_addr = pDecInfo->picParaBaseMem.phy_addr;
-				/* Set frameStat buffer address */
-				if (pDecInfo->decReportFrameBufStat.enable) {
-					*(virt_addr + 1) = swab32(phy_addr + ADDR_FRAME_BUF_STAT_BASE_OFFSET);
-				}
-				/* Set mbParam buffer address */
-				if (pDecInfo->decReportMBInfo.enable) {
-					*(virt_addr + 3) = swab32(phy_addr + ADDR_MB_BASE_OFFSET);
-				}
-				/* Set mvParam buffer address */
-				if (pDecInfo->decReportMVInfo.enable) {
-					*(virt_addr + 5) = swab32(phy_addr + ADDR_MV_BASE_OFFSET);
-				}
+			virt_addr = (Uint32 *)pDecInfo->picParaBaseMem.virt_uaddr;
+			phy_addr = pDecInfo->picParaBaseMem.phy_addr;
+			/* Set frameStat buffer address */
+			if (pDecInfo->decReportFrameBufStat.enable) {
+				*(virt_addr + 1) = swab32(phy_addr + ADDR_FRAME_BUF_STAT_BASE_OFFSET);
+			}
+			/* Set mbParam buffer address */
+			if (pDecInfo->decReportMBInfo.enable) {
+				*(virt_addr + 3) = swab32(phy_addr + ADDR_MB_BASE_OFFSET);
+			}
+			/* Set mvParam buffer address */
+			if (pDecInfo->decReportMVInfo.enable) {
+				*(virt_addr + 5) = swab32(phy_addr + ADDR_MV_BASE_OFFSET);
 			}
 		}
 	}
