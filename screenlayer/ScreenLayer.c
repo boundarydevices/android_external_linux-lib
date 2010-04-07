@@ -1252,10 +1252,9 @@ SLRetCode UpdateScreenLayer(ScreenLayer *pSL)
 	}
 
 	ret = _UpdateFramebuffer(pCurSLPriv);
+done:
 	sem_post(semDispID);
 	sem_post(semMainID);
-
-done:
 	return ret;
 }
 
