@@ -52,7 +52,7 @@ RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 	fw_path = getenv("VPU_FW_PATH");
 
 	if (fw_path == NULL)
-		strcpy(fw_name, "/usr/lib");	/* default path */
+		strcpy(fw_name, "/lib/firmware/vpu");	/* default path */
 	else
 		strcpy(fw_name, fw_path);
 
@@ -70,7 +70,7 @@ RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 	fp = fopen(fw_name, "rb");
 	if (fp == NULL) {
 		err_msg("Error in opening firmware binary file\n");
-		err_msg("Please put bin file to /usr/lib folder or export VPU_FW_PATH env\n");
+		err_msg("Please put bin file to /lib/firmware/vpu folder or export VPU_FW_PATH env\n");
 		return RETCODE_FAILURE;
 	}
 
