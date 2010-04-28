@@ -7,7 +7,6 @@ INCLUDE_LIST:= IMX27ADS IMX31ADS IMX32ADS IMX37_3STACK IMX51 IMX53
 OBJ = vpu_io.o vpu_util.o vpu_lib.o
 
 LIBNAME = libvpu
-BINPREFIX = vpu_fw_
 
 ifeq ($(PLATFORM), $(findstring $(PLATFORM), $(INCLUDE_LIST)))
 
@@ -32,7 +31,6 @@ all: $(LIBNAME).so $(LIBNAME).a
 install: install_headers
 	@mkdir -p $(DEST_DIR)/usr/lib
 	cp $(LIBNAME).* $(DEST_DIR)/usr/lib
-	cp vpu_fw/$(BINPREFIX)$(VERSION)*.bin $(DEST_DIR)/usr/lib
 
 install_headers:
 	@mkdir -p $(DEST_DIR)/usr/include
