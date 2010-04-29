@@ -100,8 +100,8 @@
 
 #define BIT_MSG_0			0x1F0
 #define BIT_MSG_1			0x1F4
-#define BIT_MSG_2			0x1F8
-#define BIT_MSG_3			0x1FC
+
+#define BIT_RTC_HOST_CTRL		0x1FC
 
 /*---------------------------------------------------------------------------
  * [DEC SEQ INIT] COMMAND

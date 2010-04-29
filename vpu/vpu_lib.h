@@ -243,6 +243,11 @@ typedef struct {
 	int chunkSize;
 	int picStartByteOffset;
 	PhysicalAddress picStreamBufferAddr;
+
+	int underrunEnable;
+	int accumulativeMode;
+	int pulseWidth;
+	int refMbClk;
 } DecParam;
 
 typedef	struct {
@@ -375,11 +380,13 @@ typedef struct {
 
 	int userQpMin;
 	int userQpMax;
+	int userQpMinEnable;
+	int userQpMaxEnable;
+
 	Uint32 userGamma;
 	int RcIntervalMode;		/* 0:normal, 1:frame_level, 2:slice_level, 3: user defined Mb_level */
 	int MbInterval;			/* use when RcintervalMode is 3 */
 	int avcIntra16x16OnlyModeEnable;
-
 } EncOpenParam;
 
 typedef struct {
@@ -401,6 +408,11 @@ typedef struct {
 	PhysicalAddress picStreamBufferAddr;
 	int picStreamBufferSize;
 	int enableAutoSkip;
+
+	int underrunEnable;
+	int accumulativeMode;
+	int pulseWidth;
+	int refMbClk;
 } EncParam;
 
 typedef	struct {
@@ -500,7 +512,7 @@ typedef struct vpu_versioninfo {
  * v4.1.2 [2008.08.22] update MX37 VPU firmware to V1.0.5
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 0, 3)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 0, 4)
 
 extern unsigned int system_rev;
 
