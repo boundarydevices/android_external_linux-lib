@@ -709,19 +709,23 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 		data |= (encOP.EncStdParam.avcParam.avc_audEnable << 2);
 		data |= (encOP.EncStdParam.avcParam.avc_fmoEnable << 4);
 	}
-	if (pEncInfo->openParam.userQpMax && pEncInfo->openParam.userQpMin) {
+	if (pEncInfo->openParam.userQpMinEnable) {
 		data |= (1 << 6);
 		VpuWriteReg(CMD_ENC_SEQ_RC_QP_MIN_MAX,
 			    (pEncInfo->openParam.userQpMin << 8) |
 			    (pEncInfo->openParam.userQpMax & 0xFF));
 	}
-	if (pEncInfo->openParam.userGamma) {
+	if (pEncInfo->openParam.userQpMaxEnable) {
 		data |= (1 << 7);
+		VpuWriteReg(CMD_ENC_SEQ_RC_QP_MIN_MAX,
+			    (pEncInfo->openParam.userQpMin << 8) |
+			    (pEncInfo->openParam.userQpMax & 0xFF));
+	}
+	if (pEncInfo->openParam.userGamma) {
+		data |= (1 << 8);
 		VpuWriteReg(CMD_ENC_SEQ_RC_GAMMA, pEncInfo->openParam.userGamma);
 	}
-	if (pEncInfo->openParam.avcIntra16x16OnlyModeEnable) {
-		data |= (1 << 8);
-	}
+
 	VpuWriteReg(CMD_ENC_SEQ_OPTION, data);
 
 	VpuWriteReg(CMD_ENC_SEQ_RC_INTERVAL_MODE,
@@ -1146,6 +1150,10 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 	       pEncInfo->secAxiUse.useHostIpEnable << 8 | pEncInfo->secAxiUse.useHostDbkEnable << 9 |
 	       pEncInfo->secAxiUse.useHostOvlEnable << 10 | pEncInfo->secAxiUse.useHostMeEnable << 11);
 	VpuWriteReg(BIT_AXI_SRAM_USE, val);
+
+	val = (((param->refMbClk & 0xff) << 8) | ((param->pulseWidth & 0x3f) << 2) |
+	       ((param->accumulativeMode & 0x1) << 1) | ((param->underrunEnable & 0x1)));
+	VpuWriteReg(BIT_RTC_HOST_CTRL, val);
 
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode, PIC_RUN);
 
@@ -2818,6 +2826,10 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 	       pDecInfo->secAxiUse.useHostBitEnable << 7 | pDecInfo->secAxiUse.useHostIpEnable << 8 |
 	       pDecInfo->secAxiUse.useHostDbkEnable << 9 | pDecInfo->secAxiUse.useHostOvlEnable << 10);
 	VpuWriteReg(BIT_AXI_SRAM_USE, val);
+
+	val = (((param->refMbClk & 0xff) << 8) | ((param->pulseWidth & 0x3f) << 2) |
+	       ((param->accumulativeMode & 0x1) << 1) | ((param->underrunEnable & 0x1)));
+	VpuWriteReg(BIT_RTC_HOST_CTRL, val);
 
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode, PIC_RUN);
 
