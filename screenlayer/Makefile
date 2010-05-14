@@ -5,7 +5,7 @@ INC = $(INCLUDE) -I../ipu
 OBJS = ScreenLayer.o
 
 # list of platforms which want this test case
-INCLUDE_LIST:= IMX37_3STACK IMX51
+INCLUDE_LIST:= IMX37_3STACK IMX51 IMX53
 
 LIBNAME=libIpuScreenLayer
 
