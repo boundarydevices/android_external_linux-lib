@@ -4,7 +4,7 @@ AR=$(CROSS_COMPILE)ar
 OBJS = mxc_ipu_hl_lib.o mxc_ipu_lib.o
 
 # list of platforms which want this test case
-INCLUDE_LIST:= IMX37_3STACK IMX51
+INCLUDE_LIST:= IMX37_3STACK IMX51 IMX53
 
 LIBNAME=libipu
 
