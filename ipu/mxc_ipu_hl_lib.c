@@ -1437,7 +1437,7 @@ static int _ipu_channel_setup(ipu_lib_input_param_t * input,
 
 			if (ipu_priv_handle->split_mode) {
 				params.mem_prp_vf_mem.out_width = ipu_priv_handle->left_stripe.output_width;
-				params.mem_prp_vf_mem.out_resize_ratio = ipu_priv_handle->left_stripe.irr;
+				params.mem_prp_vf_mem.outh_resize_ratio = ipu_priv_handle->left_stripe.irr;
 			} else
 				params.mem_prp_vf_mem.out_width = ipu_priv_handle->output[i].owidth;
 			params.mem_prp_vf_mem.out_height = ipu_priv_handle->output[i].oheight;
