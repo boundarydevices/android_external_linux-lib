@@ -936,7 +936,8 @@ semaphore_t *vpu_semaphore_open(void)
 	if (!semap->is_initialized) {
 		pthread_mutexattr_init(&psharedm);
 		pthread_mutexattr_setpshared(&psharedm, PTHREAD_PROCESS_SHARED);
-		pthread_mutex_init(&semap->lock, &psharedm);
+		pthread_mutex_init(&semap->api_lock, &psharedm);
+		pthread_mutex_init(&semap->reg_lock, &psharedm);
 		for (i = 0; i < MAX_NUM_INSTANCE; ++i) {
 			pCodecInst = (CodecInst *) (&semap->codecInstPool[i]);
 			pCodecInst->instIndex = i;
@@ -954,22 +955,35 @@ semaphore_t *vpu_semaphore_open(void)
 	return semap;
 }
 
-void semaphore_post(semaphore_t *semap)
+void semaphore_post(semaphore_t *semap, int mutex)
 {
-	pthread_mutex_unlock(&semap->lock);
+	if (mutex == API_MUTEX)
+		pthread_mutex_unlock(&semap->api_lock);
+	else if (mutex == REG_MUTEX)
+		pthread_mutex_unlock(&semap->reg_lock);
 }
 
-bool semaphore_wait(semaphore_t *semap)
+bool semaphore_wait(semaphore_t *semap, int mutex)
 {
 #ifdef ANDROID
-	pthread_mutex_lock(&semap->lock);
+	if (mutex == API_MUTEX)
+		pthread_mutex_lock(&semap->api_lock);
+	else if (mutex == REG_MUTEX)
+		pthread_mutex_lock(&semap->reg_lock);
 	return true;
 #else
 	struct timespec ts;
+	int ret = 0;
 
 	ts.tv_sec = time(NULL) + mutex_timeout;
 	ts.tv_nsec = 0;
-	if (pthread_mutex_timedlock(&semap->lock, &ts) == ETIMEDOUT) {
+	if (mutex == API_MUTEX)
+		ret = pthread_mutex_timedlock(&semap->api_lock, &ts);
+	else if (mutex == REG_MUTEX)
+		ret = pthread_mutex_timedlock(&semap->reg_lock, &ts);
+	else
+		warn_msg("Not supported mutex\n");
+	if (ret == ETIMEDOUT) {
 		warn_msg("VPU mutex couldn't be locked before timeout expired\n");
 		return false;
 	}
