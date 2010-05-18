@@ -146,6 +146,11 @@ enum {
 	FIRMWARE_GET = 0xf
 };
 
+enum {
+	API_MUTEX = 0,
+	REG_MUTEX = 1
+};
+
 typedef struct {
 	int useBitEnable;
 	int useIpEnable;
@@ -268,7 +273,8 @@ typedef struct CodecInst {
 
 typedef struct {
 	int is_initialized;
-	pthread_mutex_t lock;
+	pthread_mutex_t api_lock;
+	pthread_mutex_t reg_lock;
 
 	/* VPU data for sharing */
 	CodecInst codecInstPool[MAX_NUM_INSTANCE];
@@ -308,13 +314,13 @@ void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, int width);
 void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, int width);
 
 semaphore_t *vpu_semaphore_open(void);
-void semaphore_post(semaphore_t *semap);
-bool semaphore_wait(semaphore_t *semap);
+void semaphore_post(semaphore_t *semap, int mutex);
+bool semaphore_wait(semaphore_t *semap, int mutex);
 void vpu_semaphore_close(semaphore_t *semap);
 
 static inline bool LockVpu(semaphore_t *semap)
 {
-	if (!semaphore_wait(semap))
+	if (!semaphore_wait(semap, API_MUTEX))
 		return false;
 	IOClkGateSet(1);
 	return true;
@@ -322,7 +328,21 @@ static inline bool LockVpu(semaphore_t *semap)
 
 static inline void UnlockVpu(semaphore_t *semap)
 {
-	semaphore_post(semap);
+	semaphore_post(semap, API_MUTEX);
+	IOClkGateSet(0);
+}
+
+static inline bool LockVpuReg(semaphore_t *semap)
+{
+	if (!semaphore_wait(semap, REG_MUTEX))
+		return false;
+	IOClkGateSet(1);
+	return true;
+}
+
+static inline void UnlockVpuReg(semaphore_t *semap)
+{
+	semaphore_post(semap, REG_MUTEX);
 	IOClkGateSet(0);
 }
 
