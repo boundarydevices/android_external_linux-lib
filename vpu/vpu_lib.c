@@ -1900,8 +1900,10 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 	VpuWriteReg(pDecInfo->frameDisplayFlagRegAddr, 0);
 
 	/* Clear stream end flag */
+	LockVpuReg(vpu_semap);
 	VpuWriteReg(BIT_BIT_STREAM_PARAM,
 		    VpuReadReg(BIT_BIT_STREAM_PARAM) & ~(1 << (instIdx + 2)));
+	UnlockVpuReg(vpu_semap);
 
 	bit_offset = cpu_is_mx37() ? (instIdx + 1) : (instIdx + 2);
 	val = VpuReadReg(BIT_FRAME_MEM_CTRL) & ~(1 << bit_offset);
@@ -2501,13 +2503,20 @@ RetCode vpu_DecUpdateBitstreamBuffer(DecHandle handle, Uint32 size)
 	pDecInfo = &pCodecInst->CodecInfo.decInfo;
 	wrPtr = pDecInfo->streamWrPtr;
 
+	LockVpuReg(vpu_semap);
 	if (size == 0) {
-		IOClkGateSet(true);
+		/* Set stream end flag */
 		val = VpuReadReg(BIT_BIT_STREAM_PARAM);
-		val |= 1 << (pCodecInst->instIndex + 2);
-		VpuWriteReg(BIT_BIT_STREAM_PARAM, val);
-		IOClkGateSet(false);
+		VpuWriteReg(BIT_BIT_STREAM_PARAM,
+			    val |= 1 << (pCodecInst->instIndex + 2));
+		UnlockVpuReg(vpu_semap);
 		return RETCODE_SUCCESS;
+	} else {
+		/* Clear stream end flag */
+		val = VpuReadReg(BIT_BIT_STREAM_PARAM);
+		VpuWriteReg(BIT_BIT_STREAM_PARAM,
+			    val & ~(1 << (pCodecInst->instIndex + 2)));
+		UnlockVpuReg(vpu_semap);
 	}
 
 	IOClkGateSet(true);
