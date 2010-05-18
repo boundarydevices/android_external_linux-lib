@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2009 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2010 Freescale Semiconductor, Inc.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -240,7 +240,7 @@ int IOSystemInit(void *callback)
 		return -1;
 	}
 
-	if (!semaphore_wait(vpu_semap)) {
+	if (!semaphore_wait(vpu_semap, API_MUTEX)) {
 		err_msg("Error: Unable to get mutex\n");
 		close (vpu_fd);
 		vpu_fd = -1;
@@ -255,7 +255,7 @@ int IOSystemInit(void *callback)
 		err_msg("Can't map register\n");
 		close(vpu_fd);
 		vpu_fd = -1;
-		semaphore_post(vpu_semap);
+		semaphore_post(vpu_semap, API_MUTEX);
 		return -1;
 	}
 
@@ -328,7 +328,7 @@ int IOSystemShutdown(void)
 		return 0;
 	}
 
-	if (!semaphore_wait(vpu_semap)) {
+	if (!semaphore_wait(vpu_semap, API_MUTEX)) {
 		err_msg("Unable to get mutex\n");
 		return -1;
 	}
@@ -346,7 +346,7 @@ int IOSystemShutdown(void)
 
 	vpu_active_num--;
 
-	semaphore_post(vpu_semap);
+	semaphore_post(vpu_semap, API_MUTEX);
 	vpu_semaphore_close(vpu_semap);
 
 	if (vpu_fd >= 0) {
