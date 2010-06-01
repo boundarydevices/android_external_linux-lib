@@ -315,10 +315,10 @@ void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, int width);
 
 semaphore_t *vpu_semaphore_open(void);
 void semaphore_post(semaphore_t *semap, int mutex);
-bool semaphore_wait(semaphore_t *semap, int mutex);
+unsigned char semaphore_wait(semaphore_t *semap, int mutex);
 void vpu_semaphore_close(semaphore_t *semap);
 
-static inline bool LockVpu(semaphore_t *semap)
+static inline unsigned char LockVpu(semaphore_t *semap)
 {
 	if (!semaphore_wait(semap, API_MUTEX))
 		return false;
@@ -332,7 +332,7 @@ static inline void UnlockVpu(semaphore_t *semap)
 	IOClkGateSet(0);
 }
 
-static inline bool LockVpuReg(semaphore_t *semap)
+static inline unsigned char LockVpuReg(semaphore_t *semap)
 {
 	if (!semaphore_wait(semap, REG_MUTEX))
 		return false;
