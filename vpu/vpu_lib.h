@@ -27,9 +27,6 @@
 typedef unsigned char Uint8;
 typedef unsigned long Uint32;
 typedef unsigned short Uint16;
-#ifndef bool
-typedef unsigned char bool;
-#endif
 typedef Uint32 PhysicalAddress;
 typedef Uint32 VirtualAddress;
 

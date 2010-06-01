@@ -963,7 +963,7 @@ void semaphore_post(semaphore_t *semap, int mutex)
 		pthread_mutex_unlock(&semap->reg_lock);
 }
 
-bool semaphore_wait(semaphore_t *semap, int mutex)
+unsigned char semaphore_wait(semaphore_t *semap, int mutex)
 {
 #ifdef ANDROID
 	if (mutex == API_MUTEX)
