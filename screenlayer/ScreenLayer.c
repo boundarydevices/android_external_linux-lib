@@ -220,7 +220,7 @@ int copy_to_tv_init(ScreenLayerPriv *pSLPriv)
 	output.show_to_fb = 1;
 	output.fb_disp.fb_num = 1;
 
-	if (mxc_ipu_lib_task_init(&input, NULL, &output, NULL, mode, &(pSLPriv->tvHandle)) < 0) {
+	if (mxc_ipu_lib_task_init(&input, NULL, &output, mode, &(pSLPriv->tvHandle)) < 0) {
 		ret = -1;
 		goto done;
 	}
@@ -888,7 +888,7 @@ SLRetCode LoadScreenLayer(ScreenLayer *pSL, LoadParam *pParam, u8 nBufIdx)
 
 	sem_wait(semLoadID);
 	gettimeofday(&total_begin, NULL);
-	if (mxc_ipu_lib_task_init(&input, NULL, &output, NULL, mode, &ipu_handle) < 0) {
+	if (mxc_ipu_lib_task_init(&input, NULL, &output, mode, &ipu_handle) < 0) {
 		ret = E_RET_TASK_SETUP_ERR;
 		goto done;
 	}
@@ -1007,7 +1007,7 @@ SLRetCode _CopyScreenLayer(ScreenLayerPriv *pSrcSLPriv, ScreenLayerPriv *pTgtSLP
 		input.user_def_paddr[0] = pSrcSLPriv->dispPaddr[pSrcSLPriv->curDispIdx];
 	output.user_def_paddr[0] = pTgtSLPriv->dispPaddr[pTgtSLPriv->curDispIdx];
 
-	if (mxc_ipu_lib_task_init(&input, NULL, &output, NULL, mode, &ipu_handle) < 0) {
+	if (mxc_ipu_lib_task_init(&input, NULL, &output, mode, &ipu_handle) < 0) {
 		ret = E_RET_TASK_SETUP_ERR;
 		goto done;
 	}
@@ -1082,7 +1082,7 @@ SLRetCode _CombScreenLayers(ScreenLayerPriv *pBotSLPriv, ScreenLayerPriv *pTopSL
 		output.fmt = pPriSLPriv->fmt;
 		output.user_def_paddr[0] = pTopSLPriv->dispPaddr[pTopSLPriv->curDispIdx];
 
-		if (mxc_ipu_lib_task_init(&input, NULL, &output, NULL, mode, &ipu_handle) < 0) {
+		if (mxc_ipu_lib_task_init(&input, NULL, &output, mode, &ipu_handle) < 0) {
 			ret = E_RET_TASK_SETUP_ERR;
 			goto done;
 		}
@@ -1128,7 +1128,7 @@ SLRetCode _CombScreenLayers(ScreenLayerPriv *pBotSLPriv, ScreenLayerPriv *pTopSL
 		output.fmt = pPriSLPriv->fmt;
 		output.user_def_paddr[0] = pTopSLPriv->dispPaddr[pTopSLPriv->curDispIdx];
 
-		if (mxc_ipu_lib_task_init(&input, &overlay, &output, NULL, mode, &ipu_handle) < 0) {
+		if (mxc_ipu_lib_task_init(&input, &overlay, &output, mode, &ipu_handle) < 0) {
 			ret = E_RET_TASK_SETUP_ERR;
 			goto done;
 		}
