@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2009 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2010 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  */
 
@@ -187,7 +187,7 @@ typedef struct {
 	unsigned int fmt;
 	unsigned int rot;
 
-	dma_addr_t user_def_paddr[2];
+	dma_addr_t user_def_paddr[3];
 
 	int show_to_fb;
 	struct {
@@ -218,12 +218,11 @@ typedef struct {
         void * inbuf_start[2];
         void * ovbuf_start[2];
         void * ovbuf_alpha_start[2];
-	void * outbuf_start0[2];
-	void * outbuf_start1[2];
+	void * outbuf_start[3];
 	int ifr_size;
 	int ovfr_size;
 	int ovfr_alpha_size;
-	int ofr_size[2];
+	int ofr_size;
 
 	void * priv;
 } ipu_lib_handle_t;
@@ -235,12 +234,7 @@ typedef struct {
  *
  * @param	overlay		Overlay parameter for ipu task.
  *
- * @param	output0		The first output paramter for ipu task.
- *
- * @param	output1 	Ipu can support 2 output after postprocess
- * 				from 1 input, this is second one's setting.
- * 				If user want 2 outputs both display to fb,
- * 				please make sure output0 is on fb0.
+ * @param	output		The output paramter for ipu task.
  *
  * @param	mode		The ipu mode user can define, refer to
  * 				header file.
@@ -254,8 +248,7 @@ typedef struct {
  */
 int mxc_ipu_lib_task_init(ipu_lib_input_param_t * input,
 		ipu_lib_overlay_param_t * overlay,
-		ipu_lib_output_param_t * output0,
-		ipu_lib_output_param_t * output1,
+		ipu_lib_output_param_t * output,
 		int mode, ipu_lib_handle_t * ipu_handle);
 
 /*!
