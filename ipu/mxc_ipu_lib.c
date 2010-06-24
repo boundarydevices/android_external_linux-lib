@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2009 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2010 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  */
 
@@ -107,6 +107,11 @@ int32_t ipu_select_buffer(ipu_channel_t channel,
 	buf_parm.type = type;
 	buf_parm.bufNum = bufNum;
 	return ioctl(fd_ipu, IPU_SELECT_CHANNEL_BUFFER, &buf_parm);
+}
+
+int32_t ipu_select_multi_vdi_buffer(uint32_t bufNum)
+{
+	return ioctl(fd_ipu, IPU_SELECT_MULTI_VDI_BUFFER, &bufNum);
 }
 
 int32_t ipu_link_channels(ipu_channel_t src_ch, ipu_channel_t dest_ch)
