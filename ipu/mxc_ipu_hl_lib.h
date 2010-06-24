@@ -107,6 +107,7 @@ enum {
 	TASK_ENC_MODE = 0x1,
 	TASK_VF_MODE = 0x2,
 	TASK_PP_MODE = 0x4,
+	TASK_VDI_VF_MODE = 0x8,
 
 	OP_NORMAL_MODE = 0x10,
 	OP_STREAM_MODE = 0x20,
@@ -125,11 +126,16 @@ enum {
  * (NOTE: If use OP_STREAM_MODE mode, user should specify two paddr value.)
  * If not, ipu lib will allocate new dma buffer for task, and will give out
  * the virtual address(after mmap) through ipu_handle.inbuf_start.
+ * Note that user_def_paddr[2] is used only for TASK_VDI_VF_MODE and motion
+ * mode is selected to be medium motion or low motion.
  */
 typedef struct {
 	unsigned int width;
 	unsigned int height;
 	unsigned int fmt;
+
+	/* For VDI */
+	ipu_motion_sel motion_sel;
 
 	struct {
 		struct mxcfb_pos pos;
@@ -137,7 +143,7 @@ typedef struct {
 		unsigned int win_h;
 	} input_crop_win;
 
-	dma_addr_t user_def_paddr[2];
+	dma_addr_t user_def_paddr[3];
 } ipu_lib_input_param_t;
 
 typedef struct {
@@ -213,9 +219,11 @@ typedef struct {
  * which allocated by ipu lib.
  * The ifr_size/ofr_size indicate the size of input/output buffer.
  * User should not care the priv parameter and DO NOT change it.
+ * Note that inbuf_start[2] is used only for TASK_VDI_VF_MODE and motion
+ * mode is selected to be medium motion or low motion.
  */
 typedef struct {
-        void * inbuf_start[2];
+        void * inbuf_start[3];
         void * ovbuf_start[2];
         void * ovbuf_alpha_start[2];
 	void * outbuf_start[3];
@@ -276,6 +284,9 @@ void mxc_ipu_lib_task_uninit(ipu_lib_handle_t * ipu_handle);
  * How to update input buffer? If user has phys buffer themselves, please just update
  * the phys buffer address by parameter phyaddr; if not, user can fill the input data
  * to ipu_handle->inbuf_start[].
+ * For TASK_VDI_VF_MODE mode, if low motion or medium motion are used, user can not
+ * update the last used buffer's content, because the last used buffer is an aid buffer
+ * to generate the current de-interlaced frame.
  *
  * @param	ipu_handle	The ipu task handle need to update buffer.
  *
