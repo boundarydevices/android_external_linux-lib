@@ -700,30 +700,31 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 		data |= (encOP.sliceReport << 1) | encOP.mbReport;
 		data |= (encOP.mbQpReport << 3);
 	}
-	if (encOP.rcIntraQp >= 0)
+	if (encOP.rcIntraQp >= 0) {
 		data |= (1 << 5);
-
-	VpuWriteReg(CMD_ENC_SEQ_INTRA_QP, encOP.rcIntraQp);
-
+		VpuWriteReg(CMD_ENC_SEQ_INTRA_QP, encOP.rcIntraQp);
+	}
 	if (pCodecInst->codecMode == AVC_ENC) {
 		data |= (encOP.EncStdParam.avcParam.avc_audEnable << 2);
 		data |= (encOP.EncStdParam.avcParam.avc_fmoEnable << 4);
 	}
-	if (pEncInfo->openParam.userQpMinEnable) {
+	if (encOP.userQpMinEnable) {
 		data |= (1 << 6);
 		VpuWriteReg(CMD_ENC_SEQ_RC_QP_MIN_MAX,
-			    (pEncInfo->openParam.userQpMin << 8) |
-			    (pEncInfo->openParam.userQpMax & 0xFF));
+			    (encOP.userQpMin << 8) | (encOP.userQpMax & 0xFF));
 	}
-	if (pEncInfo->openParam.userQpMaxEnable) {
+	if (encOP.userQpMaxEnable) {
 		data |= (1 << 7);
 		VpuWriteReg(CMD_ENC_SEQ_RC_QP_MIN_MAX,
-			    (pEncInfo->openParam.userQpMin << 8) |
-			    (pEncInfo->openParam.userQpMax & 0xFF));
+			    (encOP.userQpMin << 8) | (encOP.userQpMax & 0xFF));
 	}
-	if (pEncInfo->openParam.userGamma) {
+	if (encOP.userGamma) {
 		data |= (1 << 8);
-		VpuWriteReg(CMD_ENC_SEQ_RC_GAMMA, pEncInfo->openParam.userGamma);
+		VpuWriteReg(CMD_ENC_SEQ_RC_GAMMA, encOP.userGamma);
+	}
+	if (pCodecInst->codecMode == AVC_ENC) {
+		if (encOP.avcIntra16x16OnlyModeEnable)
+			data |= (1 << 9);
 	}
 
 	VpuWriteReg(CMD_ENC_SEQ_OPTION, data);
@@ -1150,10 +1151,6 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 	       pEncInfo->secAxiUse.useHostIpEnable << 8 | pEncInfo->secAxiUse.useHostDbkEnable << 9 |
 	       pEncInfo->secAxiUse.useHostOvlEnable << 10 | pEncInfo->secAxiUse.useHostMeEnable << 11);
 	VpuWriteReg(BIT_AXI_SRAM_USE, val);
-
-	val = (((param->refMbClk & 0xff) << 8) | ((param->pulseWidth & 0x3f) << 2) |
-	       ((param->accumulativeMode & 0x1) << 1) | ((param->underrunEnable & 0x1)));
-	VpuWriteReg(BIT_RTC_HOST_CTRL, val);
 
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode, PIC_RUN);
 
@@ -2836,10 +2833,6 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 	       pDecInfo->secAxiUse.useHostDbkEnable << 9 | pDecInfo->secAxiUse.useHostOvlEnable << 10);
 	VpuWriteReg(BIT_AXI_SRAM_USE, val);
 
-	val = (((param->refMbClk & 0xff) << 8) | ((param->pulseWidth & 0x3f) << 2) |
-	       ((param->accumulativeMode & 0x1) << 1) | ((param->underrunEnable & 0x1)));
-	VpuWriteReg(BIT_RTC_HOST_CTRL, val);
-
 	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode, PIC_RUN);
 
 	*ppendingInst = pCodecInst;
@@ -3123,6 +3116,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 
 	info->indexFrameDisplay = VpuReadReg(RET_DEC_PIC_FRAME_IDX);
 	info->indexFrameDecoded = VpuReadReg(RET_DEC_PIC_CUR_IDX);
+	info->NumDecFrameBuf = VpuReadReg(RET_DEC_PIC_FRAME_NEED);
 
 	if (pCodecInst->codecMode == VC1_DEC && info->indexFrameDisplay != -3) {
 		if (pDecInfo->vc1BframeDisplayValid == 0) {
