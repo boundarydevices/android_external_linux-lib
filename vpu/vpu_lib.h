@@ -240,11 +240,6 @@ typedef struct {
 	int chunkSize;
 	int picStartByteOffset;
 	PhysicalAddress picStreamBufferAddr;
-
-	int underrunEnable;
-	int accumulativeMode;
-	int pulseWidth;
-	int refMbClk;
 } DecParam;
 
 typedef	struct {
@@ -264,6 +259,7 @@ typedef	struct {
 typedef struct {
 	int indexFrameDisplay;
 	int indexFrameDecoded;
+	int NumDecFrameBuf;
 	int picType;
 	int numOfErrMBs;
 	Uint32 *qpInfo;
@@ -405,11 +401,6 @@ typedef struct {
 	PhysicalAddress picStreamBufferAddr;
 	int picStreamBufferSize;
 	int enableAutoSkip;
-
-	int underrunEnable;
-	int accumulativeMode;
-	int pulseWidth;
-	int refMbClk;
 } EncParam;
 
 typedef	struct {
@@ -509,7 +500,7 @@ typedef struct vpu_versioninfo {
  * v4.1.2 [2008.08.22] update MX37 VPU firmware to V1.0.5
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 0, 4)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 0, 5)
 
 extern unsigned int system_rev;
 
