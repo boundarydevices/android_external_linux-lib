@@ -578,6 +578,7 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 	int picHeight;
 	Uint32 data, *tableBuf;
 	int i;
+	SetIramParam iramParam;
 	RetCode ret;
 
 	ENTER_FUNC();
@@ -741,7 +742,8 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 	}
 
 	/* Set secondAXI IRAM */
-	SetEncSecondAXIIRAM(&pEncInfo->secAxiUse, encOP.picWidth);
+	iramParam.width = encOP.picWidth;
+	SetEncSecondAXIIRAM(&pEncInfo->secAxiUse, &iramParam);
 
 	VpuWriteReg(CMD_ENC_SEARCH_BASE, pEncInfo->secAxiUse.searchRamAddr);
 	VpuWriteReg(CMD_ENC_SEARCH_SIZE, pEncInfo->secAxiUse.searchRamSize);
@@ -2015,6 +2017,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	CodecInst *pCodecInst;
 	DecInfo *pDecInfo;
 	Uint32 val, val2;
+	SetIramParam iramParam;
 	RetCode ret;
 
 	ENTER_FUNC();
@@ -2255,8 +2258,12 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	pDecInfo->initialInfoObtained = 1;
 
 	/* Set secondAXI IRAM */
-	if (!cpu_is_mx37())
-		SetDecSecondAXIIRAM(&pDecInfo->secAxiUse, (info->picWidth + 15) & ~15);
+	if (!cpu_is_mx37()) {
+		iramParam.width = (info->picWidth + 15) & ~15;
+		iramParam.profile = info->profile;
+		iramParam.codecMode = pCodecInst->codecMode;
+		SetDecSecondAXIIRAM(&pDecInfo->secAxiUse, &iramParam);
+	}
 
 	return RETCODE_SUCCESS;
 }
