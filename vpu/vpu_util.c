@@ -821,98 +821,145 @@ RetCode SetHecMode(EncHandle handle, int mode)
 	return RETCODE_SUCCESS;
 }
 
-void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, int width)
+void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 {
 	iram_t iram;
+	int size, dbk_size, bitram_size, ipacdc_size, ovl_size;
+
+	if (!parm->width) {
+		err_msg("Width is zero when calling SetDecSecondAXIIRAM function\n");
+		return;
+	}
 
 	memset(psecAxiIramInfo, 0, sizeof(SecAxiUse));
 
 	IOGetIramBase(&iram);
+	size = iram.end - iram.start + 1;
 
-	if ((width > DEC_MAX_WIDTH_IRAM_SUPPORT) ||
-	    (iram.end - iram.start) < VPU_DEC_TOTAL_IRAM_SIZE) {
-		warn_msg("VPU iram is less than needed, not use iram\n");
-	} else {
-		if (cpu_is_mx51()) {
-			/* i.MX51 has no secondary AXI memory, but use on chip RAM
-			   Set the useHoseXXX as 1 to enable corresponding IRAM
-			   Set the useXXXX as 0 at the same time to use IRAM  */
-			psecAxiIramInfo->useHostBitEnable = 1;
-			psecAxiIramInfo->useHostIpEnable = 1;
-			psecAxiIramInfo->useHostDbkEnable = 1;
-			psecAxiIramInfo->useHostOvlEnable = 1;
-		} else if (cpu_is_mx53()) {
-			/* i.MX53 uses secondary AXI for IRAM access */
-			psecAxiIramInfo->useBitEnable = 1;
-			psecAxiIramInfo->useIpEnable = 1;
-			psecAxiIramInfo->useDbkEnable = 1;
-			psecAxiIramInfo->useOvlEnable = 1;
+	/* Setting internal iram usage per priority when iram isn't enough */
+	if ((parm->codecMode == VC1_DEC) && (parm->profile == 2))
+		dbk_size = (512 * parm->width / 16 + 1023) & ~1023;
+	else
+		dbk_size = (256 * parm->width / 16 + 1023) & ~1023;
 
-			psecAxiIramInfo->useHostBitEnable = 1;
-			psecAxiIramInfo->useHostIpEnable = 1;
-			psecAxiIramInfo->useHostDbkEnable = 1;
-			psecAxiIramInfo->useHostOvlEnable = 1;
-		}
+	if (size >= dbk_size) {
+		psecAxiIramInfo->useHostDbkEnable = 1;
+		psecAxiIramInfo->bufDbkYUse = iram.start;
+		psecAxiIramInfo->bufDbkCUse = iram.start + dbk_size / 2;
+		size -= dbk_size;
+	} else
+		goto out;
 
-		psecAxiIramInfo->bufBitUse = iram.start + VPU_DEC_BIT_IRAM_OFFSET;
-		psecAxiIramInfo->bufIpAcDcUse = iram.start + VPU_DEC_IP_IRAM_OFFSET;
-		psecAxiIramInfo->bufDbkYUse = iram.start + VPU_DEC_DBKY_IRAM_OFFSET;
-		psecAxiIramInfo->bufDbkCUse = iram.start + VPU_DEC_DBKC_IRAM_OFFSET;
-		psecAxiIramInfo->bufOvlUse = iram.start + VPU_DEC_OVL_IRAM_OFFSET;
+	bitram_size = (128 * parm->width / 16 + 1023) & ~1023;
+	if (size >= bitram_size) {
+		psecAxiIramInfo->useHostBitEnable = 1;
+		psecAxiIramInfo->bufBitUse = psecAxiIramInfo->bufDbkCUse + dbk_size / 2;
+		size -= bitram_size;
+	} else
+		goto out;
+
+	ipacdc_size = (128 * parm->width / 16 + 1023) & ~1023;
+	if (size >= ipacdc_size) {
+		psecAxiIramInfo->useHostIpEnable = 1;
+		psecAxiIramInfo->bufIpAcDcUse = psecAxiIramInfo->bufBitUse + bitram_size;
+		size -= ipacdc_size;
+	} else
+		goto out;
+
+	ovl_size = (80 * parm->width / 16 + 1023) & ~1023;
+	if ((parm->codecMode == VC1_DEC) && (size >= ovl_size)) {
+		psecAxiIramInfo->useHostOvlEnable = 1;
+		psecAxiIramInfo->bufOvlUse = psecAxiIramInfo->bufIpAcDcUse + ipacdc_size;
+		size -= ovl_size;
 	}
+out:
+	/* i.MX51 has no secondary AXI memory, but use on chip RAM
+	   Set the useHoseXXX as 1 to enable corresponding IRAM
+	   Set the useXXXX as 0 at the same time to use IRAM,
+	   i.MX53 uses secondary AXI for IRAM access, also needs to
+	   set the useXXXX. */
+	if (cpu_is_mx53()) {
+		/* i.MX53 uses secondary AXI for IRAM access */
+		psecAxiIramInfo->useBitEnable = psecAxiIramInfo->useHostDbkEnable;
+		psecAxiIramInfo->useIpEnable = psecAxiIramInfo->useHostBitEnable;
+		psecAxiIramInfo->useDbkEnable = psecAxiIramInfo->useHostIpEnable;
+		psecAxiIramInfo->useOvlEnable = psecAxiIramInfo->useHostOvlEnable;
+	}
+
+	if (((parm->codecMode == VC1_DEC) && !psecAxiIramInfo->useHostOvlEnable) ||
+	    !psecAxiIramInfo->useHostIpEnable)
+		warn_msg("VPU iram is less than needed, some parts don't use iram\n");
 }
 
-void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, int width)
+void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 {
 	iram_t iram;
+	int size, dbk_size, bitram_size, ipacdc_size;
+
+	if (!parm->width) {
+		err_msg("Width is zero when calling SetEncSecondAXIIRAM function\n");
+		return;
+	}
 
 	memset(psecAxiIramInfo, 0, sizeof(SecAxiUse));
 
 	IOGetIramBase(&iram);
-	if (width > ENC_MAX_WIDTH_IRAM_SUPPORT ||
-	   (iram.end - iram.start + 1) < VPU_ENC_TOTAL_IRAM_SIZE) {
-		/* Only search ram use iram */
-		if ((iram.end - iram.start + 1) < VPU_ENC_SEARCH_IRAM_SIZE)
-			err_msg("vpu iram is less than search ram size.\n");
-		else {
-			psecAxiIramInfo->searchRamAddr = iram.start;
-			psecAxiIramInfo->searchRamSize = VPU_ENC_SEARCH_IRAM_SIZE;
-		}
-		warn_msg("VPU iram is less than needed, not use iram\n");
+	size = iram.end - iram.start + 1;
+
+	/* Setting internal iram usage per priority when iram isn't enough */
+	psecAxiIramInfo->searchRamSize = (parm->width * 36 + 2048 + 1023) & ~1023;
+	if (size >= psecAxiIramInfo->searchRamSize) {
+		psecAxiIramInfo->useHostMeEnable = 1;
+		psecAxiIramInfo->searchRamAddr = iram.start;
+		size -= psecAxiIramInfo->searchRamSize;
 	} else {
-		if (cpu_is_mx51()) {
-			/* i.MX51 has no secondary AXI memory, but use on chip RAM
-			   Set the useHoseXXX as 1 to enable corresponding IRAM
-			   Set the useXXXX as 0 at the same time to use IRAM  */
-			psecAxiIramInfo->useHostBitEnable = 1;
-			psecAxiIramInfo->useHostIpEnable = 1;
-			psecAxiIramInfo->useHostDbkEnable = 1;
-			psecAxiIramInfo->useHostOvlEnable = 0; /* no need to enable ovl in encoder */
-			psecAxiIramInfo->useHostMeEnable = 1; /* For ME search */
-		} else if (cpu_is_mx53()) {
-			/* i.MX53 uses secondary AXI for IRAM access */
-			psecAxiIramInfo->useBitEnable = 1;
-			psecAxiIramInfo->useIpEnable = 1;
-			psecAxiIramInfo->useDbkEnable = 1;
-			psecAxiIramInfo->useOvlEnable = 0;  /* no need to enable ovl in encoder */
-			psecAxiIramInfo->useMeEnable = 1;
-
-			psecAxiIramInfo->useHostBitEnable = 1;
-			psecAxiIramInfo->useHostIpEnable = 1;
-			psecAxiIramInfo->useHostDbkEnable = 1;
-			psecAxiIramInfo->useHostOvlEnable = 0;
-			psecAxiIramInfo->useHostMeEnable = 1;
-		}
-
-		psecAxiIramInfo->bufBitUse = iram.start + VPU_ENC_BIT_IRAM_OFFSET;
-		psecAxiIramInfo->bufIpAcDcUse = iram.start + VPU_ENC_IP_IRAM_OFFSET;
-		psecAxiIramInfo->bufDbkYUse = iram.start + VPU_ENC_DBKY_IRAM_OFFSET;
-		psecAxiIramInfo->bufDbkCUse = iram.start + VPU_ENC_OVL_IRAM_OFFSET;
-		psecAxiIramInfo->bufOvlUse = 0;
-
-		psecAxiIramInfo->searchRamAddr = iram.start + VPU_ENC_SEARCH_IRAM_OFFSET;
-		psecAxiIramInfo->searchRamSize = VPU_ENC_SEARCH_IRAM_SIZE;
+		err_msg("VPU iram is less than search ram size\n");
+		goto out;
 	}
+
+	/* Only H.264BP and H.263P3 are considered */
+	dbk_size = (128 * parm->width / 16 + 1023) & ~1023;
+	if (size >= dbk_size) {
+		psecAxiIramInfo->useHostDbkEnable = 1;
+		psecAxiIramInfo->bufDbkYUse = iram.start + psecAxiIramInfo->searchRamSize;
+		psecAxiIramInfo->bufDbkCUse = psecAxiIramInfo->bufDbkYUse + dbk_size / 2;
+		size -= dbk_size;
+	} else
+		goto out;
+
+	bitram_size = (128 * parm->width / 16 + 1023) & ~1023;
+	if (size >= bitram_size) {
+		psecAxiIramInfo->useHostBitEnable = 1;
+		psecAxiIramInfo->bufBitUse = psecAxiIramInfo->bufDbkCUse + dbk_size / 2;
+		size -= bitram_size;
+	} else
+		goto out;
+
+	ipacdc_size = (128 * parm->width / 16 + 1023) & ~1023;
+	if (size >= ipacdc_size) {
+		psecAxiIramInfo->useHostIpEnable = 1;
+		psecAxiIramInfo->bufIpAcDcUse = psecAxiIramInfo->bufBitUse + bitram_size;
+		size -= ipacdc_size;
+	}
+
+	psecAxiIramInfo->useHostOvlEnable = 0; /* no need to enable ovl in encoder */
+
+out:
+	/* i.MX51 has no secondary AXI memory, but use on chip RAM
+	   Set the useHoseXXX as 1 to enable corresponding IRAM
+	   Set the useXXXX as 0 at the same time to use IRAM,
+	   i.MX53 uses secondary AXI for IRAM access, also needs to set
+	   useXXXX. */
+	if (cpu_is_mx53()) {
+		/* i.MX53 uses secondary AXI for IRAM access */
+		psecAxiIramInfo->useBitEnable = psecAxiIramInfo->useHostBitEnable;
+		psecAxiIramInfo->useIpEnable = psecAxiIramInfo->useHostIpEnable;
+		psecAxiIramInfo->useDbkEnable = psecAxiIramInfo->useHostDbkEnable;
+		psecAxiIramInfo->useMeEnable = psecAxiIramInfo->useHostMeEnable;
+	}
+
+	if (!psecAxiIramInfo->useHostIpEnable)
+		warn_msg("VPU iram is less than needed, some parts don't use iram\n");
 }
 
 semaphore_t *vpu_semaphore_open(void)
