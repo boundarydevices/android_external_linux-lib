@@ -1207,8 +1207,8 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 	IOClkGateSet(true);
 
 	val = VpuReadReg(RET_ENC_PIC_TYPE);
-	info->skipEncoded = (val >> 2) && 0x01;
-	info->picType = val && 0x03;
+	info->skipEncoded = (val >> 2) & 0x01;
+	info->picType = val & 0x03;
 
 	if (pEncInfo->ringBufferEnable == 0) {
 		if (pEncInfo->dynamicAllocEnable == 1) {
