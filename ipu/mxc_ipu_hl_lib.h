@@ -96,6 +96,8 @@ extern "C"{
 #include <linux/ipu.h>
 #include <linux/mxcfb.h>
 
+#define MAX_TASK_NUM	16
+
 /*
  * ipu task modes.
  *
@@ -112,6 +114,51 @@ enum {
 	OP_NORMAL_MODE = 0x10,
 	OP_STREAM_MODE = 0x20,
 };
+
+/* ipu task hw mode */
+enum {
+        IC_ENC = 0x1,
+        IC_VF = 0x2,
+        IC_PP = 0x4,
+        ROT_ENC = 0x8,
+        ROT_VF = 0x10,
+        ROT_PP = 0x20,
+	VDI_IC_VF = 0x40,
+};
+
+
+/* ipu control command */
+enum {
+	IPU_CTL_ALLOC_MEM,
+	IPU_CTL_FREE_MEM,
+	IPU_CTL_TASK_QUERY,
+	IPU_CTL_TASK_KILL,
+};
+
+/*
+ * example:
+ * ipu_lib_ctl_mem_t mem;
+ * mem.minfo.size = size;
+ * mxc_ipu_lib_task_control(IPU_CTL_ALLOC_MEM, (void *)(&mem), NULL);
+ * mxc_ipu_lib_task_control(IPU_CTL_FREE_MEM, (void *)(&mem), NULL);
+ */
+typedef struct {
+	ipu_mem_info minfo;
+        void * mmap_vaddr;
+} ipu_lib_ctl_mem_t;
+
+/*
+ * example:
+ * ipu_lib_ctl_task_t task;
+ * task.index = query_index;
+ * mxc_ipu_lib_task_control(IPU_CTL_TASK_QUERY, (void *)(&task), NULL);
+ * mxc_ipu_lib_task_control(IPU_CTL_TASK_KILL, (void *)(&task), NULL);
+ */
+typedef struct {
+	int index;
+	int task_pid;
+	int task_mode;
+} ipu_lib_ctl_task_t;
 
 /*
  * input parameter settings.
@@ -314,6 +361,22 @@ int mxc_ipu_lib_task_buf_update(ipu_lib_handle_t * ipu_handle,
 	dma_addr_t new_inbuf_paddr, dma_addr_t new_ovbuf_paddr,
 	dma_addr_t new_ovbuf_alpha_paddr, void (output_callback)(void *, int),
 	void * output_cb_arg);
+
+/*!
+ * This function control the ipu task according to param setting.
+ *
+ * @param	ctl_cmd		Control cmd.
+ *
+ * @param	arg		The control argument.
+ *
+ * @param	ipu_handle	User just allocate this structure for init.
+ * 				this parameter will provide some necessary
+ * 				info after task init function.
+ *
+ * @return	This function returns 0 on success or negative error code on
+ * 		fail.
+ */
+int mxc_ipu_lib_task_control(int ctl_cmd, void * arg, ipu_lib_handle_t * ipu_handle);
 
 #ifdef __cplusplus
 }
