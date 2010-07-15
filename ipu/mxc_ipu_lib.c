@@ -37,7 +37,7 @@
 #include <sys/types.h>
 #include <linux/ipu.h>
 
-static int fd_ipu = -1;
+int fd_ipu = -1;
 static int open_count = 0;
 
 int32_t ipu_init_channel(ipu_channel_t channel, ipu_channel_params_t * params)
@@ -226,8 +226,10 @@ void ipu_close()
 		return;
 	else {
 		open_count--;
-		if (open_count == 0)
+		if (open_count == 0) {
 			close(fd_ipu);
+			fd_ipu = -1;
+		}
 	}
 }
 
