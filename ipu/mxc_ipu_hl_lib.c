@@ -2447,6 +2447,7 @@ int mxc_ipu_lib_task_init(ipu_lib_input_param_t * input,
 {
 	int ret = 0;
 	ipu_lib_priv_handle_t * ipu_priv_handle;
+	char * dbg_env;
 
 	dbg(DBG_INFO, "\033[0;34m*** mxc_ipu_lib_task_init ***\033[0m\n");
 
@@ -2454,6 +2455,12 @@ int mxc_ipu_lib_task_init(ipu_lib_input_param_t * input,
 		dbg(DBG_ERR, "Pls allocate ipu_handle!\n");
 		ret = -1;
 		goto err0;
+	}
+
+	dbg_env = getenv("IPU_DBG");
+	if (dbg_env) {
+		debug_level = atoi(dbg_env);
+		dbg(DBG_INFO, "ipu debug level %d\n", debug_level);
 	}
 
 	if (!g_ipu_shm) {
