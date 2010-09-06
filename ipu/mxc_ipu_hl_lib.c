@@ -52,17 +52,20 @@ extern "C"{
 static int debug_level = DBG_ERR;
 
 #ifdef BUILD_FOR_ANDROID
-#include <cutils/ashmem.h>
 #include <utils/Log.h>
 #define FBDEV0	"/dev/graphics/fb0"
 #define FBDEV1	"/dev/graphics/fb1"
 #define FBDEV2	"/dev/graphics/fb2"
+#define SHMDEV	"/mnt/shm/"
 #define dbg(flag, fmt, args...)	{ if(flag <= debug_level)  LOGI("%s:%d "fmt, __FILE__, __LINE__,##args); }
+static int pshare = 0;
 #else
 #define FBDEV0	"/dev/fb0"
 #define FBDEV1	"/dev/fb1"
 #define FBDEV2	"/dev/fb2"
+#define SHMDEV	"/dev/shm/"
 #define dbg(flag, fmt, args...)	{ if(flag <= debug_level)  printf("%s:%d "fmt, __FILE__, __LINE__,##args); }
+static int pshare = 1;
 #endif
 
 /* spilt modes */
@@ -918,6 +921,52 @@ static int fit_fb_setting(struct fb_var_screeninfo * var, int width,
 	return 1;
 }
 
+static void __fill_fb_black(unsigned int fmt,
+		struct fb_var_screeninfo * fb_var,
+		struct fb_fix_screeninfo * fb_fix,
+		void * fb_mem)
+{
+	/* fill black color for init fb, we assume fb has double buffer*/
+	if (colorspaceofpixel(fmt) == YUV_CS) {
+		int i;
+
+		if ((fmt == IPU_PIX_FMT_UYVY) || (fmt == IPU_PIX_FMT_YUYV)) {
+			short * tmp = (short *) fb_mem;
+			short color;
+			if (fmt == IPU_PIX_FMT_YUYV)
+				color = 0x8000;
+			else
+				color = 0x80;
+			for (i = 0; i < (fb_fix->line_length * fb_var->yres_virtual)/2;
+					i++, tmp++)
+				*tmp = color;
+		} else if ((fmt == IPU_PIX_FMT_YUV420P) ||
+				(fmt == IPU_PIX_FMT_NV12)) {
+			char * base = (char *)fb_mem;
+			int j, screen_size = fb_var->xres * fb_var->yres;
+
+			for (j = 0; j < 2; j++) {
+				memset(base, 0, screen_size);
+				base += screen_size;
+				for (i = 0; i < screen_size/2; i++, base++)
+					*base = 0x80;
+			}
+		} else if (fmt == IPU_PIX_FMT_YUV422P) {
+			char * base = (char *)fb_mem;
+			int j, screen_size = fb_var->xres * fb_var->yres;
+
+			for (j = 0; j < 2; j++) {
+				memset(base, 0, screen_size);
+				base += screen_size;
+				for (i = 0; i < screen_size; i++, base++)
+					*base = 0x80;
+			}
+		}
+	} else
+		memset(fb_mem, 0x0,
+				fb_fix->line_length * fb_var->yres_virtual);
+}
+
 static int __ipu_mem_alloc(ipu_mem_info * mem_info, void ** vbuf)
 {
 	int ret = 0;
@@ -1230,6 +1279,10 @@ again:
 			ret = -1;
 			goto err;
 		}
+
+		if (ipu_priv_handle->output.fb_chan == MEM_FG_SYNC)
+			__fill_fb_black(output->fmt, &fb_var, &fb_fix,
+					ipu_priv_handle->output.fb_mem);
 
 		if ((ipu_priv_handle->output.fb_chan != MEM_FG_SYNC) &&
 		    ((owidth < fb_var.xres) || (oheight < fb_var.yres))) {
@@ -2255,11 +2308,10 @@ static void * _get_shm(char *name, int size, int *first)
 {
 	int fd;
 	struct	stat stat;
-	char * shm_dev = "/dev/shm/";
 	char shm_name[64];
 	void * buf;
 
-	strcpy(shm_name, shm_dev);
+	strcpy(shm_name, SHMDEV);
 	strcat(shm_name, name);
 
 	dbg(DBG_INFO, "get shm from %s\n", shm_name);
@@ -2310,7 +2362,7 @@ static int _ipu_ipc_prepare(void)
 		ret = -1;
 		goto done;
 	} else if (first)
-		sem_init(prp_sem, 1, 1);
+		sem_init(prp_sem, pshare, 1);
 
 	first = 0;
 	pp_sem = (sem_t *)_get_shm("ipulib.sem.1", sizeof(sem_t), &first);
@@ -2318,7 +2370,7 @@ static int _ipu_ipc_prepare(void)
 		ret = -1;
 		goto done;
 	} else if (first)
-		sem_init(pp_sem, 1, 1);
+		sem_init(pp_sem, pshare, 1);
 
 	first = 0;
 	shm_sem = (sem_t *)_get_shm("ipulib.sem.2", sizeof(sem_t), &first);
@@ -2326,7 +2378,7 @@ static int _ipu_ipc_prepare(void)
 		ret = -1;
 		goto done;
 	} else if (first)
-		sem_init(shm_sem, 1, 1);
+		sem_init(shm_sem, pshare, 1);
 
 done:
 	return ret;
@@ -2576,6 +2628,14 @@ static void _mxc_ipu_lib_task_uninit(ipu_lib_priv_handle_t * ipu_priv_handle, pi
 	if (ipu_priv_handle->output.show_to_fb) {
 		if (ipu_priv_handle->output.fb_chan == MEM_FG_SYNC) {
 			struct mxcfb_pos pos = {0, 0};
+			struct fb_fix_screeninfo fb_fix;
+			struct fb_var_screeninfo fb_var;
+
+			ioctl(ipu_priv_handle->output.fd_fb, FBIOGET_FSCREENINFO, &fb_fix);
+			ioctl(ipu_priv_handle->output.fd_fb, FBIOGET_VSCREENINFO, &fb_var);
+
+			__fill_fb_black(ipu_priv_handle->output.ofmt, &fb_var, &fb_fix,
+					ipu_priv_handle->output.fb_mem);
 
 			if ( ioctl(ipu_priv_handle->output.fd_fb, MXCFB_SET_OVERLAY_POS,
 						&pos) < 0)
