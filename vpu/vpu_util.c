@@ -52,7 +52,11 @@ RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 	fw_path = getenv("VPU_FW_PATH");
 
 	if (fw_path == NULL)
+#ifdef BUILD_FOR_ANDROID
+		strcpy(fw_name, "/system/lib/firmware/vpu");    /* default path */
+#else
 		strcpy(fw_name, "/lib/firmware/vpu");	/* default path */
+#endif
 	else
 		strcpy(fw_name, fw_path);
 
