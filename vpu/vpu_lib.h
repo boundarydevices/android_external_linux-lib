@@ -122,6 +122,8 @@ typedef enum {
 } CodecCommand;
 
 typedef struct {
+	Uint32 strideY;
+	Uint32 strideC;
 	PhysicalAddress bufY;
 	PhysicalAddress bufCb;
 	PhysicalAddress bufCr;
@@ -221,7 +223,14 @@ typedef struct {
 } DecAvcSliceBufInfo;
 
 typedef struct {
+	int maxMbX;
+	int maxMbY;
+	int maxMbNum;
+} DecMaxFrmInfo;
+
+typedef struct {
 	DecAvcSliceBufInfo avcSliceBufInfo;
+	DecMaxFrmInfo	maxDecFrmInfo;
 } DecBufInfo;
 
 typedef enum {
@@ -395,6 +404,8 @@ typedef struct {
 
 typedef struct {
 	FrameBuffer *sourceFrame;
+	int encTopOffset;
+	int encLeftOffset;
 	int forceIPicture;
 	int skipPicture;
 	int quantParam;
@@ -500,7 +511,7 @@ typedef struct vpu_versioninfo {
  * v4.1.2 [2008.08.22] update MX37 VPU firmware to V1.0.5
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 1, 0)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 1, 2)
 
 extern unsigned int system_rev;
 
@@ -538,8 +549,8 @@ RetCode vpu_GetVersionInfo(vpu_versioninfo * verinfo);
 RetCode vpu_EncOpen(EncHandle *, EncOpenParam *);
 RetCode vpu_EncClose(EncHandle);
 RetCode vpu_EncGetInitialInfo(EncHandle, EncInitialInfo *);
-RetCode vpu_EncRegisterFrameBuffer(EncHandle handle,
-				   FrameBuffer * bufArray, int num, int stride);
+RetCode vpu_EncRegisterFrameBuffer(EncHandle handle, FrameBuffer * bufArray,
+				   int num, int frameBufStride, int sourceBufStride);
 RetCode vpu_EncGetBitstreamBuffer(EncHandle handle, PhysicalAddress * prdPrt,
 				  PhysicalAddress * pwrPtr, Uint32 * size);
 RetCode vpu_EncUpdateBitstreamBuffer(EncHandle handle, Uint32 size);
