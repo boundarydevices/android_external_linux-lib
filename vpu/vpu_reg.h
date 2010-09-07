@@ -305,6 +305,8 @@
 #define CMD_SET_FRAME_AXI_DBKC_ADDR     0x19C
 #define CMD_SET_FRAME_AXI_OVL_ADDR      0x1A0
 
+#define CMD_SET_FRAME_MAX_DEC_SIZE      0x1A4
+#define CMD_SET_FRAME_SOURCE_BUF_STRIDE 0x1A8
 /*---------------------------------------------------------------------------
  * [ENC HEADER] COMMAND
  *-------------------------------------------------------------------------*/
