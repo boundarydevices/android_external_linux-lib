@@ -73,6 +73,9 @@ extern vpu_mem_desc bit_work_addr;
 extern semaphore_t *vpu_semap;
 
 extern void vpu_setting_iram();
+
+static int decoded_pictype[32];
+
 /*!
  * @brief
  * This functure indicate whether processing(encoding/decoding) a frame
@@ -789,8 +792,8 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
  * @li RETCODE_INSUFFICIENT_FRAME_BUFFERS num is smaller than requested.
  * @li RETCODE_INVALID_STRIDE stride is smaller than the picture width.
  */
-RetCode vpu_EncRegisterFrameBuffer(EncHandle handle,
-				   FrameBuffer * bufArray, int num, int stride)
+RetCode vpu_EncRegisterFrameBuffer(EncHandle handle, FrameBuffer * bufArray,
+				   int num, int frameBufStride, int sourceBufStride)
 {
 	CodecInst *pCodecInst;
 	EncInfo *pEncInfo;
@@ -822,13 +825,13 @@ RetCode vpu_EncRegisterFrameBuffer(EncHandle handle,
 		return RETCODE_INSUFFICIENT_FRAME_BUFFERS;
 	}
 
-	if (stride % 8 != 0 || stride == 0) {
+	if (frameBufStride % 8 != 0 || frameBufStride == 0) {
 		return RETCODE_INVALID_STRIDE;
 	}
 
 	pEncInfo->frameBufPool = bufArray;
 	pEncInfo->numFrameBuffers = num;
-	pEncInfo->stride = stride;
+	pEncInfo->stride = frameBufStride;
 
 	if (!LockVpu(vpu_semap))
 		return RETCODE_FAILURE_TIMEOUT;
@@ -861,7 +864,8 @@ RetCode vpu_EncRegisterFrameBuffer(EncHandle handle,
 
 	/* Tell the codec how much frame buffers were allocated. */
 	VpuWriteReg(CMD_SET_FRAME_BUF_NUM, num);
-	VpuWriteReg(CMD_SET_FRAME_BUF_STRIDE, stride);
+	VpuWriteReg(CMD_SET_FRAME_BUF_STRIDE, frameBufStride);
+	VpuWriteReg(CMD_SET_FRAME_SOURCE_BUF_STRIDE, sourceBufStride);
 
 	if (cpu_is_mx5x()) {
 		VpuWriteReg(CMD_SET_FRAME_AXI_BIT_ADDR, pEncInfo->secAxiUse.bufBitUse);
@@ -1092,9 +1096,12 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 			    (pEncInfo->encReportMVInfo.enable << 4) |
 			    (pEncInfo->encReportMBInfo.enable << 3) | 1);
 	} else {
-		VpuWriteReg(CMD_ENC_PIC_SRC_ADDR_Y, pSrcFrame->bufY);
-		VpuWriteReg(CMD_ENC_PIC_SRC_ADDR_CB, pSrcFrame->bufCb);
-		VpuWriteReg(CMD_ENC_PIC_SRC_ADDR_CR, pSrcFrame->bufCr);
+		VpuWriteReg(CMD_ENC_PIC_SRC_ADDR_Y, pSrcFrame->bufY +
+			    param->encTopOffset * pSrcFrame->strideY + param->encLeftOffset);
+		VpuWriteReg(CMD_ENC_PIC_SRC_ADDR_CB, pSrcFrame->bufCb +
+			    param->encTopOffset/2 * pSrcFrame->strideC + param->encLeftOffset/2);
+		VpuWriteReg(CMD_ENC_PIC_SRC_ADDR_CR, pSrcFrame->bufCr +
+			    param->encTopOffset/2 * pSrcFrame->strideC + param->encLeftOffset/2);
 
 		VpuWriteReg(CMD_ENC_PIC_OPTION,
 			    (pEncInfo->encReportSliceInfo.enable << 5) |
@@ -2407,6 +2414,11 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 			     1024));
 	}
 
+	VpuWriteReg(CMD_SET_FRAME_MAX_DEC_SIZE,
+		     (pBufInfo->maxDecFrmInfo.maxMbNum << 16 |
+		      pBufInfo->maxDecFrmInfo.maxMbX << 8 |
+		      pBufInfo->maxDecFrmInfo.maxMbY));
+
 	if (cpu_is_mx5x()) {
 		if (pDecInfo->openParam.bitstreamFormat == STD_DIV3)
 			VpuWriteReg(BIT_RUN_AUX_STD, 1);
@@ -3125,10 +3137,15 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	info->indexFrameDecoded = VpuReadReg(RET_DEC_PIC_CUR_IDX);
 	info->NumDecFrameBuf = VpuReadReg(RET_DEC_PIC_FRAME_NEED);
 
+	/* save decoded picType to this array */
+	if (info->indexFrameDecoded >= 0)
+		decoded_pictype[info->indexFrameDecoded] = info->picType;
+
 	if (pCodecInst->codecMode == VC1_DEC && info->indexFrameDisplay != -3) {
 		if (pDecInfo->vc1BframeDisplayValid == 0) {
-			if ((info->picType == 3 && pDecInfo->initialInfo.profile != 2) ||
-			    ((info->picType >> 3) == 3 && pDecInfo->initialInfo.profile == 2)) {
+			/* Check the pictype of displayed frame */
+			if ((decoded_pictype[info->indexFrameDisplay] == 3 && pDecInfo->initialInfo.profile != 2) ||
+			    ((decoded_pictype[info->indexFrameDisplay] >> 3) == 3 && pDecInfo->initialInfo.profile == 2)) {
 				/* clear buffer for not displayed B frame */
 				val = ~(1 << info->indexFrameDisplay);
 				val &= VpuReadReg(pDecInfo->frameDisplayFlagRegAddr);
