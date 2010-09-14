@@ -1236,12 +1236,6 @@ again:
 			}
 		}
 
-		if (ipu_priv_handle->output.fb_chan == MEM_FG_SYNC) {
-			if ( ioctl(ipu_priv_handle->output.fd_fb, MXCFB_SET_OVERLAY_POS,
-						&(output->fb_disp.pos)) < 0)
-				dbg(DBG_ERR, "Set FB position failed!\n");
-		}
-
 		dbg(DBG_INFO, "fb xres %d\n", fb_var.xres);
 		dbg(DBG_INFO, "fb yres %d\n", fb_var.yres);
 		dbg(DBG_INFO, "fb xres_virtual %d\n", fb_var.xres_virtual);
@@ -1307,6 +1301,13 @@ again:
 		if ( ioctl(ipu_priv_handle->output.fd_fb, FBIOBLANK, blank) < 0) {
 			dbg(DBG_ERR, "UNBLANK FB failed!\n");
 		}
+
+		if (ipu_priv_handle->output.fb_chan == MEM_FG_SYNC) {
+			if ( ioctl(ipu_priv_handle->output.fd_fb, MXCFB_SET_OVERLAY_POS,
+						&(output->fb_disp.pos)) < 0)
+				dbg(DBG_ERR, "Set FB position failed!\n");
+		}
+
 	}
 err:
 	return ret;
@@ -2627,7 +2628,6 @@ static void _mxc_ipu_lib_task_uninit(ipu_lib_priv_handle_t * ipu_priv_handle, pi
 
 	if (ipu_priv_handle->output.show_to_fb) {
 		if (ipu_priv_handle->output.fb_chan == MEM_FG_SYNC) {
-			struct mxcfb_pos pos = {0, 0};
 			struct fb_fix_screeninfo fb_fix;
 			struct fb_var_screeninfo fb_var;
 
@@ -2638,10 +2638,6 @@ static void _mxc_ipu_lib_task_uninit(ipu_lib_priv_handle_t * ipu_priv_handle, pi
 				__fill_fb_black(ipu_priv_handle->output.ofmt, &fb_var, &fb_fix,
 						ipu_priv_handle->output.fb_mem);
 			}
-
-			if ( ioctl(ipu_priv_handle->output.fd_fb, MXCFB_SET_OVERLAY_POS,
-						&pos) < 0)
-				dbg(DBG_ERR, "Set FB position failed!\n");
 		}
 	}
 
