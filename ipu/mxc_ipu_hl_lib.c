@@ -372,17 +372,17 @@ static int _ipu_task_busy_in_hw(unsigned int ipu_task)
 {
 	int ret = 0;
 
-	if (ipu_task & IC_ENC)
+	if ((ipu_task & IC_ENC) ||
+		(ipu_task & IC_VF) ||
+		(ipu_task & VDI_IC_VF)) {
 		ret |= ipu_is_channel_busy(MEM_PRP_ENC_MEM);
-	if (ipu_task & IC_VF)
 		ret |= ipu_is_channel_busy(MEM_PRP_VF_MEM);
-	if (ipu_task & IC_PP)
-		ret |= ipu_is_channel_busy(MEM_PP_MEM);
-	if (ipu_task & VDI_IC_VF) {
 		ret |= ipu_is_channel_busy(MEM_VDI_PRP_VF_MEM_P);
 		ret |= ipu_is_channel_busy(MEM_VDI_PRP_VF_MEM);
 		ret |= ipu_is_channel_busy(MEM_VDI_PRP_VF_MEM_N);
 	}
+	if (ipu_task & IC_PP)
+		ret |= ipu_is_channel_busy(MEM_PP_MEM);
 	if (ipu_task & ROT_ENC)
 		ret |= ipu_is_channel_busy(MEM_ROT_ENC_MEM);
 	if (ipu_task & ROT_VF)
