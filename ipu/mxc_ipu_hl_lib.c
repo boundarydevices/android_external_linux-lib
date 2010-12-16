@@ -1371,15 +1371,15 @@ again:
 		dbg(DBG_INFO, "fb phyaddr1 0x%x\n", ipu_priv_handle->output.o_minfo[1].paddr);
 		dbg(DBG_INFO, "fb phyaddr2 0x%x\n", ipu_priv_handle->output.o_minfo[2].paddr);
 
-		blank = FB_BLANK_UNBLANK;
-		if ( ioctl(ipu_priv_handle->output.fd_fb, FBIOBLANK, blank) < 0) {
-			dbg(DBG_ERR, "UNBLANK FB failed!\n");
-		}
-
 		if (ipu_priv_handle->output.fb_chan == MEM_FG_SYNC) {
 			if ( ioctl(ipu_priv_handle->output.fd_fb, MXCFB_SET_OVERLAY_POS,
 						&(output->fb_disp.pos)) < 0)
 				dbg(DBG_ERR, "Set FB position failed!\n");
+		}
+
+		blank = FB_BLANK_UNBLANK;
+		if ( ioctl(ipu_priv_handle->output.fd_fb, FBIOBLANK, blank) < 0) {
+			dbg(DBG_ERR, "UNBLANK FB failed!\n");
 		}
 
 	}
