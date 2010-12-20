@@ -970,6 +970,8 @@ done:
 static int fit_fb_setting(struct fb_var_screeninfo * var, int width,
 	int height, int fmt, ipu_channel_t fb_chan, int bufs)
 {
+	if (var->yoffset != 0)
+		return 0;
 	if (fb_chan == MEM_BG_SYNC)
 		return ((var->xres_virtual == var->xres) &&
 			(var->yres_virtual == bufs*var->yres));
@@ -1287,6 +1289,8 @@ again:
 				fb_var.xres_virtual = fb_var.xres;
 				fb_var.yres_virtual = fb_var.yres * fbbufs;
 			}
+
+			fb_var.yoffset = 0;
 
 			if ( ioctl(ipu_priv_handle->output.fd_fb, FBIOPUT_VSCREENINFO, &fb_var) < 0) {
 				dbg(DBG_ERR, "Set FB var info failed!\n");
