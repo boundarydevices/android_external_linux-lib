@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2009-2011 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  */
 
@@ -53,6 +53,7 @@ static int debug_level = DBG_ERR;
 
 #ifdef BUILD_FOR_ANDROID
 #include <utils/Log.h>
+#include <cutils/properties.h>
 #define FBDEV0	"/dev/graphics/fb0"
 #define FBDEV1	"/dev/graphics/fb1"
 #define FBDEV2	"/dev/graphics/fb2"
@@ -2419,6 +2420,17 @@ static int _ipu_ipc_prepare(void)
 {
 	int ret = 0;
 	int first = 0;
+
+#ifdef BUILD_FOR_ANDROID
+	char  propBuf[PROPERTY_VALUE_MAX];
+	int main_ver, sec_ver;
+	property_get("ro.build.version.release", propBuf, "");
+	main_ver = propBuf[0] - '0';
+	sec_ver = propBuf[2] - '0';
+	dbg(DBG_INFO, "android version is %d.%d\n", main_ver, sec_ver);
+	if (main_ver >= 2 && sec_ver >= 3)
+		pshare = 1;
+#endif
 
 	g_ipu_shm = (ipu_lib_shm_t *)
 			_get_shm("ipulib.shm", sizeof(ipu_lib_shm_t), &first);
