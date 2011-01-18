@@ -9,7 +9,7 @@ LOCAL_CFLAGS += -DBUILD_FOR_ANDROID
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)
 
-LOCAL_SHARED_LIBRARIES := libutils libc
+LOCAL_SHARED_LIBRARIES := libutils libc libcutils
 
 LOCAL_MODULE := libipu
 LOCAL_LD_FLAGS += -nostartfiles
