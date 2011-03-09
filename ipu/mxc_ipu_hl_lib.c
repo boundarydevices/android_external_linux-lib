@@ -52,6 +52,7 @@ extern "C"{
 static int debug_level = DBG_ERR;
 
 #ifdef BUILD_FOR_ANDROID
+#define LOG_TAG	"ipulib"
 #include <utils/Log.h>
 #include <cutils/properties.h>
 #define FBDEV0	"/dev/graphics/fb0"
@@ -1252,15 +1253,13 @@ again:
 
 		if ( ioctl(ipu_priv_handle->output.fd_fb, FBIOGET_FSCREENINFO, &fb_fix) < 0) {
 			dbg(DBG_ERR, "Get FB fix info failed!\n");
-			close(ipu_priv_handle->output.fd_fb);
 			ret = -1;
-			goto err;
+			goto err1;
 		}
 		if ( ioctl(ipu_priv_handle->output.fd_fb, FBIOGET_VSCREENINFO, &fb_var) < 0) {
 			dbg(DBG_ERR, "Get FB var info failed!\n");
-			close(ipu_priv_handle->output.fd_fb);
 			ret = -1;
-			goto err;
+			goto err1;
 		}
 
 		if (ioctl(ipu_priv_handle->output.fd_fb, MXCFB_GET_FB_IPU_CHAN,
@@ -1304,23 +1303,20 @@ again:
 
 			if ( ioctl(ipu_priv_handle->output.fd_fb, FBIOPUT_VSCREENINFO, &fb_var) < 0) {
 				dbg(DBG_ERR, "Set FB var info failed!\n");
-				close(ipu_priv_handle->output.fd_fb);
 				ret = -1;
-				goto err;
+				goto err1;
 			}
 
 			if ( ioctl(ipu_priv_handle->output.fd_fb, FBIOGET_FSCREENINFO, &fb_fix) < 0) {
 				dbg(DBG_ERR, "Get FB fix info failed!\n");
-				close(ipu_priv_handle->output.fd_fb);
 				ret = -1;
-				goto err;
+				goto err1;
 			}
 
 			if ( ioctl(ipu_priv_handle->output.fd_fb, FBIOGET_VSCREENINFO, &fb_var) < 0) {
 				dbg(DBG_ERR, "Get FB var info failed!\n");
-				close(ipu_priv_handle->output.fd_fb);
 				ret = -1;
-				goto err;
+				goto err1;
 			}
 		}
 
@@ -1332,9 +1328,8 @@ again:
 		if ((owidth > fb_var.xres) || (oheight > fb_var.yres)
 				|| (fmt_to_bpp(output->fmt) != fb_var.bits_per_pixel)) {
 			dbg(DBG_ERR, "Output image is not fit for %s!\n", fbdev);
-			close(ipu_priv_handle->output.fd_fb);
 			ret = -1;
-			goto err;
+			goto err1;
 		}
 
 		ipu_priv_handle->output.fb_stride = fb_var.xres * bytes_per_pixel(output->fmt);
@@ -1357,9 +1352,8 @@ again:
 				ipu_priv_handle->output.fd_fb, 0);
 		if (ipu_priv_handle->output.fb_mem == MAP_FAILED) {
 			dbg(DBG_ERR, "mmap failed!\n");
-			close(ipu_priv_handle->output.fd_fb);
 			ret = -1;
-			goto err;
+			goto err1;
 		}
 
 		if (ipu_priv_handle->output.fb_chan == MEM_FG_SYNC)
@@ -1397,6 +1391,11 @@ again:
 		}
 
 	}
+	return ret;
+
+err1:
+	close(ipu_priv_handle->output.fd_fb);
+	ipu_priv_handle->output.fd_fb = -1;
 err:
 	return ret;
 }
@@ -1467,7 +1466,7 @@ again:
 		}
 	}
 
-	if (ipu_priv_handle->output.show_to_fb){
+	if (ipu_priv_handle->output.show_to_fb && (ipu_priv_handle->output.fd_fb > 0)){
 		struct fb_var_screeninfo fb_var;
 
 		ioctl(ipu_priv_handle->output.fd_fb, FBIOGET_VSCREENINFO, &fb_var);
@@ -2718,7 +2717,7 @@ static void _mxc_ipu_lib_task_uninit(ipu_lib_priv_handle_t * ipu_priv_handle, pi
 			ipu_priv_handle->output_fr_cnt++;
 	}
 
-	if (ipu_priv_handle->output.show_to_fb) {
+	if (ipu_priv_handle->output.show_to_fb && (ipu_priv_handle->output.fd_fb > 0)) {
 		if (ipu_priv_handle->output.fb_chan == MEM_FG_SYNC) {
 			struct fb_fix_screeninfo fb_fix;
 			struct fb_var_screeninfo fb_var;
