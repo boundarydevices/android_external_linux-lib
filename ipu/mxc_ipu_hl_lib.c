@@ -237,6 +237,7 @@ static u32 fmt_to_bpp(u32 pixelformat)
 			break;
 		/*non-interleaved 420*/
 		case IPU_PIX_FMT_YUV420P:
+		case IPU_PIX_FMT_YVU420P:
 		case IPU_PIX_FMT_YUV420P2:
 		case IPU_PIX_FMT_NV12:
 			bpp = 12;
@@ -266,6 +267,7 @@ static cs_t colorspaceofpixel(int fmt)
 		case IPU_PIX_FMT_YUYV:
 		case IPU_PIX_FMT_YUV420P2:
 		case IPU_PIX_FMT_YUV420P:
+		case IPU_PIX_FMT_YVU420P:
 		case IPU_PIX_FMT_YVU422P:
 		case IPU_PIX_FMT_YUV422P:
 		case IPU_PIX_FMT_YUV444:
@@ -435,6 +437,12 @@ static void _ipu_update_offset(unsigned int fmt, unsigned int width, unsigned in
 			*uoff = (width * (height - pos_y) - pos_x)
 				+ ((width/2 * pos_y/2) + pos_x/2);
 			*voff = *uoff + (width/2 * height/2);
+			break;
+		case IPU_PIX_FMT_YVU420P:
+			*off = pos_y * width + pos_x;
+			*voff = (width * (height - pos_y) - pos_x)
+				+ ((width/2 * pos_y/2) + pos_x/2);
+			*uoff = *voff + (width/2 * height/2);
 			break;
 		case IPU_PIX_FMT_YVU422P:
 			*off = pos_y * width + pos_x;
@@ -1018,7 +1026,8 @@ static void __fill_fb_black(unsigned int fmt,
 					i++, tmp++)
 				*tmp = color;
 		} else if ((fmt == IPU_PIX_FMT_YUV420P) ||
-				(fmt == IPU_PIX_FMT_NV12)) {
+				(fmt == IPU_PIX_FMT_NV12) ||
+				(fmt == IPU_PIX_FMT_YVU420P)) {
 			char * base = (char *)fb_mem;
 			int j, screen_size = fb_var->xres * fb_var->yres;
 
