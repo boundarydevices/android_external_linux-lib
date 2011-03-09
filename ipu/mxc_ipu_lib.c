@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2010 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2011 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  */
 
@@ -173,6 +173,7 @@ uint32_t bytes_per_pixel(uint32_t fmt)
 		case IPU_PIX_FMT_GENERIC:       /*generic data */
 		case IPU_PIX_FMT_RGB332:
 		case IPU_PIX_FMT_YUV420P:
+		case IPU_PIX_FMT_YVU420P:
 		case IPU_PIX_FMT_YUV420P2:
 		case IPU_PIX_FMT_YUV422P:
 		case IPU_PIX_FMT_YVU422P:
