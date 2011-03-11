@@ -305,3 +305,12 @@ int ipu_update_channel_offset(ipu_channel_t channel, ipu_buffer_t type,
 	ret = ioctl(fd_ipu, IPU_UPDATE_BUF_OFFSET, &offset_parm);
 	return ret;
 }
+
+int ipu_update_dp_csc(int **param)
+{
+	ipu_csc_update csc;
+	csc.channel = MEM_FG_SYNC;
+	csc.param = param;
+
+	return ioctl(fd_ipu, IPU_CSC_UPDATE, &csc);
+}

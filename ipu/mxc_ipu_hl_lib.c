@@ -3362,6 +3362,7 @@ int mxc_ipu_lib_task_buf_update(ipu_lib_handle_t * ipu_handle,
 		return ipu_priv_handle->update_bufnum;
 }
 
+extern int ipu_update_dp_csc(int **param);
 /*!
  * This function control the ipu task according to param setting.
  *
@@ -3462,6 +3463,16 @@ int mxc_ipu_lib_task_control(int ctl_cmd, void * arg, ipu_lib_handle_t * ipu_han
 			_mxc_ipu_lib_task_uninit(ipu_priv_handle,
 						g_ipu_shm->task[ctl_task->index].task_pid);
 		}
+		break;
+	}
+	case IPU_CTL_UPDATE_DP_CSC:
+	{
+		ipu_lib_ctl_csc_t * csc =
+				(ipu_lib_ctl_csc_t *) arg;
+		if ((ret = ipu_open()) < 0)
+			break;
+		ret = ipu_update_dp_csc((int **)csc->param);
+		ipu_close();
 		break;
 	}
 	default:
