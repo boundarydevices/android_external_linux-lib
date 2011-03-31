@@ -1,6 +1,6 @@
 /*
  * User Space library to access the Security hardware
- * Copyright 2008-2009 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2008-2009, 2011 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -38,9 +38,8 @@
 #include <pthread.h>
 #include <stdio.h>
 
-#include <sahara.h>
+#include <linux/mxc_sahara.h>
 #include <sah_kernel.h>
-#include <sahara.h>
 #include <adaptor.h>
 
 #include <memory.h>
