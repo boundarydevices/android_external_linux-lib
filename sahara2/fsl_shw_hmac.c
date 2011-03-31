@@ -1,6 +1,6 @@
 /*
  * User Space library to access the Security hardware
- * Copyright (C) 2005-2006 written by Freescale Semiconductor
+ * Copyright (C) 2005-2006, 2011 Freescale Semiconductor, Inc.
  *
  * This library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -25,7 +25,7 @@
  * SHW API for Sahara.
  */
 
-#include "sahara.h"
+#include <linux/mxc_sahara.h>
 #include "sf_util.h"
 
 #ifdef __KERNEL__
