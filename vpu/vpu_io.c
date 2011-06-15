@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2010 Freescale Semiconductor, Inc.
+ * Copyright 2004-2011 Freescale Semiconductor, Inc.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -51,97 +51,6 @@ vpu_mem_desc pic_para_addr;
 vpu_mem_desc user_data_addr;
 
 int _IOGetPhyMem(int which, vpu_mem_desc *buff);
-
-/*
- * Note: the order does not correspond to the bit order in BIT_AXI_SRAM_USE
- * register, but correspond to the items in use_iram_table array.
- * So if there's any IRAM size change in use_iram_table array, may consider
- * change this enumeration accordingly.
- */
-enum {
-	USE_DBK_INTERNAL_BUF,	/* MPEG-4 and MPEG-2 output deblocking */
-	USE_OVL_INTERNAL_BUF,	/* overlap filter */
-	USE_IP_INTERNAL_BUF,	/* intra/ACDC prediction */
-	USE_BIT_INTERNAL_BUF,	/* MB prediction */
-};
-
-/* MX37 MAX Resolution: D1 */
-#define NR_ENTRY	3
-Uint32 use_iram_table[][NR_ENTRY] = {
-	/*
-	 * NOTE: Sorted in the descending order of IRAM usage in bytes.
-	 *
-	 * The effect of each option is in proportion to the necessary
-	 * SRAM size of each option. Currently VPU will get the free space of
-	 * IRAM from kernel via ioctl interface, and set the corresponding one
-	 * (to satisfy the bigger one first, since it'll impact VPU performance
-	 * most).
-	 *
-	 * {VPU Register Address Offset, IRAM Size, Flag indicating used or not}
-	 */
-	{0x19C, 25600, 0},
-	{0x1A0, 8000, 0},
-	{0x198, 6400, 0},
-	{0x190, 6400, 0},
-};
-
-int get_iram_setting(struct iram_t iram, Uint32 array[][NR_ENTRY],
-						int array_size)
-{
-	int i;
-	int total = iram.end - iram.start + 1;
-
-	dprintf(3, "VPU uses IRAM starting @ 0x%08lx\n", iram.start);
-
-	/* Clear the Flag first */
-	for (i = 0; i < array_size; i++)
-		use_iram_table[i][2] = 0;
-
-	i = array_size - 1;
-	if (total < array[i][1])
-		return  -1;
-
-	while ((total > array[i][1]) && i > 0) {
-		i--;
-	}
-
-	while (total > array[i][1] && i < array_size) {
-		use_iram_table[i][2] = 1;
-
-		total -= array[i][1];
-		i++;
-	}
-
-	return 0;
-}
-
-int set_iram(struct iram_t iram, Uint32 array[][NR_ENTRY], int array_size)
-{
-	int i, j, offset;
-	int use_iram_bits;
-
-	use_iram_bits = array[USE_OVL_INTERNAL_BUF][2] << 3 |
-			array[USE_DBK_INTERNAL_BUF][2] << 2 |
-			array[USE_IP_INTERNAL_BUF][2] << 1 |
-			array[USE_BIT_INTERNAL_BUF][2];
-	IOClkGateSet(true);
-	VpuWriteReg(BIT_AXI_SRAM_USE, use_iram_bits);
-	dprintf(3, "use iram_bits:%08x\n", use_iram_bits);
-
-	for (i = 0; i < array_size; i++) {
-		offset = 0;
-		for (j = 0; j < i; j++)
-			offset += array[j][1];
-
-		/* Set the corresponding IRAM address in VPU register */
-		if (array[i][2]) {
-			VpuWriteReg(array[i][0], iram.start + offset);
-		}
-	}
-	IOClkGateSet(false);
-
-	return 0;
-}
 
 int isVpuInitialized(void)
 {
@@ -283,19 +192,6 @@ int IOSystemInit(void *callback)
 	return -1;
 }
 
-void vpu_setting_iram()
-{
-	struct iram_t iram;
-	int ret;
-
-	if (cpu_is_mx37()) {
-		IOGetIramBase(&iram);
-		ret = get_iram_setting(iram, use_iram_table, 4);
-		if (ret != -1)
-			set_iram(iram, use_iram_table, 4);
-	}
-}
-
 /*!
  * @brief IO system shut down.
  *
@@ -412,16 +308,6 @@ int IOGetPhyShareMem(vpu_mem_desc * buff)
         return _IOGetPhyMem(VPU_IOC_GET_SHARE_MEM, buff);
 }
 
-int IOGetPhyPicParaMem(vpu_mem_desc * buff)
-{
-	return _IOGetPhyMem(VPU_IOC_GET_PIC_PARA_ADDR, buff);
-}
-
-int IOGetPhyUserDataMem(vpu_mem_desc * buff)
-{
-	return _IOGetPhyMem(VPU_IOC_GET_USER_DATA_ADDR, buff);
-}
-
 /*!
  * @brief Free specified memory
  * When user wants to free massive memory for the system,
@@ -451,16 +337,6 @@ int _IOFreePhyMem(int which, vpu_mem_desc * buff)
 int IOFreePhyMem(vpu_mem_desc * buff)
 {
 	return _IOFreePhyMem(VPU_IOC_PHYMEM_FREE, buff);
-}
-
-int IOFreePhyPicParaMem(vpu_mem_desc * buff)
-{
-	return _IOFreePhyMem(VPU_IOC_GET_PIC_PARA_ADDR, buff);
-}
-
-int IOFreePhyUserDataMem(vpu_mem_desc * buff)
-{
-	return _IOFreePhyMem(VPU_IOC_GET_USER_DATA_ADDR, buff);
 }
 
 /*!
@@ -524,11 +400,6 @@ int IOGetIramBase(iram_t * iram)
 
 	ret = ioctl(vpu_fd, VPU_IOC_IRAM_BASE, iram);
 	return ret;
-}
-
-void vl2cc_flush()
-{
-	ioctl(vpu_fd, VPU_IOC_VL2CC_FLUSH, NULL);
 }
 
 /*!
