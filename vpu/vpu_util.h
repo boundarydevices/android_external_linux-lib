@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2010 Freescale Semiconductor, Inc.
+ * Copyright 2004-2011 Freescale Semiconductor, Inc.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -42,21 +42,7 @@
 #define ENC_ADDR_END_OF_RPT_BUF         ADDR_FRAME_BUF_STAT_BASE_OFFSET + SIZE_SLICE_INFO
 #define DEC_ADDR_END_OF_RPT_BUF         ADDR_FRAME_BUF_STAT_BASE_OFFSET + SIZE_FRAME_BUF_STAT
 
-#if defined(IMX37_3STACK)
-enum {
-	AVC_DEC = 0,
-	VC1_DEC = 1,
-	MP2_DEC = 2,
-	MP4_DEC = 3,
-	DV3_DEC = 4,
-	/* dummy */
-	AVC_ENC = 0x7F,
-	MP4_ENC = 0x80,
-	RV_DEC = 0x81,
-	MJPG_DEC = 0x82,
-	MJPG_ENC = 0x83
-};
-#elif defined(IMX51) || defined(IMX53)
+#if defined(IMX51) || defined(IMX53)
 enum {
 	AVC_DEC = 0,
 	VC1_DEC = 1,
