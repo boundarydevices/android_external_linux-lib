@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2009 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2011 Freescale Semiconductor, Inc.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -53,12 +53,9 @@ typedef struct iram_t {
 #define VPU_IOC_WAIT4INT	_IO(VPU_IOC_MAGIC, 2)
 #define	VPU_IOC_PHYMEM_DUMP	_IO(VPU_IOC_MAGIC, 3)
 #define	VPU_IOC_REG_DUMP	_IO(VPU_IOC_MAGIC, 4)
-#define	VPU_IOC_VL2CC_FLUSH	_IO(VPU_IOC_MAGIC, 5)
 #define	VPU_IOC_IRAM_BASE	_IO(VPU_IOC_MAGIC, 6)
 #define	VPU_IOC_CLKGATE_SETTING	_IO(VPU_IOC_MAGIC, 7)
 #define VPU_IOC_GET_WORK_ADDR   _IO(VPU_IOC_MAGIC, 8)
-#define VPU_IOC_GET_PIC_PARA_ADDR   _IO(VPU_IOC_MAGIC, 9)
-#define VPU_IOC_GET_USER_DATA_ADDR   _IO(VPU_IOC_MAGIC, 10)
 #define VPU_IOC_SYS_SW_RESET	_IO(VPU_IOC_MAGIC, 11)
 #define VPU_IOC_GET_SHARE_MEM   _IO(VPU_IOC_MAGIC, 12)
 
@@ -74,8 +71,6 @@ int IOWaitForInt(int timeout_in_ms);
 int IOGetIramBase(iram_t * iram);
 int IOClkGateSet(int on);
 int IOGetPhyShareMem(vpu_mem_desc * buff);
-int IOFreePhyPicParaMem(vpu_mem_desc * buff);
-int IOFreePhyUserDataMem(vpu_mem_desc * buff);
 int IOSysSWReset(void);
 
 unsigned long VpuWriteReg(unsigned long addr, unsigned int data);
@@ -83,6 +78,5 @@ unsigned long VpuReadReg(unsigned long addr);
 
 void ResetVpu(void);
 int isVpuInitialized(void);
-void vl2cc_flush(void);
 
 #endif
