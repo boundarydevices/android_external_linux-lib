@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2010 Freescale Semiconductor, Inc.
+ * Copyright 2004-2011 Freescale Semiconductor, Inc.
  *
  * Copyright (c) 2006, Chips & Media. All rights reserved.
  */
@@ -29,7 +29,7 @@
 
 /*
  * VPU binary file header format:
- * 12-byte: platform version, eg, MX27, MX37, and so on.
+ * 12-byte: platform version, eg, MX27, MX51, and so on.
  * 4-byte:  element numbers, each element is 16bit(unsigned short)
  */
 typedef struct {
@@ -140,8 +140,6 @@ RetCode DownloadBitCodeTable(unsigned long *virtCodeBuf, Uint16 *bit_code)
 		for (i = 0; i < size; i += 2) {
 			data = (unsigned int)((bit_code[i] << 16) |
 					      bit_code[i + 1]);
-			if (cpu_is_mx37())
-				data = swab32(data);
 			((unsigned int *)virt_codeBuf)[i / 2] = data;
 		}
 	}
@@ -197,10 +195,6 @@ RetCode CheckEncInstanceValidity(EncHandle handle)
 	CodecInst *pCodecInst;
 	RetCode ret;
 
-	if (cpu_is_mx32() || cpu_is_mx37()) {
-		return RETCODE_NOT_SUPPORTED;
-	}
-
 	pCodecInst = handle;
 	ret = CheckInstanceValidity(pCodecInst);
 	if (ret != RETCODE_SUCCESS) {
@@ -241,18 +235,6 @@ RetCode CheckDecInstanceValidity(DecHandle handle)
 		if (pCodecInst->codecMode != MP4_DEC &&
 		    pCodecInst->codecMode != AVC_DEC)
 			return RETCODE_INVALID_HANDLE;
-	} else if (cpu_is_mx32()) {
-		if (pCodecInst->codecMode != MP4_DEC &&
-		    pCodecInst->codecMode != AVC_DEC &&
-		    pCodecInst->codecMode != VC1_DEC)
-			return RETCODE_INVALID_HANDLE;
-	} else if (cpu_is_mx37()) {
-		if (pCodecInst->codecMode != MP4_DEC &&
-		    pCodecInst->codecMode != AVC_DEC &&
-		    pCodecInst->codecMode != VC1_DEC &&
-		    pCodecInst->codecMode != MP2_DEC &&
-		    pCodecInst->codecMode != DV3_DEC)
-			return RETCODE_INVALID_HANDLE;
 	} else if (cpu_is_mx5x()) {
 		if (pCodecInst->codecMode != MP4_DEC &&
 		    pCodecInst->codecMode != AVC_DEC &&
@@ -288,10 +270,6 @@ RetCode CheckEncOpenParam(EncOpenParam * pop)
 {
 	int picWidth;
 	int picHeight;
-
-	if (cpu_is_mx32() || cpu_is_mx37()) {
-		return RETCODE_NOT_SUPPORTED;
-	}
 
 	if (pop == 0) {
 		return RETCODE_INVALID_PARAM;
@@ -537,18 +515,6 @@ RetCode CheckDecOpenParam(DecOpenParam * pop)
 		if (pop->bitstreamFormat != STD_MPEG4 &&
 		    pop->bitstreamFormat != STD_AVC)
 			return RETCODE_INVALID_PARAM;
-	} else if (cpu_is_mx32()) {
-		if (pop->bitstreamFormat != STD_MPEG4 &&
-		    pop->bitstreamFormat != STD_AVC &&
-		    pop->bitstreamFormat != STD_VC1)
-			return RETCODE_INVALID_PARAM;
-	} else if (cpu_is_mx37()) {
-		if (pop->bitstreamFormat != STD_MPEG4 &&
-		    pop->bitstreamFormat != STD_AVC &&
-		    pop->bitstreamFormat != STD_VC1 &&
-		    pop->bitstreamFormat != STD_MPEG2 &&
-		    pop->bitstreamFormat != STD_DIV3)
-			return RETCODE_INVALID_PARAM;
 	} else if (cpu_is_mx5x()) {
 		if (pop->bitstreamFormat != STD_MPEG4 &&
 		    pop->bitstreamFormat != STD_AVC &&
@@ -600,9 +566,7 @@ RetCode CopyBufferData(Uint8 *dst, Uint8 *src, int size)
 	if (!dst || !src || !size)
 		return RETCODE_FAILURE;
 
-	if (cpu_is_mx37())
-		memcpy(dst, src, size);
-	else if (cpu_is_mx5x()) {
+	if (cpu_is_mx5x()) {
 		int i;
 		for (i = 0; i < size / 8; i++) {
 			/* swab odd and even words and swab32 for mx5x */
@@ -675,7 +639,7 @@ void SetParaSet(DecHandle handle, int paraSetType, DecParamSet * para)
 	IOClkGateSet(false);
 }
 
-// Following are not for MX32 and MX27 TO1
+// Following are not for MX27 TO1
 RetCode SetGopNumber(EncHandle handle, Uint32 * pGopNumber)
 {
 	CodecInst *pCodecInst;
