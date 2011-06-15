@@ -2,22 +2,13 @@ CC=$(CROSS_COMPILE)gcc
 AR=$(CROSS_COMPILE)ar
 
 # list of platforms which want this test case
-INCLUDE_LIST:= IMX27ADS IMX31ADS IMX32ADS IMX37_3STACK IMX51 IMX53
+INCLUDE_LIST:= IMX27ADS IMX51 IMX53
 
 OBJ = vpu_io.o vpu_util.o vpu_lib.o
 
 LIBNAME = libvpu
 
 ifeq ($(PLATFORM), $(findstring $(PLATFORM), $(INCLUDE_LIST)))
-
-# Same platform ID is used when building for imx31ads and imx32ads.
-# Change version number in bin filename to imx32 if passed platform is
-# imx31ads since there is no VPU module in imx31ads.
-ifeq ($(PLATFORM), IMX31ADS)
-PLATFORM_STR = IMX32ADS
-else
-PLATFORM_STR = $(PLATFORM)
-endif
 
 ifeq ($(findstring IMX5, $(PLATFORM)), IMX5)
 VERSION = imx5

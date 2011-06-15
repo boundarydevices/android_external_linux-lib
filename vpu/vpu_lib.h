@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2010 Freescale Semiconductor, Inc.
+ * Copyright 2004-2011 Freescale Semiconductor, Inc.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -498,20 +498,15 @@ typedef struct vpu_versioninfo {
 
 /*
  * Revision History:
+ * v5.1.5 [2011.06.16] Remove code for not mx5x platforms
  * v5.0.1 [2010.03.03] Integrate mx53 vpu
  * v4.7.1 [2009.09.18] remove share memory file and update SWReset function
  * v4.7.0 [2009.08.03] upgrade mx51 fw to v1.2.0
- * v4.6.5 [2009.04.30] upgrade mx37 fw to v1.1.2
- * v4.5.5 [2009.04.28] upgrade mx51 fw to v1.1.5
- * v4.5.4 [2009.03.19] upgrade mx37 fw to v1.1.0
- * v4.4.4 [2009.02.27] support data report and change VPU APIs
- * v4.4.3 [2009.01.19] support chromaInterleave of encoder on MX51
  * v4.3.2 [2008.10.28] support loopback on MX51
  * v4.2.2 [2008.09.03] support encoder on MX51
- * v4.1.2 [2008.08.22] update MX37 VPU firmware to V1.0.5
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 1, 4)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 1, 5)
 
 extern unsigned int system_rev;
 
@@ -531,16 +526,11 @@ static inline int type## _rev (int rev)         \
 }
 
 #define cpu_is_mx27()		mxc_is_cpu(0x27)
-#define cpu_is_mx32()		mxc_is_cpu(0x32)
-#define cpu_is_mx37()		mxc_is_cpu(0x37)
 #define cpu_is_mx51()		mxc_is_cpu(0x51)
 #define cpu_is_mx53()		mxc_is_cpu(0x53)
 #define cpu_is_mx5x()		(mxc_is_cpu(0x51) || mxc_is_cpu(0x53))
 
 MXC_REV(cpu_is_mx27);
-MXC_REV(cpu_is_mx32);
-MXC_REV(cpu_is_mx37);
-MXC_REV(cpu_is_mx51);
 
 RetCode vpu_Init(void *);
 void vpu_UnInit(void);
