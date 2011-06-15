@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2010 Freescale Semiconductor, Inc.
+ * Copyright 2004-2011 Freescale Semiconductor, Inc.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -134,11 +134,7 @@
 #define RET_DEC_SEQ_JPG_THUMB_IND	0x1E8
 #define RET_DEC_SEQ_HEADER_REPORT	0x1EC
 
-#ifdef	IMX37_3STACK
-#define RET_DEC_SEQ_NEXT_FRAME_NUM	0x1BC
-#else
 #define RET_DEC_SEQ_NEXT_FRAME_NUM	0x1E0
-#endif
 
 /*--------------------------------------------------------------------------
  * [ENC SEQ INIT] COMMAND
@@ -202,48 +198,17 @@
 #define CMD_DEC_PIC_ROT_ADDR_CB		0x188
 #define CMD_DEC_PIC_ROT_ADDR_CR		0x18C
 
-/* only for IMX32ADS */
-#define CMD_DEC_PIC_DBK_ADDR_Y		0x190
-#define CMD_DEC_PIC_DBK_ADDR_CB		0x194
-#define CMD_DEC_PIC_DBK_ADDR_CR		0x198
-
-#if defined(IMX32ADS)
-#define CMD_DEC_PIC_ROT_STRIDE		0x19C
-#define CMD_DEC_PIC_OPTION		0x1A0
-#define CMD_DEC_PIC_SKIP_NUM		0x1A4
-#define CMD_DEC_PIC_CHUNK_SIZE		0x1A8
-#define CMD_DEC_PIC_BB_START		0x1AC
-#define CMD_DEC_PIC_START_BYTE		0x1B0
-#else /* IMX27ADS, IMX37_3STACK, IMX51 */
 #define CMD_DEC_PIC_ROT_STRIDE		0x190
 #define CMD_DEC_PIC_OPTION		0x194
 #define CMD_DEC_PIC_SKIP_NUM		0x198
- #if !defined(IMX37_3STACK)
- #define CMD_DEC_PIC_CHUNK_SIZE		0x19C
- #define CMD_DEC_PIC_BB_START		0x1A0
- #define CMD_DEC_PIC_START_BYTE		0x1A4
- #else
- #define CMD_DEC_PIC_CHUNK_SIZE		0x198
- #define CMD_DEC_PIC_BB_START		0x19C
- #define CMD_DEC_PIC_START_BYTE		0x1A0
- #endif
-#endif
+#define CMD_DEC_PIC_CHUNK_SIZE		0x19C
+#define CMD_DEC_PIC_BB_START		0x1A0
+#define CMD_DEC_PIC_START_BYTE		0x1A4
 
-#if !defined(IMX37_3STACK)
 #define CMD_DEC_PIC_PARA_BASE_ADDR      0x1A8
 #define CMD_DEC_PIC_USER_DATA_BASE_ADDR 0x1AC
 #define CMD_DEC_PIC_USER_DATA_BUF_SIZE  0x1B0
-#else
-#define CMD_DEC_PIC_PARA_BASE_ADDR      0x1A4
-#define CMD_DEC_PIC_USER_DATA_BASE_ADDR 0x1A8
-#define CMD_DEC_PIC_USER_DATA_BUF_SIZE  0x1AC
-#endif
-
-#if defined(IMX37_3STACK)
-#define CMD_DEC_PIC_DBK_OFFSET		0x1B0
-#else
 #define CMD_DEC_PIC_DBK_OFFSET		0x1B4
-#endif
 
 #define RET_DEC_PIC_SIZE		0x1BC
 #define RET_DEC_PIC_FRAME_NUM		0x1C0
@@ -264,13 +229,8 @@
 #define RET_DEC_PIC_CUR_IDX		0x1DC
 #define RET_DEC_PIC_FRAME_NEED		0x1EC
 
-#if !defined(IMX37_3STACK)
 #define RET_DEC_PIC_CROP_LEFT_RIGHT	0x1E0
 #define RET_DEC_PIC_CROP_TOP_BOTTOM	0x1E4
-#else
-#define RET_DEC_PIC_CROP_LEFT_RIGHT	0x1B4
-#define RET_DEC_PIC_CROP_TOP_BOTTOM	0x1B8
-#endif
 
 /*---------------------------------------------------------------------------
  * [ENC PIC RUN] COMMAND
@@ -339,18 +299,6 @@
 	#define WORK_BUF_SIZE			(288 * 1024) + (FMO_SLICE_SAVE_BUF_SIZE * 1024 * 8)
 	#define PARA_BUF2_SIZE			(1728)
 	#define PARA_BUF_SIZE			(10 * 1024)
-#elif defined(IMX31ADS)
-	#define CODE_BUF_SIZE			(80 * 1024)
-	#define FMO_SLICE_SAVE_BUF_SIZE		(32) /* Not used */
-	#define WORK_BUF_SIZE			(190 * 1024)
-	#define PARA_BUF2_SIZE			(1728)
-	#define PARA_BUF_SIZE			(10 * 1024)
-#elif defined(IMX37_3STACK)
-	#define CODE_BUF_SIZE			(96 * 1024)
-	#define FMO_SLICE_SAVE_BUF_SIZE		(32) /* Not used */
-	#define WORK_BUF_SIZE			(512 * 1024)
-	#define PARA_BUF2_SIZE			(0) /* Not used */
-	#define PARA_BUF_SIZE			(10 * 1024)
 #elif defined(IMX51) || defined(IMX53)
         #define CODE_BUF_SIZE			(200 * 1024) /* define max is 200k byte currently */
         #define FMO_SLICE_SAVE_BUF_SIZE		(32)
@@ -381,7 +329,7 @@
 #define BITS_STREAMCTRL_MASK		0x01F
 #endif
 
-#if defined(IMX51) || defined(IMX53) || defined(IMX37_3STACK)
+#if defined(IMX51) || defined(IMX53)
 #define BIT_PIC_WIDTH_OFFSET		16
 #else
 #define BIT_PIC_WIDTH_OFFSET		10
