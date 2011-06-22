@@ -25,7 +25,10 @@
 #include "vpu_io.h"
 
 #define MAX_FW_BINARY_LEN		100 * 1024
-#define MAX_NUM_INSTANCE		4
+#define MAX_NUM_INSTANCE		8
+
+#define BIT_WORK_SIZE			0x20000
+#define SIZE_CONTEXT_BUF		BIT_WORK_SIZE
 
 #define SIZE_PIC_PARA_BASE_BUF          0x100
 #define SIZE_MV_DATA                    0x20000
@@ -90,6 +93,14 @@ enum {
 	REG_MUTEX = 1
 };
 
+enum {
+	CTX_BIT_STREAM_PARAM = 0,
+	CTX_BIT_FRM_DIS_FLG,
+	CTX_BIT_WR_PTR,
+	CTX_BIT_RD_PTR,
+	CTX_BIT_FRAME_MEM_CTRL,
+	CTX_MAX_REGS
+};
 typedef struct {
 	int useBitEnable;
 	int useIpEnable;
@@ -125,8 +136,6 @@ typedef struct {
 	EncInitialInfo initialInfo;
 
 	PhysicalAddress streamRdPtr;
-	PhysicalAddress streamRdPtrRegAddr;
-	PhysicalAddress streamWrPtrRegAddr;
 	PhysicalAddress streamBufStartAddr;
 	PhysicalAddress streamBufEndAddr;
 	int streamBufSize;
@@ -160,11 +169,8 @@ typedef struct {
 	DecInitialInfo initialInfo;
 
 	PhysicalAddress streamWrPtr;
-	PhysicalAddress streamRdPtrRegAddr;
-	PhysicalAddress streamWrPtrRegAddr;
 	PhysicalAddress streamBufStartAddr;
 	PhysicalAddress streamBufEndAddr;
-	PhysicalAddress frameDisplayFlagRegAddr;
 	int streamBufSize;
 
 	FrameBuffer *frameBufPool;
@@ -207,6 +213,8 @@ typedef struct CodecInst {
 	int instIndex;
 	int inUse;
 	int codecMode;
+	vpu_mem_desc contextBufMem; /* For context buffer */
+	unsigned long ctxRegs[CTX_MAX_REGS];
 	union {
 		EncInfo encInfo;
 		DecInfo decInfo;
@@ -228,6 +236,7 @@ typedef struct {
 } semaphore_t;
 
 void BitIssueCommand(int instIdx, int cdcMode, int cmd);
+void BitIssueCommandEx(CodecInst *pCodecInst, int cmd);
 
 RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size);
 RetCode DownloadBitCodeTable(unsigned long *virtCodeBuf, Uint16 *bit_code);
@@ -244,7 +253,7 @@ void GetParaSet(EncHandle handle, int paraSetType, EncParamSet * para);
 
 RetCode CheckDecInstanceValidity(DecHandle handle);
 RetCode CheckDecOpenParam(DecOpenParam * pop);
-int DecBitstreamBufEmpty(DecInfo * pDecInfo);
+int DecBitstreamBufEmpty(DecHandle handle);
 void SetParaSet(DecHandle handle, int paraSetType, DecParamSet * para);
 RetCode CopyBufferData(Uint8 *dst, Uint8 *src, int size);
 
