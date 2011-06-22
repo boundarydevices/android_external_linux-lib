@@ -45,27 +45,18 @@
 #define BIT_FRAME_MEM_CTRL		0x110
 #define CMD_DEC_DISPLAY_REORDER		0x114
 #define BIT_BIT_STREAM_PARAM		0x114
-
+#define BIT_TEMP_BUF_ADDR		0x118
 #define	BIT_RESET_CTRL			0x11C
 
-#define BIT_RD_PTR_0			0x120
-#define BIT_WR_PTR_0			0x124
-#define BIT_RD_PTR_1			0x128
-#define BIT_WR_PTR_1			0x12C
-#define BIT_RD_PTR_2			0x130
-#define BIT_WR_PTR_2			0x134
-#define BIT_RD_PTR_3			0x138
-#define BIT_WR_PTR_3			0x13C
+#define BIT_RD_PTR			0x120
+#define BIT_WR_PTR			0x124
 
 #if defined(IMX51) || defined(IMX53)
 #define BIT_AXI_SRAM_USE                0x140
 #define BIT_SEARCH_RAM_BASE_ADDR	0x144
 #define BIT_SEARCH_RAM_SIZE		0x148
 
-#define BIT_FRM_DIS_FLG_0               0x150
-#define BIT_FRM_DIS_FLG_1               0x154
-#define BIT_FRM_DIS_FLG_2               0x158
-#define BIT_FRM_DIS_FLG_3               0x15C
+#define BIT_FRM_DIS_FLG                 0x150
 
 #define CMD_SET_FRAME_AXI_BIT_ADDR	0x190
 #define CMD_SET_FRAME_AXI_IPACDC_ADDR	0x194
@@ -302,7 +293,7 @@
 #elif defined(IMX51) || defined(IMX53)
         #define CODE_BUF_SIZE			(200 * 1024) /* define max is 200k byte currently */
         #define FMO_SLICE_SAVE_BUF_SIZE		(32)
-        #define WORK_BUF_SIZE			(512 * 1024) + (FMO_SLICE_SAVE_BUF_SIZE * 1024 * 8)
+        #define TEMP_BUF_SIZE			(304 * 1024)
         #define PARA_BUF2_SIZE			(2 * 1024)
         #define PARA_BUF_SIZE			(10 * 1024)
 #else
