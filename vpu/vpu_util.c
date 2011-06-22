@@ -256,14 +256,38 @@ void FreeCodecInstance(CodecInst * pCodecInst)
 
 void BitIssueCommand(int instIdx, int cdcMode, int cmd)
 {
-	IOClkGateSet(true);
+	LockVpuReg(vpu_semap);
 
 	VpuWriteReg(BIT_BUSY_FLAG, 0x1);
 	VpuWriteReg(BIT_RUN_INDEX, instIdx);
 	VpuWriteReg(BIT_RUN_COD_STD, cdcMode);
 	VpuWriteReg(BIT_RUN_COMMAND, cmd);
 
-	IOClkGateSet(false);
+	UnlockVpuReg(vpu_semap);
+}
+void BitIssueCommandEx(CodecInst *pCodecInst, int cmd)
+{
+	LockVpuReg(vpu_semap);
+
+	/* Save context related registers to vpu */
+	VpuWriteReg(BIT_BIT_STREAM_PARAM,
+			pCodecInst->ctxRegs[CTX_BIT_STREAM_PARAM]);
+	VpuWriteReg(BIT_FRM_DIS_FLG,
+			pCodecInst->ctxRegs[CTX_BIT_FRM_DIS_FLG]);
+	VpuWriteReg(BIT_WR_PTR,
+			pCodecInst->ctxRegs[CTX_BIT_WR_PTR]);
+	VpuWriteReg(BIT_RD_PTR,
+			pCodecInst->ctxRegs[CTX_BIT_RD_PTR]);
+	VpuWriteReg(BIT_FRAME_MEM_CTRL,
+			pCodecInst->ctxRegs[CTX_BIT_FRAME_MEM_CTRL]);
+	VpuWriteReg(BIT_WORK_BUF_ADDR, pCodecInst->contextBufMem.phy_addr);
+
+	VpuWriteReg(BIT_BUSY_FLAG, 0x1);
+	VpuWriteReg(BIT_RUN_INDEX, pCodecInst->instIndex);
+	VpuWriteReg(BIT_RUN_COD_STD, pCodecInst->codecMode);
+
+	VpuWriteReg(BIT_RUN_COMMAND, cmd);
+	UnlockVpuReg(vpu_semap);
 }
 
 RetCode CheckEncOpenParam(EncOpenParam * pop)
@@ -474,19 +498,22 @@ void EncodeHeader(EncHandle handle, EncHeaderParam * encHeaderParam)
 		VpuWriteReg(CMD_ENC_HEADER_CODE, encHeaderParam->headerType); /* 0: SPS, 1: PPS */
 	}
 
-	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
-			ENCODE_HEADER);
-
+	BitIssueCommandEx(pCodecInst, ENCODE_HEADER);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
+	IOClkGateSet(false);
+
+	LockVpuReg(vpu_semap);
 	if (pEncInfo->dynamicAllocEnable == 1) {
 		rdPtr = VpuReadReg(CMD_ENC_HEADER_BB_START);
-		wrPtr = VpuReadReg(pEncInfo->streamWrPtrRegAddr);
+		wrPtr = VpuReadReg(BIT_WR_PTR);
+		pCodecInst->ctxRegs[CTX_BIT_WR_PTR] = wrPtr;
 	} else {
-		rdPtr = VpuReadReg(pEncInfo->streamRdPtrRegAddr);
-		wrPtr = VpuReadReg(pEncInfo->streamWrPtrRegAddr);
+		rdPtr = VpuReadReg(BIT_RD_PTR);
+		wrPtr = VpuReadReg(BIT_WR_PTR);
+		pCodecInst->ctxRegs[CTX_BIT_WR_PTR] = wrPtr;
 	}
-	IOClkGateSet(false);
+	UnlockVpuReg(vpu_semap);
 
 	encHeaderParam->buf = rdPtr;
 	encHeaderParam->size = wrPtr - rdPtr;
@@ -544,17 +571,26 @@ RetCode CheckDecOpenParam(DecOpenParam * pop)
 	return RETCODE_SUCCESS;
 }
 
-int DecBitstreamBufEmpty(DecInfo * pDecInfo)
+int DecBitstreamBufEmpty(DecHandle handle)
 {
+	CodecInst *pCodecInst;
 	PhysicalAddress rdPtr;
 	PhysicalAddress wrPtr;
+	int instIndex;
 
-	IOClkGateSet(true);
+	pCodecInst = handle;
 
-	rdPtr = VpuReadReg(pDecInfo->streamRdPtrRegAddr);
-	wrPtr = VpuReadReg(pDecInfo->streamWrPtrRegAddr);
+	LockVpuReg(vpu_semap);
+	instIndex = VpuReadReg(BIT_RUN_INDEX);
 
-	IOClkGateSet(false);
+	rdPtr = (pCodecInst->instIndex == instIndex) ?
+		    VpuReadReg(BIT_RD_PTR) :
+		    pCodecInst->ctxRegs[CTX_BIT_RD_PTR];
+	wrPtr = (pCodecInst->instIndex == instIndex) ?
+		    VpuReadReg(BIT_WR_PTR) :
+		    pCodecInst->ctxRegs[CTX_BIT_WR_PTR];
+
+	UnlockVpuReg(vpu_semap);
 
 	return rdPtr == wrPtr;
 }
@@ -591,8 +627,7 @@ void GetParaSet(EncHandle handle, int paraSetType, EncParamSet * para)
 
 	/* SPS: 0, PPS: 1, VOS: 1, VO: 2, VOL: 0 */
 	VpuWriteReg(CMD_ENC_PARA_SET_TYPE, paraSetType);
-	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
-			ENC_PARA_SET);
+	BitIssueCommandEx(pCodecInst, ENC_PARA_SET);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
 	para->paraSet = virt_paraBuf;
@@ -631,9 +666,7 @@ void SetParaSet(DecHandle handle, int paraSetType, DecParamSet * para)
 			VpuWriteReg(BIT_RUN_AUX_STD, 0);
 	}
 
-	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
-			DEC_PARA_SET);
-
+	BitIssueCommandEx(pCodecInst, DEC_PARA_SET);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
 	IOClkGateSet(false);
@@ -651,9 +684,7 @@ RetCode SetGopNumber(EncHandle handle, Uint32 * pGopNumber)
 	IOClkGateSet(true);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_RC_GOP, gopNumber);
-	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
-			RC_CHANGE_PARAMETER);
-
+	BitIssueCommandEx(pCodecInst, RC_CHANGE_PARAMETER);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	IOClkGateSet(false);
 
@@ -672,9 +703,7 @@ RetCode SetIntraQp(EncHandle handle, Uint32 * pIntraQp)
 	data = 1 << 1;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_RC_INTRA_QP, intraQp);
-	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
-			RC_CHANGE_PARAMETER);
-
+	BitIssueCommandEx(pCodecInst, RC_CHANGE_PARAMETER);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	IOClkGateSet(false);
 
@@ -693,9 +722,7 @@ RetCode SetBitrate(EncHandle handle, Uint32 * pBitrate)
 	data = 1 << 2;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_RC_BITRATE, bitrate);
-	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
-			RC_CHANGE_PARAMETER);
-
+	BitIssueCommandEx(pCodecInst, RC_CHANGE_PARAMETER);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	IOClkGateSet(false);
 
@@ -714,9 +741,7 @@ RetCode SetFramerate(EncHandle handle, Uint32 * pFramerate)
 	data = 1 << 3;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_RC_FRAME_RATE, framerate);
-	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
-			RC_CHANGE_PARAMETER);
-
+	BitIssueCommandEx(pCodecInst, RC_CHANGE_PARAMETER);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	IOClkGateSet(false);
 
@@ -735,9 +760,7 @@ RetCode SetIntraRefreshNum(EncHandle handle, Uint32 * pIntraRefreshNum)
 	data = 1 << 4;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_INTRA_MB_NUM, intraRefreshNum);
-	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
-			RC_CHANGE_PARAMETER);
-
+	BitIssueCommandEx(pCodecInst, RC_CHANGE_PARAMETER);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	IOClkGateSet(false);
 
@@ -759,9 +782,7 @@ RetCode SetSliceMode(EncHandle handle, EncSliceMode * pSliceMode)
 	data2 = 1 << 5;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data2);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_SLICE_MODE, data);
-	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
-			RC_CHANGE_PARAMETER);
-
+	BitIssueCommandEx(pCodecInst, RC_CHANGE_PARAMETER);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	IOClkGateSet(false);
 
@@ -780,9 +801,7 @@ RetCode SetHecMode(EncHandle handle, int mode)
 	data = 1 << 6;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_HEC_MODE, HecMode);
-	BitIssueCommand(pCodecInst->instIndex, pCodecInst->codecMode,
-			RC_CHANGE_PARAMETER);
-
+	BitIssueCommandEx(pCodecInst, RC_CHANGE_PARAMETER);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	IOClkGateSet(false);
 

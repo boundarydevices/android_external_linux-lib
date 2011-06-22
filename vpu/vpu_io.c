@@ -171,7 +171,7 @@ int IOSystemInit(void *callback)
 	vpu_active_num++;
 
 	IOClkGateSet(true);
-	bit_work_addr.size = WORK_BUF_SIZE + PARA_BUF_SIZE +
+	bit_work_addr.size = TEMP_BUF_SIZE + PARA_BUF_SIZE +
 	    					CODE_BUF_SIZE + PARA_BUF2_SIZE;
 
 	if (_IOGetPhyMem(VPU_IOC_GET_WORK_ADDR, &bit_work_addr) < 0) {
