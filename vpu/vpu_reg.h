@@ -27,6 +27,8 @@
 /*---------------------------------------------------------------------------
  * HARDWARE REGISTER
  *-------------------------------------------------------------------------*/
+#define NPT_BASE        0x3000
+
 #define BIT_CODE_RUN			0x000
 #define BIT_CODE_DOWN			0x004
 #define BIT_INT_REQ			0x008
@@ -51,20 +53,7 @@
 #define BIT_RD_PTR			0x120
 #define BIT_WR_PTR			0x124
 
-#if defined(IMX51) || defined(IMX53)
-#define BIT_AXI_SRAM_USE                0x140
-#define BIT_SEARCH_RAM_BASE_ADDR	0x144
-#define BIT_SEARCH_RAM_SIZE		0x148
-
-#define BIT_FRM_DIS_FLG                 0x150
-
-#define CMD_SET_FRAME_AXI_BIT_ADDR	0x190
-#define CMD_SET_FRAME_AXI_IPACDC_ADDR	0x194
-#define CMD_SET_FRAME_AXI_DBKY_ADDR	0x198
-#define CMD_SET_FRAME_AXI_DBKC_ADDR	0x19C
-#define CMD_SET_FRAME_AXI_OVL_ADDR	0x1A0
-
-#else
+#if defined(IMX27)
 #define	BIT_AXI_SRAM_USE		0x178
 #define BIT_SEARCH_RAM_BASE_ADDR	0x140
 #define BIT_SEARCH_RAM_SIZE		0x144
@@ -79,6 +68,19 @@
 #define CMD_SET_FRAME_AXI_IP_ADDR	0x198
 #define CMD_SET_FRAME_AXI_DBK_ADDR	0x19C
 #define CMD_SET_FRAME_AXI_OVL_ADDR	0x1A0
+
+#else
+#define BIT_AXI_SRAM_USE                0x140
+#define BIT_SEARCH_RAM_BASE_ADDR        0x144
+#define BIT_SEARCH_RAM_SIZE             0x148
+
+#define BIT_FRM_DIS_FLG                 0x150
+
+#define CMD_SET_FRAME_AXI_BIT_ADDR      0x190
+#define CMD_SET_FRAME_AXI_IPACDC_ADDR   0x194
+#define CMD_SET_FRAME_AXI_DBKY_ADDR     0x198
+#define CMD_SET_FRAME_AXI_DBKC_ADDR     0x19C
+#define CMD_SET_FRAME_AXI_OVL_ADDR      0x1A0
 #endif
 
 #define BIT_BUSY_FLAG			0x160
@@ -107,20 +109,34 @@
 #define CMD_DEC_SEQ_JPG_THUMB_EN        0x19C
 #define CMD_DEC_SEQ_MP4_ASP_CLASS	0x19C
 #define CMD_DEC_SEQ_VC1_STREAM_FMT	0x19C
+#define CMD_DEC_SEQ_X264_MV_EN		0x19C
 
 #define CMD_DEC_SEQ_INIT_ESCAPE		0x114
 
-#define RET_DEC_SEQ_ASPECT		0x1B0
+#define RET_DEC_SEQ_BIT_RATE            0x1B4 /* MX6Q platform */
+
+#if defined(IMX6Q)
+#define RET_DEC_SEQ_ASPECT              0x1C8
+#else
+#define RET_DEC_SEQ_ASPECT              0x1B0
+#endif
+/* dummy for mx6q */
+#define RET_DEC_SEQ_SRC_F_RATE          0x1C8
+/* end to here */
 #define RET_DEC_SEQ_SUCCESS		0x1C0
 #define RET_DEC_SEQ_SRC_FMT		0x1C4
 #define RET_DEC_SEQ_SRC_SIZE		0x1C4
-#define RET_DEC_SEQ_SRC_F_RATE		0x1C8
 #define RET_DEC_SEQ_FRAME_NEED		0x1CC
 #define RET_DEC_SEQ_FRAME_DELAY		0x1D0
 #define RET_DEC_SEQ_INFO		0x1D4
+#define RET_DEC_SEQ_VP8_SCALE_INFO	0x1D4
 #define RET_DEC_SEQ_CROP_LEFT_RIGHT	0x1D8
 #define RET_DEC_SEQ_CROP_TOP_BOTTOM	0x1DC
 #define RET_DEC_SEQ_ERR_REASON		0x1E0
+#define RET_DEC_SEQ_FRATE_NR		0x1E4
+#define RET_DEC_SEQ_FRATE_DR		0x1E8
+#define RET_DEC_SEQ_FRAME_FORMAT	0x1E4
+
 #define	RET_DEC_SEQ_JPG_PARA		0x1E4
 #define RET_DEC_SEQ_JPG_THUMB_IND	0x1E8
 #define RET_DEC_SEQ_HEADER_REPORT	0x1EC
@@ -158,6 +174,8 @@
 #define CMD_ENC_SEQ_RC_QP_MIN_MAX	0x1C8
 #define CMD_ENC_SEQ_RC_GAMMA		0x1CC
 #define CMD_ENC_SEQ_RC_INTERVAL_MODE	0x1D0	/* MbInterval[32:2], RcIntervalMode[1:0] */
+#define CMD_ENC_SEQ_INTRA_WEIGHT	0x1D4
+#define CMD_ENC_SEQ_ME_OPTION		0x1D8
 
 #define CMD_ENC_SEQ_JPG_PARA	        0x198
 #define CMD_ENC_SEQ_JPG_RST_INTERVAL	0x19C
@@ -182,14 +200,28 @@
 #define RET_ENC_SEQ_PARA_CHANGE_SUCCESS	0x1C0
 
 /*---------------------------------------------------------------------------
+ *  [DEC SEQ END] COMMAND
+ *-------------------------------------------------------------------------*/
+#define RET_DEC_SEQ_END_SUCCESS     (BIT_BASE + 0x1C0)
+
+/*---------------------------------------------------------------------------
  * [DEC PIC RUN] COMMAND
  *-------------------------------------------------------------------------*/
+#define CMD_DEC_PIC_ROT_INDEX           0x184   /* MX6Q */
+#if defined(IMX6Q)
+#define CMD_DEC_PIC_ROT_MODE            0x180
+#define CMD_DEC_PIC_ROT_ADDR_Y          0x188
+#define CMD_DEC_PIC_ROT_ADDR_CB         0x18C
+#define CMD_DEC_PIC_ROT_ADDR_CR         0x190
+#define CMD_DEC_PIC_ROT_STRIDE          0x1B8
+#else
 #define CMD_DEC_PIC_ROT_MODE		0x180
 #define CMD_DEC_PIC_ROT_ADDR_Y		0x184
 #define CMD_DEC_PIC_ROT_ADDR_CB		0x188
 #define CMD_DEC_PIC_ROT_ADDR_CR		0x18C
+#define CMD_DEC_PIC_ROT_STRIDE          0x190
+#endif
 
-#define CMD_DEC_PIC_ROT_STRIDE		0x190
 #define CMD_DEC_PIC_OPTION		0x194
 #define CMD_DEC_PIC_SKIP_NUM		0x198
 #define CMD_DEC_PIC_CHUNK_SIZE		0x19C
@@ -197,6 +229,7 @@
 #define CMD_DEC_PIC_START_BYTE		0x1A4
 
 #define CMD_DEC_PIC_PARA_BASE_ADDR      0x1A8
+#define CMD_DEC_SEQ_USER_DATA_OPTION	0x194
 #define CMD_DEC_PIC_USER_DATA_BASE_ADDR 0x1AC
 #define CMD_DEC_PIC_USER_DATA_BUF_SIZE  0x1B0
 #define CMD_DEC_PIC_DBK_OFFSET		0x1B4
@@ -222,13 +255,34 @@
 
 #define RET_DEC_PIC_CROP_LEFT_RIGHT	0x1E0
 #define RET_DEC_PIC_CROP_TOP_BOTTOM	0x1E4
+#define RET_DEC_PIC_VP8_PIC_REPORT	0x1E8
+#define RET_DEC_PIC_ASPECT		0x1F0
+#define RET_DEC_PIC_VP8_SCALE_INFO	0x1F0
+#define RET_DEC_PIC_FRATE_NR		0x1F4
+#define RET_DEC_PIC_FRATE_DR		0x1F8
+
+//------------------------------------------------------------------------------
+// [ENC SEQ END] COMMAND
+//------------------------------------------------------------------------------
+#define RET_ENC_SEQ_END_SUCCESS		0x1C0
 
 /*---------------------------------------------------------------------------
  * [ENC PIC RUN] COMMAND
  *--------------------------------------------------------------------------*/
-#define CMD_ENC_PIC_SRC_ADDR_Y		0x180
-#define CMD_ENC_PIC_SRC_ADDR_CB		0x184
-#define CMD_ENC_PIC_SRC_ADDR_CR		0x188
+
+#define CMD_ENC_PIC_SRC_INDEX           0x180  /* MX6Q */
+#define CMD_ENC_PIC_SRC_STRIDE          0x184  /* MX6Q */
+#define CMD_ENC_PIC_SUB_FRAME_SYNC      0x1A4  /* MX6Q */
+#if defined(IMX6Q)
+#define CMD_ENC_PIC_SRC_ADDR_Y          0x1A8
+#define CMD_ENC_PIC_SRC_ADDR_CB         0x1AC
+#define CMD_ENC_PIC_SRC_ADDR_CR         0x1A4
+#else
+#define CMD_ENC_PIC_SRC_ADDR_Y          0x180
+#define CMD_ENC_PIC_SRC_ADDR_CB         0x184
+#define CMD_ENC_PIC_SRC_ADDR_CR         0x188
+#endif
+
 #define CMD_ENC_PIC_QS			0x18C
 #define CMD_ENC_PIC_ROT_MODE		0x190
 #define CMD_ENC_PIC_OPTION		0x194
@@ -241,10 +295,9 @@
 #define RET_ENC_PIC_FRAME_IDX		0x1C8
 #define RET_ENC_PIC_SLICE_NUM		0x1CC
 #define RET_ENC_PIC_FLAG		0x1D0
+#define RET_ENC_PIC_SUCCESS		0x1D8
 
-/*----------------------------------------------------------------------------
- * [SET FRAME BUF] COMMAND
- *---------------------------------------------------------------------------*/
+
 #define CMD_SET_FRAME_BUF_NUM		0x180
 #define CMD_SET_FRAME_BUF_STRIDE	0x184
 #define CMD_SET_FRAME_SLICE_BB_START    0x188
@@ -256,33 +309,61 @@
 #define CMD_SET_FRAME_AXI_DBKC_ADDR     0x19C
 #define CMD_SET_FRAME_AXI_OVL_ADDR      0x1A0
 
+/* MX6Q used, others dummy */
+#define CMD_SET_FRAME_AXI_BTP_ADDR	0x1A4
+#define CMD_SET_FRAME_CACHE_SIZE	0x1A8
+#define CMD_SET_FRAME_CACHE_CONFIG	0x1AC
+#define CMD_SET_FRAME_MB_BUF_BASE	0x1B0
+/* End */
+
+/* MX5X used, others dummy */
 #define CMD_SET_FRAME_MAX_DEC_SIZE      0x1A4
 #define CMD_SET_FRAME_SOURCE_BUF_STRIDE 0x1A8
+/* End */
+
+#define RET_SET_FRAME_SUCCESS		0x1C0
+
+// Magellan ENCODER ONLY
+#define CMD_SET_FRAME_SUBSAMP_A		0x188
+#define CMD_SET_FRAME_SUBSAMP_B		0x18C
+
 /*---------------------------------------------------------------------------
  * [ENC HEADER] COMMAND
  *-------------------------------------------------------------------------*/
 #define CMD_ENC_HEADER_CODE		0x180
 #define CMD_ENC_HEADER_BB_START		0x184
 #define CMD_ENC_HEADER_BB_SIZE		0x188
+#define CMD_ENC_HEADER_FRAME_CROP_H	0x18C
+#define CMD_ENC_HEADER_FRAME_CROP_V	0x190
+
+#define RET_ENC_HEADER_SUCCESS		0x1C0
 
 /*----------------------------------------------------------------------------
  * [DEC_PARA_SET] COMMAND
  *---------------------------------------------------------------------------*/
 #define CMD_DEC_PARA_SET_TYPE		0x180
 #define CMD_DEC_PARA_SET_SIZE		0x184
+#define RET_DEC_PARA_SET_SUCCESS	0x1C0
+
+/*----------------------------------------------------------------------------
+ * [DEC_BUF_FLUSH] COMMAND
+ *---------------------------------------------------------------------------*/
+#define RET_DEC_BUF_FLUSH_SUCCESS	0x1C0
 
 /*----------------------------------------------------------------------------
  * [ENC_PARA_SET] COMMAND
  *--------------------------------------------------------------------------*/
 #define CMD_ENC_PARA_SET_TYPE		0x180
-#define RET_ENC_PARA_SET_SIZE		0x1c0
+#define RET_ENC_PARA_SET_SIZE		0x1C0
+#define RET_ENC_PARA_SET_SUCCESS        0x1C4
 
 /*---------------------------------------------------------------------------
  * [FIRMWARE VERSION] COMMAND
  * [32:16] project number =>
  * [16:0]  version => xxxx.xxxx.xxxxxxxx
  *-------------------------------------------------------------------------*/
-#define RET_VER_NUM			0x1c0
+#define RET_VER_NUM			0x1C0
+#define RET_FW_CODE_REV			0x1C4
 
 #if defined(IMX27ADS)
 	#define CODE_BUF_SIZE			(64 * 1024)
@@ -296,34 +377,132 @@
         #define TEMP_BUF_SIZE			(304 * 1024)
         #define PARA_BUF2_SIZE			(2 * 1024)
         #define PARA_BUF_SIZE			(10 * 1024)
+#elif defined(IMX6Q)
+	#define CODE_BUF_SIZE                   (240 * 1024) /* define max is 240k byte currently */
+	#define FMO_SLICE_SAVE_BUF_SIZE         (32)
+	#define TEMP_BUF_SIZE                   (512 * 1024)
+	#define PARA_BUF2_SIZE                  (2 * 1024)
+	#define PARA_BUF_SIZE                   (10 * 1024)
 #else
 #error  you must define PLATFORM properly
 #endif
 
 /*----------------------------------------------------------------------------
- * REGISTER BIT FIELD
  *---------------------------------------------------------------------------*/
-#if defined(IMX51) || defined(IMX53)
-#define BIT_SEL_BE			0
-#define BIT_SEL_64BITS_ENDIAN		1
-#define BIT_BUF_CHECK_DIS		2
-#define BIT_BUF_PIC_FLUSH		3
-#define BIT_BUF_PIC_RESET		4
-#define BIT_ENC_DYN_BUFALLOC_EN		5
-#define BITS_STREAMCTRL_MASK		0x03F
-#else
+#if defined(IMX27)
 #define BIT_SEL_BE			0
 #define BIT_BUF_CHECK_DIS		1
 #define BIT_BUF_PIC_FLUSH		2
 #define BIT_BUF_PIC_RESET		3
 #define BIT_ENC_DYN_BUFALLOC_EN		4
 #define BITS_STREAMCTRL_MASK		0x01F
+#define BIT_PIC_WIDTH_OFFSET            10
+#else
+#define BIT_SEL_BE                      0
+#define BIT_SEL_64BITS_ENDIAN           1
+#define BIT_BUF_CHECK_DIS               2
+#define BIT_BUF_PIC_FLUSH               3
+#define BIT_BUF_PIC_RESET               4
+#define BIT_ENC_DYN_BUFALLOC_EN         5
+#define BITS_STREAMCTRL_MASK            0x03F
+#define BIT_PIC_WIDTH_OFFSET            16
 #endif
 
-#if defined(IMX51) || defined(IMX53)
-#define BIT_PIC_WIDTH_OFFSET		16
-#else
-#define BIT_PIC_WIDTH_OFFSET		10
-#endif
+/*--------------------------------------------------------------------
+NIEUPORT REGISTERS
+--------------------------------------------------------------------*/
+// MBC
+#define MJPEG_PIC_START_REG	 (NPT_BASE + 0x000)	// [0] - pic start
+#define MJPEG_PIC_STATUS_REG	 (NPT_BASE + 0x004)	// [3] - overflow, [2] - bbc interrupt, [1] - error, [0] - done
+#define MJPEG_PIC_ERRMB_REG	 (NPT_BASE + 0x008)	// [27:24] - error restart idx, [23:12] - error MCU pos X, [11:0] - error MCU pos Y
+#define MJPEG_PIC_SETMB_REG	 (NPT_BASE + 0x00C)	// [27:16] - MCU pos X, [11:0] - MCU pos Y
+
+#define MJPEG_PIC_CTRL_REG	 (NPT_BASE + 0x010)	// [6] - user huffman en, [4] - TC direction, [3] - encoder enable, [1:0] - operation mode
+#define MJPEG_PIC_SIZE_REG	 (NPT_BASE + 0x014)
+#define MJPEG_MCU_INFO_REG	 (NPT_BASE + 0x018)
+#define MJPEG_ROT_INFO_REG	 (NPT_BASE + 0x01C)	// [4] - rot-mir enable, [3:0] - rot-mir mode
+
+#define MJPEG_SCL_INFO_REG	 (NPT_BASE + 0x020)
+#define MJPEG_IF_INFO_REG	 (NPT_BASE + 0x024)	// [1] - sensor interface clear, [0] - display interface clear
+#define MJPEG_OP_INFO_REG	 (NPT_BASE + 0x02C)	// [31:16] - # of line in 1 partial buffer, [5:3] - # of partial buffers [2:0] - # of request
+
+#define MJPEG_DPB_CONFIG_REG     (NPT_BASE + 0x030)
+#define MJPEG_DPB_BASE00_REG	 (NPT_BASE + 0x034)
+#define MJPEG_DPB_BASE01_REG	 (NPT_BASE + 0x038)
+#define MJPEG_DPB_BASE02_REG	 (NPT_BASE + 0x03C)
+
+#define MJPEG_DPB_BASE10_REG	 (NPT_BASE + 0x040)
+#define MJPEG_DPB_BASE11_REG	 (NPT_BASE + 0x044)
+#define MJPEG_DPB_BASE12_REG	 (NPT_BASE + 0x048)
+#define MJPEG_DPB_BASE20_REG	 (NPT_BASE + 0x04C)
+
+#define MJPEG_DPB_BASE21_REG	 (NPT_BASE + 0x050)
+#define MJPEG_DPB_BASE22_REG	 (NPT_BASE + 0x054)
+#define MJPEG_DPB_BASE30_REG	 (NPT_BASE + 0x058)
+#define MJPEG_DPB_BASE31_REG	 (NPT_BASE + 0x05C)
+
+#define MJPEG_DPB_BASE32_REG	 (NPT_BASE + 0x060)
+#define MJPEG_DPB_YSTRIDE_REG	 (NPT_BASE + 0x064)
+#define MJPEG_DPB_CSTRIDE_REG	 (NPT_BASE + 0x068)
+
+#define MJPEG_HUFF_CTRL_REG	 (NPT_BASE + 0x080)
+#define MJPEG_HUFF_ADDR_REG	 (NPT_BASE + 0x084)
+#define MJPEG_HUFF_DATA_REG	 (NPT_BASE + 0x088)
+
+#define MJPEG_QMAT_CTRL_REG	 (NPT_BASE + 0x090)
+#define MJPEG_QMAT_ADDR_REG	 (NPT_BASE + 0x094)
+#define MJPEG_QMAT_DATA_REG	 (NPT_BASE + 0x098)
+
+#define MJPEG_COEF_CTRL_REG	 (NPT_BASE + 0x0A0)
+#define MJPEG_COEF_ADDR_REG	 (NPT_BASE + 0x0A4)
+#define MJPEG_COEF_DATA_REG	 (NPT_BASE + 0x0A8)
+
+#define MJPEG_RST_INTVAL_REG	 (NPT_BASE + 0x0B0)
+#define MJPEG_RST_INDEX_REG	 (NPT_BASE + 0x0B4)
+#define MJPEG_RST_COUNT_REG	 (NPT_BASE + 0x0B8)
+
+#define	MJPEG_INTR_MASK_REG	 (NPT_BASE + 0x0C0)
+#define MJPEG_CYCLE_INFO_REG	 (NPT_BASE + 0x0C8)
+
+#define MJPEG_DPCM_DIFF_Y_REG	 (NPT_BASE + 0x0F0)
+#define MJPEG_DPCM_DIFF_CB_REG	 (NPT_BASE + 0x0F4)
+#define MJPEG_DPCM_DIFF_CR_REG	 (NPT_BASE + 0x0F8)
+
+// GBU
+#define MJPEG_GBU_CTRL_REG	 (NPT_BASE + 0x100)
+
+#define MJPEG_GBU_BT_PTR_REG	 (NPT_BASE + 0x110)
+#define MJPEG_GBU_WD_PTR_REG	 (NPT_BASE + 0x114)
+#define MJPEG_GBU_TT_CNT_REG	 (NPT_BASE + 0x118)
+//#define MJPEG_GBU_TT_CNT_REG+4	(NPT_BASE + 0x11C)
+
+#define MJPEG_GBU_BBSR_REG	 (NPT_BASE + 0x140)
+#define MJPEG_GBU_BBER_REG	 (NPT_BASE + 0x144)
+#define MJPEG_GBU_BBIR_REG	 (NPT_BASE + 0x148)
+#define MJPEG_GBU_BBHR_REG	 (NPT_BASE + 0x14C)
+
+#define MJPEG_GBU_BCNT_REG	 (NPT_BASE + 0x158)
+
+#define MJPEG_GBU_FF_RPTR_REG	 (NPT_BASE + 0x160)
+#define MJPEG_GBU_FF_WPTR_REG	 (NPT_BASE + 0x164)
+
+// BBC
+#define MJPEG_BBC_END_ADDR_REG	 (NPT_BASE + 0x208)
+#define MJPEG_BBC_WR_PTR_REG	 (NPT_BASE + 0x20C)
+#define MJPEG_BBC_RD_PTR_REG	 (NPT_BASE + 0x210)
+
+#define MJPEG_BBC_EXT_ADDR_REG	 (NPT_BASE + 0x214)
+#define MJPEG_BBC_INT_ADDR_REG	 (NPT_BASE + 0x218)
+#define MJPEG_BBC_DATA_CNT_REG	 (NPT_BASE + 0x21C)
+#define MJPEG_BBC_COMMAND_REG	 (NPT_BASE + 0x220)
+#define MJPEG_BBC_BUSY_REG	 (NPT_BASE + 0x224)
+
+#define MJPEG_BBC_CTRL_REG	 (NPT_BASE + 0x228)
+#define MJPEG_BBC_CUR_POS_REG	 (NPT_BASE + 0x22C)
+
+#define MJPEG_BBC_BAS_ADDR_REG	 (NPT_BASE + 0x230)
+#define MJPEG_BBC_STRM_CTRL_REG	 (NPT_BASE + 0x234)
+
+#define MJPEG_BBC_FLUSH_CMD_REG	 (NPT_BASE + 0x238)
 
 #endif
