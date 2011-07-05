@@ -34,7 +34,7 @@ typedef Uint32 VirtualAddress;
 #define BUF_PIC_FLUSH			1
 #define BUF_PIC_RESET			0
 
-#define BIT_REG_MARGIN			0x1000
+#define BIT_REG_MARGIN			0x4000
 
 #define PRJ_TRISTAN     		0xF000
 #define PRJ_TRISTAN_REV			0xF001
@@ -48,16 +48,21 @@ typedef Uint32 VirtualAddress;
 #define PRJ_BODADX7X			0xF009
 #define	PRJ_CODAHX_14			0xF00A
 #define PRJ_CODA7541			0xF012
+#define PRJ_CODA_960			0xF020
 
 typedef enum {
 	STD_MPEG4 = 0,
-	STD_H263,
-	STD_AVC,
-	STD_VC1,
-	STD_MPEG2,
-	STD_DIV3,
-	STD_RV,
-	STD_MJPG
+	STD_H263 = 1,
+	STD_AVC = 2,
+	STD_VC1 = 3,
+	STD_MPEG2 = 4,
+	STD_DIV3 =5,
+	STD_RV = 6,
+	STD_MJPG = 7,
+	STD_AVS = 8,
+	// STD_THO = 9,
+	STD_VP6 = 10,
+	STD_VP8 = 11
 } CodStd;
 
 typedef enum {
@@ -78,7 +83,8 @@ typedef enum {
 	RETCODE_DEBLOCKING_OUTPUT_NOT_SET = -14,
 	RETCODE_NOT_SUPPORTED = -15,
 	RETCODE_REPORT_BUF_NOT_SET = -16,
-	RETCODE_FAILURE_TIMEOUT = -17
+	RETCODE_FAILURE_TIMEOUT = -17,
+	RETCODE_MEMORY_ACCESS_VIOLATION = -18
 } RetCode;
 
 typedef enum {
@@ -102,8 +108,9 @@ typedef enum {
 	ENC_GET_VOS_HEADER,
 	ENC_GET_VO_HEADER,
 	ENC_GET_VOL_HEADER,
-	DEC_SET_DEBLOCK_OUTPUT,
+	ENC_GET_JPEG_HEADER,
 	ENC_SET_INTRA_MB_REFRESH_NUMBER,
+	DEC_SET_DEBLOCK_OUTPUT,
 	ENC_ENABLE_HEC,
 	ENC_DISABLE_HEC,
 	ENC_SET_SLICE_INFO,
@@ -118,12 +125,23 @@ typedef enum {
 	DEC_SET_REPORT_MBINFO,
 	DEC_SET_REPORT_MVINFO,
 	DEC_SET_REPORT_USERDATA,
-	SET_DBK_OFFSET
+	SET_DBK_OFFSET,
+
+	SET_MC_CACHE_CONFIG,
+	ENABLE_MC_CACHE,
+	DISABLE_MC_CACHE,
+	SET_WRITE_MEM_PROTECT,
+	SET_JPG_HEADER_BUFFER,
+
+	ENC_SET_SUB_FRAME_SYNC,
+	ENC_ENABLE_SUB_FRAME_SYNC,
+	ENC_DISABLE_SUB_FRAME_SYNC
 } CodecCommand;
 
 typedef struct {
 	Uint32 strideY;
 	Uint32 strideC;
+	int myIndex;
 	PhysicalAddress bufY;
 	PhysicalAddress bufCb;
 	PhysicalAddress bufCr;
@@ -144,11 +162,27 @@ typedef enum {
 	MIRDIR_HOR_VER
 } MirrorDirection;
 
+typedef enum {
+    CHROMA_FORMAT_420,
+    CHROMA_FORMAT_422,
+    CHROMA_FORMAT_224,
+    CHROMA_FORMAT_444,
+    CHROMA_FORMAT_400
+} ChromaFormat;
+
 typedef struct {
 	int DbkOffsetA;
 	int DbkOffsetB;
 	int DbkOffsetEnable;
 } DbkOffset;
+
+/* VP8 specific display information */
+typedef struct {
+    unsigned hScaleFactor : 2;
+    unsigned vScaleFactor : 2;
+    unsigned picWidth     : 14;
+    unsigned picHeight    : 14;
+} Vp8ScaleInfo;
 
 /* Decode struct and definition */
 typedef struct CodecInst DecInst;
@@ -171,6 +205,10 @@ typedef struct {
 	PhysicalAddress psSaveBuffer;
 	int psSaveBufferSize;
 	int mp4Class;
+
+	int vc1AnnexL3MetaDisable;
+	int mapType;
+	int tiled2LinearEnable;
 } DecOpenParam;
 
 typedef struct {
@@ -180,9 +218,17 @@ typedef struct {
 } DecReportBufSize;
 
 typedef struct {
+	Uint8 *pHeader;
+	int headerSize;
+} JpegHeaderBufInfo;
+
+typedef struct {
 	int picWidth;		// {(PicX+15)/16} * 16
 	int picHeight;		// {(PicY+15)/16} * 16
 	Uint32 frameRateInfo;
+	Uint32 frameRateRes;
+	Uint32 frameRateDiv;
+
 	Rect picCropRect;
 
 	int mp4_dataPartitionEnable;
@@ -208,8 +254,17 @@ typedef struct {
 	int aspectRateInfo;
 	Uint32 errorcode;
 
+	int bitRate;
+	Vp8ScaleInfo vp8ScaleInfo;
+	int mjpg_ecsPtr;
+
 	DecReportBufSize reportBufSize;
 } DecInitialInfo;
+
+typedef struct {
+	PhysicalAddress bufferBase;
+	int bufferSize;
+} ExtBufCfg;
 
 typedef struct {
 	int sliceMode;
@@ -229,7 +284,8 @@ typedef struct {
 } DecMaxFrmInfo;
 
 typedef struct {
-	DecAvcSliceBufInfo avcSliceBufInfo;
+	ExtBufCfg avcSliceBufInfo;
+	ExtBufCfg vp8MbDataBufInfo;
 	DecMaxFrmInfo	maxDecFrmInfo;
 } DecBufInfo;
 
@@ -265,6 +321,15 @@ typedef	struct {
 	Uint8 *addr;
 } DecReportInfo;
 
+// VP8 specific header information
+typedef struct {
+    unsigned showFrame     : 1;
+    unsigned versionNumber : 3;
+    unsigned refIdxLast    : 8;
+    unsigned refIdxAltr    : 8;
+    unsigned refIdxGold    : 8;
+} Vp8PicInfo;
+
 typedef struct {
 	int indexFrameDisplay;
 	int indexFrameDecoded;
@@ -296,16 +361,18 @@ typedef struct {
 	int decPicWidth;
 	Rect decPicCrop;
 
+	int aspectRateInfo;
+	Uint32 frameRateRes;
+	Uint32 frameRateDiv;
+	Vp8ScaleInfo vp8ScaleInfo;
+	Vp8PicInfo vp8PicInfo;
+	int mjpg_consumedByte;
+
 	DecReportInfo mbInfo;
 	DecReportInfo mvInfo;
 	DecReportInfo frameBufStat;
 	DecReportInfo userData;
 } DecOutputInfo;
-
-typedef struct {
-	Uint32 *paraSet;
-	int size;
-} DecParamSet;
 
 /* encode struct and definition */
 typedef struct CodecInst EncInst;
@@ -320,6 +387,7 @@ typedef struct {
 } EncMp4Param;
 
 typedef struct {
+	int h263_annexIEnable;
 	int h263_annexJEnable;
 	int h263_annexKEnable;
 	int h263_annexTEnable;
@@ -346,6 +414,12 @@ typedef struct {
 	int mjpg_thumbNailHeight;
 	Uint8 *mjpg_hufTable;
 	Uint8 *mjpg_qMatTable;
+
+	Uint8 huffVal[4][162];
+	Uint8 huffBits[4][256];
+	Uint8 qMatTab[4][64];
+	Uint8 cInfoTab[4][6];
+
 } EncMjpgParam;
 
 typedef struct {
@@ -359,6 +433,7 @@ typedef struct {
 	int bitRate;
 	int initialDelay;
 	int vbvBufferSize;
+	int enableAutoSkip;
 	int gopSize;
 
 	EncSliceMode slicemode;
@@ -389,6 +464,10 @@ typedef struct {
 	int RcIntervalMode;		/* 0:normal, 1:frame_level, 2:slice_level, 3: user defined Mb_level */
 	int MbInterval;			/* use when RcintervalMode is 3 */
 	int avcIntra16x16OnlyModeEnable;
+
+	int MESearchRange;      // 3: 16x16, 2:32x16, 1:64x32, 0:128x64, H.263(Short Header : always 3)
+	int MEUseZeroPmv;       // 0: PMV_ENABLE, 1: PMV_DISABLE
+	int IntraCostWeight;    // Additional weight of Intra Cost for mode decision to reduce Intra MB density
 } EncOpenParam;
 
 typedef struct {
@@ -439,6 +518,7 @@ typedef struct {
 
 typedef struct {
 	Uint32 *paraSet;
+	Uint8 *pParaSet;
 	int size;
 } EncParamSet;
 
@@ -498,6 +578,8 @@ typedef struct vpu_versioninfo {
 
 /*
  * Revision History:
+ * v5.3.0 [2011.07.30] Add mx6q vpu support
+ * v5.2.0 [2011.07.04] Upgrading mx5x f/w to infinite instances support
  * v5.1.5 [2011.06.16] Remove code for not mx5x platforms
  * v5.0.1 [2010.03.03] Integrate mx53 vpu
  * v4.7.1 [2009.09.18] remove share memory file and update SWReset function
@@ -506,7 +588,7 @@ typedef struct vpu_versioninfo {
  * v4.2.2 [2008.09.03] support encoder on MX51
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 2, 0)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 3, 0)
 
 extern unsigned int system_rev;
 
@@ -529,6 +611,7 @@ static inline int type## _rev (int rev)         \
 #define cpu_is_mx51()		mxc_is_cpu(0x51)
 #define cpu_is_mx53()		mxc_is_cpu(0x53)
 #define cpu_is_mx5x()		(mxc_is_cpu(0x51) || mxc_is_cpu(0x53))
+#define cpu_is_mx6q()		mxc_is_cpu(0x63)
 
 MXC_REV(cpu_is_mx27);
 
@@ -540,7 +623,8 @@ RetCode vpu_EncOpen(EncHandle *, EncOpenParam *);
 RetCode vpu_EncClose(EncHandle);
 RetCode vpu_EncGetInitialInfo(EncHandle, EncInitialInfo *);
 RetCode vpu_EncRegisterFrameBuffer(EncHandle handle, FrameBuffer * bufArray,
-				   int num, int frameBufStride, int sourceBufStride);
+				   int num, int frameBufStride, int sourceBufStride,
+				    PhysicalAddress subSampBaseA, PhysicalAddress subSampBaseB);
 RetCode vpu_EncGetBitstreamBuffer(EncHandle handle, PhysicalAddress * prdPrt,
 				  PhysicalAddress * pwrPtr, Uint32 * size);
 RetCode vpu_EncUpdateBitstreamBuffer(EncHandle handle, Uint32 size);
@@ -565,6 +649,7 @@ RetCode vpu_DecClrDispFlag(DecHandle handle, int index);
 RetCode vpu_DecGiveCommand(DecHandle handle, CodecCommand cmd, void *parameter);
 
 int vpu_IsBusy(void);
+int jpu_IsBusy(void);
 int vpu_WaitForInt(int timeout_in_ms);
 RetCode vpu_SWReset(DecHandle handle, int index);
 
