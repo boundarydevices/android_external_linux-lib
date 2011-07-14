@@ -26,7 +26,6 @@
 #include "vpu_util.h"
 #include "vpu_io.h"
 #include "vpu_debug.h"
-#include "sw_gbu.h"
 
 #define MAX_VSIZE       8192
 #define MAX_HSIZE       8192

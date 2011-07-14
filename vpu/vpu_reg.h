@@ -380,7 +380,7 @@
 #elif defined(IMX6Q)
 	#define CODE_BUF_SIZE                   (240 * 1024) /* define max is 240k byte currently */
 	#define FMO_SLICE_SAVE_BUF_SIZE         (32)
-	#define TEMP_BUF_SIZE                   (512 * 1024)
+	#define TEMP_BUF_SIZE                   (512 * 1024) + (FMO_SLICE_SAVE_BUF_SIZE * 1024 * 8)
 	#define PARA_BUF2_SIZE                  (2 * 1024)
 	#define PARA_BUF_SIZE                   (10 * 1024)
 #else
