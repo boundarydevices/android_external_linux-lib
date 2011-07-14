@@ -27,22 +27,8 @@
 #ifndef AVCODEC_GET_BITS_H
 #define AVCODEC_GET_BITS_H
 
-typedef unsigned char uint8_t;
-//typedef char int8_t;
-typedef unsigned int uint32_t;
-typedef int int32_t;
-typedef unsigned short uint16_t;
-typedef short int16_t;
-#if defined(_MSC_VER)
-typedef unsigned _int64 uint64_t;
-typedef _int64 int64_t;
-#else
-typedef unsigned long long uint64_t;
-typedef long long int64_t;
-#endif
-typedef unsigned char BYTE;
-
 #include <stdlib.h>
+#include <stdint.h>
 
 #if defined(_MSC_VER)
 #	define inline _inline
@@ -72,19 +58,16 @@ static inline const int sign_extend(int val, unsigned bits)
 }
 #endif
 
-#if defined(ALT_BITSTREAM_READER_LE) && !defined(ALT_BITSTREAM_READER)
-#   define ALT_BITSTREAM_READER
-#endif
-
-#if !defined(LIBMPEG2_BITSTREAM_READER) && !defined(A32_BITSTREAM_READER) && !defined(ALT_BITSTREAM_READER)
-#   if ARCH_ARM && !HAVE_FAST_UNALIGNED
-#       define A32_BITSTREAM_READER
-#   else
-#       define ALT_BITSTREAM_READER
-#   endif
-#endif
-
+#define ALT_BITSTREAM_READER
 #define VLC_TYPE int16_t
+
+/* bit input */
+/* buffer, buffer_end and size_in_bits must be present and used by every reader */
+typedef struct {
+    const Uint8 *buffer, *buffer_end;
+    int index;
+    int size_in_bits;
+} GetBitContext;
 
 typedef struct VLC {
 	int bits;
