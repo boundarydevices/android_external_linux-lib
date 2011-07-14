@@ -848,7 +848,7 @@ RetCode SetHecMode(EncHandle handle, int mode)
 void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 {
 	iram_t iram;
-	int size, dbk_size, bitram_size, ipacdc_size, ovl_size;
+	int size, dbk_size, bitram_size, ipacdc_size, ovl_size, btp_size;
 
 	if (!parm->width) {
 		err_msg("Width is zero when calling SetDecSecondAXIIRAM function\n");
@@ -890,11 +890,21 @@ void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 	} else
 		goto out;
 
-	ovl_size = (80 * parm->width / 16 + 1023) & ~1023;
-	if ((parm->codecMode == VC1_DEC) && (size >= ovl_size)) {
-		psecAxiIramInfo->useHostOvlEnable = 1;
-		psecAxiIramInfo->bufOvlUse = psecAxiIramInfo->bufIpAcDcUse + ipacdc_size;
-		size -= ovl_size;
+	ovl_size = (160 * parm->width / 16 + 1023) & ~1023;
+	if (parm->codecMode == VC1_DEC) {
+		if (size >= ovl_size) {
+			psecAxiIramInfo->useHostOvlEnable = 1;
+			psecAxiIramInfo->bufOvlUse = psecAxiIramInfo->bufIpAcDcUse + ipacdc_size;
+			size -= ovl_size;
+		}
+		if (cpu_is_mx6q()) {
+			btp_size = (160 * parm->width / 16 + 1023) & ~1023;
+			if (size >= btp_size) {
+				psecAxiIramInfo->useHostBtpEnable = 1;
+				psecAxiIramInfo->bufBtpUse = psecAxiIramInfo->bufOvlUse + ovl_size;
+				size -= btp_size;
+			}
+		}
 	}
 out:
 	/* i.MX51 has no secondary AXI memory, but use on chip RAM
@@ -902,12 +912,13 @@ out:
 	   Set the useXXXX as 0 at the same time to use IRAM,
 	   i.MX53 uses secondary AXI for IRAM access, also needs to
 	   set the useXXXX. */
-	if (cpu_is_mx53()) {
-		/* i.MX53 uses secondary AXI for IRAM access */
-		psecAxiIramInfo->useBitEnable = psecAxiIramInfo->useHostDbkEnable;
-		psecAxiIramInfo->useIpEnable = psecAxiIramInfo->useHostBitEnable;
-		psecAxiIramInfo->useDbkEnable = psecAxiIramInfo->useHostIpEnable;
+	if (cpu_is_mx53() || cpu_is_mx6q()) {
+		/* i.MX53/i.MX6Q uses secondary AXI for IRAM access */
+		psecAxiIramInfo->useBitEnable = psecAxiIramInfo->useHostBitEnable;
+		psecAxiIramInfo->useIpEnable = psecAxiIramInfo->useHostIpEnable;
+		psecAxiIramInfo->useDbkEnable = psecAxiIramInfo->useHostDbkEnable;
 		psecAxiIramInfo->useOvlEnable = psecAxiIramInfo->useHostOvlEnable;
+		psecAxiIramInfo->useBtpEnable = psecAxiIramInfo->useHostBtpEnable;
 	}
 
 	if (((parm->codecMode == VC1_DEC) && !psecAxiIramInfo->useHostOvlEnable) ||
@@ -930,6 +941,12 @@ void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 	IOGetIramBase(&iram);
 	size = iram.end - iram.start + 1;
 
+	if (cpu_is_mx6q()) {
+		psecAxiIramInfo->searchRamSize = 0;
+		psecAxiIramInfo->searchRamAddr = 0;
+		goto set_dbk;
+	}
+
 	/* Setting internal iram usage per priority when iram isn't enough */
 	psecAxiIramInfo->searchRamSize = (parm->width * 36 + 2048 + 1023) & ~1023;
 	if (size >= psecAxiIramInfo->searchRamSize) {
@@ -941,6 +958,7 @@ void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 		goto out;
 	}
 
+set_dbk:
 	/* Only H.264BP and H.263P3 are considered */
 	dbk_size = (128 * parm->width / 16 + 1023) & ~1023;
 	if (size >= dbk_size) {
@@ -967,14 +985,15 @@ void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 	}
 
 	psecAxiIramInfo->useHostOvlEnable = 0; /* no need to enable ovl in encoder */
+	psecAxiIramInfo->useBtpEnable = 0;
 
 out:
 	/* i.MX51 has no secondary AXI memory, but use on chip RAM
 	   Set the useHoseXXX as 1 to enable corresponding IRAM
 	   Set the useXXXX as 0 at the same time to use IRAM,
-	   i.MX53 uses secondary AXI for IRAM access, also needs to set
+	   i.MX53/i.MX6Q uses secondary AXI for IRAM access, also needs to set
 	   useXXXX. */
-	if (cpu_is_mx53()) {
+	if (cpu_is_mx53() || cpu_is_mx6q()) {
 		/* i.MX53 uses secondary AXI for IRAM access */
 		psecAxiIramInfo->useBitEnable = psecAxiIramInfo->useHostBitEnable;
 		psecAxiIramInfo->useIpEnable = psecAxiIramInfo->useHostIpEnable;
@@ -984,6 +1003,46 @@ out:
 
 	if (!psecAxiIramInfo->useHostIpEnable)
 		warn_msg("VPU iram is less than needed, some parts don't use iram\n");
+}
+
+void SetMaverickCache(MaverickCacheConfig *pCacheConf, int mapType, int chromInterleave)
+{
+	if (mapType == LINEAR_FRAME_MAP) {
+		/* Set luma */
+		pCacheConf->luma.cfg.PageSizeX = 2;
+		pCacheConf->luma.cfg.PageSizeY = 0;
+		pCacheConf->luma.cfg.CacheSizeX = 2;
+		pCacheConf->luma.cfg.CacheSizeY = 6;
+		/* Set chroma */
+		pCacheConf->chroma.cfg.PageSizeX = 2;
+		pCacheConf->chroma.cfg.PageSizeY = 0;
+		pCacheConf->chroma.cfg.CacheSizeX = 2;
+		pCacheConf->chroma.cfg.CacheSizeY = 4;
+		pCacheConf->PageMerge = 2;
+	} else {
+		/* Set luma */
+		pCacheConf->luma.cfg.PageSizeX = 0;
+		pCacheConf->luma.cfg.PageSizeY = 2;
+		pCacheConf->luma.cfg.CacheSizeX = 4;
+		pCacheConf->luma.cfg.CacheSizeY = 4;
+		/* Set chroma */
+		pCacheConf->chroma.cfg.PageSizeX = 0;
+		pCacheConf->chroma.cfg.PageSizeY = 2;
+		pCacheConf->chroma.cfg.CacheSizeX = 4;
+		pCacheConf->chroma.cfg.CacheSizeY = 3;
+		pCacheConf->PageMerge = 1;
+	}
+
+	pCacheConf->Bypass = 0; /* cache enable */
+	pCacheConf->DualConf = 0;
+	pCacheConf->LumaBufferSize = 32;
+	if (chromInterleave) {
+		pCacheConf->CbBufferSize = 0;
+		pCacheConf->CrBufferSize = 0x10;
+	} else {
+		pCacheConf->CbBufferSize = 8;
+		pCacheConf->CrBufferSize = 8;
+	}
 }
 
 semaphore_t *vpu_semaphore_open(void)
