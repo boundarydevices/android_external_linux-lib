@@ -154,12 +154,22 @@ enum {
 	SOF_Marker      = 0xFFC0,           // Start of frame : Baseline DCT
 	SOS_Marker      = 0xFFDA,           // Start of scan
 };
+
+enum {
+	LINEAR_FRAME_MAP  = 0,
+	TILED_FRAME_V_MAP = 1,
+	TILED_FRAME_H_MAP = 2,
+	TILED_FIELD_V_MAP = 3,
+	TILED_MIXED_V_MAP = 4,
+	TILED_FRAME_MB_RASTER_MAP = 5,
+	TILED_FIELD_MB_RASTER_MAP = 6,
+	TILED_MAP_TYPE_MAX
+};
+
 typedef struct {
 	int useBitEnable;
 	int useIpEnable;
 	int useDbkEnable;
-	int useDbkYEnable;
-	int useDbkCEnable;
 	int useOvlEnable;
 	int useBtpEnable;
 	int useMeEnable;
@@ -167,8 +177,6 @@ typedef struct {
 	int useHostBitEnable;
 	int useHostIpEnable;
 	int useHostDbkEnable;
-	int useHostDbkYEnable;
-	int useHostDbkCEnable;
 	int useHostBtpEnable;
 	int useHostOvlEnable;
 	int useHostMeEnable;
@@ -186,12 +194,11 @@ typedef struct {
 } SecAxiUse;
 
 typedef struct CacheSizeCfg {
-    unsigned BufferSize : 8;
     unsigned PageSizeX  : 4;
     unsigned PageSizeY  : 4;
     unsigned CacheSizeX : 4;
     unsigned CacheSizeY : 4;
-    unsigned Reserved   : 8;
+    unsigned Reserved   : 16;
 } CacheSizeCfg;
 
 typedef struct {
@@ -206,6 +213,9 @@ typedef struct {
     unsigned Bypass : 1;
     unsigned DualConf : 1;
     unsigned PageMerge : 2;
+    unsigned LumaBufferSize: 8;
+    unsigned CbBufferSize: 8;
+    unsigned CrBufferSize: 8;
 } MaverickCacheConfig;
 
 typedef struct {
@@ -445,6 +455,7 @@ RetCode SetHecMode(EncHandle handle, int mode);
 
 void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm);
 void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm);
+void SetMaverickCache(MaverickCacheConfig *pCacheConf, int mapType, int chromInterleave);
 
 semaphore_t *vpu_semaphore_open(void);
 void semaphore_post(semaphore_t *semap, int mutex);
