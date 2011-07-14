@@ -27,6 +27,7 @@
 /*---------------------------------------------------------------------------
  * HARDWARE REGISTER
  *-------------------------------------------------------------------------*/
+#define GDMA_BASE	0x1000
 #define NPT_BASE        0x3000
 
 #define BIT_CODE_RUN			0x000
@@ -407,6 +408,85 @@
 #define BITS_STREAMCTRL_MASK            0x03F
 #define BIT_PIC_WIDTH_OFFSET            16
 #endif
+
+#define GDI_PRI_RD_PRIO_L           (GDMA_BASE + 0x000)
+#define GDI_PRI_RD_PRIO_H           (GDMA_BASE + 0x004)
+#define GDI_PRI_WR_PRIO_L           (GDMA_BASE + 0x008)
+#define GDI_PRI_WR_PRIO_H           (GDMA_BASE + 0x00c)
+#define GDI_PRI_RD_LOCK_CNT         (GDMA_BASE + 0x010)
+#define GDI_PRI_WR_LOCK_CNT         (GDMA_BASE + 0x014)
+#define GDI_SEC_RD_PRIO_L           (GDMA_BASE + 0x018)
+#define GDI_SEC_RD_PRIO_H           (GDMA_BASE + 0x01c)
+#define GDI_SEC_WR_PRIO_L           (GDMA_BASE + 0x020)
+#define GDI_SEC_WR_PRIO_H           (GDMA_BASE + 0x024)
+#define GDI_SEC_RD_LOCK_CNT         (GDMA_BASE + 0x028)
+#define GDI_SEC_WR_LOCK_CNT         (GDMA_BASE + 0x02c)
+#define GDI_SEC_CLIENT_EN           (GDMA_BASE + 0x030)
+#define GDI_CONTROL                 (GDMA_BASE + 0x034)
+#define GDI_PIC_INIT_HOST           (GDMA_BASE + 0x038)
+
+#define GDI_PINFO_REQ               (GDMA_BASE + 0x060)
+#define GDI_PINFO_ACK               (GDMA_BASE + 0x064)
+#define GDI_PINFO_ADDR              (GDMA_BASE + 0x068)
+#define GDI_PINFO_DATA              (GDMA_BASE + 0x06c)
+#define GDI_BWB_ENABLE              (GDMA_BASE + 0x070)
+#define GDI_BWB_SIZE                (GDMA_BASE + 0x074)
+#define GDI_BWB_STD_STRUCT          (GDMA_BASE + 0x078)
+#define GDI_BWB_STATUS              (GDMA_BASE + 0x07c)
+
+#define GDI_STATUS                  (GDMA_BASE + 0x080)
+
+#define GDI_DEBUG_0                 (GDMA_BASE + 0x084)
+#define GDI_DEBUG_1                 (GDMA_BASE + 0x088)
+#define GDI_DEBUG_2                 (GDMA_BASE + 0x08c)
+#define GDI_DEBUG_3                 (GDMA_BASE + 0x090)
+#define GDI_DEBUG_PROBE_ADDR        (GDMA_BASE + 0x094)
+#define GDI_DEBUG_PROBE_DATA        (GDMA_BASE + 0x098)
+
+// write protect
+#define GDI_WPROT_ERR_CLR	    (GDMA_BASE + 0x0A0)
+#define GDI_WPROT_ERR_RSN	    (GDMA_BASE + 0x0A4)
+#define GDI_WPROT_ERR_ADR	    (GDMA_BASE + 0x0A8)
+#define GDI_WPROT_RGN_EN	    (GDMA_BASE + 0x0AC)
+#define GDI_WPROT_RGN0_STA	    (GDMA_BASE + 0x0B0)
+#define GDI_WPROT_RGN0_END	    (GDMA_BASE + 0x0B4)
+#define GDI_WPROT_RGN1_STA	    (GDMA_BASE + 0x0B8)
+#define GDI_WPROT_RGN1_END	    (GDMA_BASE + 0x0BC)
+#define GDI_WPROT_RGN2_STA	    (GDMA_BASE + 0x0C0)
+#define GDI_WPROT_RGN2_END	    (GDMA_BASE + 0x0C4)
+#define GDI_WPROT_RGN3_STA	    (GDMA_BASE + 0x0C8)
+#define GDI_WPROT_RGN3_END	    (GDMA_BASE + 0x0CC)
+#define GDI_WPROT_RGN4_STA	    (GDMA_BASE + 0x0D0)
+#define GDI_WPROT_RGN4_END	    (GDMA_BASE + 0x0D4)
+#define GDI_WPROT_RGN5_STA	    (GDMA_BASE + 0x0D8)
+#define GDI_WPROT_RGN5_END	    (GDMA_BASE + 0x0DC)
+
+#define GDI_BUS_CTRL                (GDMA_BASE + 0x0f0)
+#define GDI_BUS_STATUS              (GDMA_BASE + 0x0f4)
+
+#define GDI_DCU_PIC_SIZE            (GDMA_BASE + 0x0a8)
+
+#define GDI_SIZE_ERR_FLAG           (GDMA_BASE + 0x0e0)
+#define GDI_INFO_CONTROL            (GDMA_BASE + 0x400)
+#define GDI_INFO_PIC_SIZE           (GDMA_BASE + 0x404)
+#define GDI_INFO_BASE_Y             (GDMA_BASE + 0x408)
+#define GDI_INFO_BASE_CB            (GDMA_BASE + 0x40c)
+#define GDI_INFO_BASE_CR            (GDMA_BASE + 0x410)
+
+#define GDI_XY2_CAS_0               (GDMA_BASE + 0x800)
+#define GDI_XY2_CAS_F               (GDMA_BASE + 0x83c)
+
+#define GDI_XY2_BA_0                (GDMA_BASE + 0x840)
+#define GDI_XY2_BA_1                (GDMA_BASE + 0x844)
+#define GDI_XY2_BA_2                (GDMA_BASE + 0x848)
+#define GDI_XY2_BA_3                (GDMA_BASE + 0x84c)
+
+#define GDI_XY2_RAS_0               (GDMA_BASE + 0x850)
+#define GDI_XY2_RAS_F               (GDMA_BASE + 0x88c)
+
+#define GDI_XY2_RBC_CONFIG          (GDMA_BASE + 0x890)
+#define GDI_RBC2_AXI_0              (GDMA_BASE + 0x8a0)
+#define GDI_RBC2_AXI_1F             (GDMA_BASE + 0x91c)
 
 /*--------------------------------------------------------------------
 NIEUPORT REGISTERS
