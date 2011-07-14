@@ -23,7 +23,7 @@
 #include "vpu_reg.h"
 #include "vpu_lib.h"
 #include "vpu_io.h"
-//#include "sw_gbu.h"
+#include "sw_gbu.h"
 
 #define MAX_FW_BINARY_LEN		200 * 1024
 #define MAX_NUM_INSTANCE		8
@@ -298,16 +298,8 @@ typedef struct {
 
 } EncInfo;
 
-/* bit input */
-/* buffer, buffer_end and size_in_bits must be present and used by every reader */
 typedef struct {
-    const Uint8 *buffer, *buffer_end;
-    int index;
-    int size_in_bits;
-} GetBitContext;
-
-typedef struct {
-    // for Nieuport
+    /* for Nieuport */
     int picWidth;
     int picHeight;
     int alignedWidth;
