@@ -139,9 +139,12 @@ RetCode vpu_Init(void *cb)
 		}
 
 		IOClkGateSet(true);
-		VpuWriteReg(BIT_TEMP_BUF_ADDR, tempBuffer);
 		VpuWriteReg(BIT_PARA_BUF_ADDR, paraBuffer);
 		VpuWriteReg(BIT_CODE_BUF_ADDR, codeBuffer);
+		if (cpu_is_mx6q())
+			VpuWriteReg(BIT_WORK_BUF_ADDR, tempBuffer);
+		else
+			VpuWriteReg(BIT_TEMP_BUF_ADDR, tempBuffer);
 
 		if (cpu_is_mx27())
 			VpuWriteReg(BIT_RESET_CTRL, 0);
@@ -1058,9 +1061,9 @@ RetCode vpu_EncRegisterFrameBuffer(EncHandle handle, FrameBuffer * bufArray,
 		      (pEncInfo->cacheConfig.DualConf << 2) |
 		      (pEncInfo->cacheConfig.PageMerge << 0);
 		val = val << 24;
-		val |= (pEncInfo->cacheConfig.luma.cfg.BufferSize << 16) |
-		       (pEncInfo->cacheConfig.chroma.cfg.BufferSize << 8) |
-		       (pEncInfo->cacheConfig.chroma.cfg.BufferSize << 8);
+		val |= (pEncInfo->cacheConfig.LumaBufferSize << 16) |
+		       (pEncInfo->cacheConfig.CbBufferSize << 8) |
+		       (pEncInfo->cacheConfig.CrBufferSize);
 		VpuWriteReg(CMD_SET_FRAME_CACHE_CONFIG, val);
 
 	}
@@ -1463,14 +1466,14 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 	if (cpu_is_mx6q()) {
 		val = (pEncInfo->secAxiUse.useBitEnable |
 		       pEncInfo->secAxiUse.useIpEnable << 1 |
-		       pEncInfo->secAxiUse.useDbkYEnable << 2 |
-		       pEncInfo->secAxiUse.useDbkCEnable << 3 |
+		       pEncInfo->secAxiUse.useDbkEnable << 2 |
+		       pEncInfo->secAxiUse.useDbkEnable << 3 |
 		       pEncInfo->secAxiUse.useOvlEnable << 4 |
 		       pEncInfo->secAxiUse.useBtpEnable << 5 |
 		       pEncInfo->secAxiUse.useHostBitEnable << 8 |
 		       pEncInfo->secAxiUse.useHostIpEnable << 9 |
-		       pEncInfo->secAxiUse.useHostDbkYEnable << 10 |
-		       pEncInfo->secAxiUse.useHostDbkCEnable << 11 |
+		       pEncInfo->secAxiUse.useHostDbkEnable << 10 |
+		       pEncInfo->secAxiUse.useHostDbkEnable << 11 |
 		       pEncInfo->secAxiUse.useHostOvlEnable << 12 |
 		       pEncInfo->secAxiUse.useHostBtpEnable << 13);
 	} else {
@@ -1781,33 +1784,6 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 			}
 
 			pEncInfo->rotationAngle = angle;
-			break;
-		}
-
-	 case SET_MC_CACHE_CONFIG:
-		{
-			MaverickCacheConfig *mcCacheConfig;
-
-			if (param == 0)
-				return RETCODE_INVALID_PARAM;
-			mcCacheConfig = (MaverickCacheConfig *)param;
-			pEncInfo->cacheConfig.luma.word = mcCacheConfig->luma.word;
-			pEncInfo->cacheConfig.chroma.word = mcCacheConfig->chroma.word;
-			pEncInfo->cacheConfig.Bypass = mcCacheConfig->Bypass;
-			pEncInfo->cacheConfig.DualConf = mcCacheConfig->DualConf;
-			pEncInfo->cacheConfig.PageMerge = mcCacheConfig->PageMerge;
-			break;
-		}
-
-	case ENABLE_MC_CACHE:
-		{
-			pEncInfo->cacheConfig.Bypass = 0;
-			break;
-		}
-
-	case DISABLE_MC_CACHE:
-		{
-			pEncInfo->cacheConfig.Bypass = 1;
 			break;
 		}
 
@@ -2806,6 +2782,11 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		SetDecSecondAXIIRAM(&pDecInfo->secAxiUse, &iramParam);
 	}
 
+	/* Enable 2-D cache */
+	if (cpu_is_mx6q())
+		SetMaverickCache(&pDecInfo->cacheConfig, pDecInfo->mapType,
+			    pDecInfo->openParam.chromaInterleave);
+
 	return RETCODE_SUCCESS;
 }
 
@@ -2934,13 +2915,14 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 		      (pDecInfo->cacheConfig.chroma.cfg.CacheSizeX << 4) |
 		      (pDecInfo->cacheConfig.chroma.cfg.CacheSizeY << 0);
 		VpuWriteReg(CMD_SET_FRAME_CACHE_SIZE, val);
+
 		val = (pDecInfo->cacheConfig.Bypass << 4) |
 		      (pDecInfo->cacheConfig.DualConf << 2) |
 		      (pDecInfo->cacheConfig.PageMerge << 0);
 		val = val << 24;
-		val |= (pDecInfo->cacheConfig.luma.cfg.BufferSize << 16) |
-		       (pDecInfo->cacheConfig.chroma.cfg.BufferSize << 8) |
-		       (pDecInfo->cacheConfig.chroma.cfg.BufferSize << 0);
+		val |= (pDecInfo->cacheConfig.LumaBufferSize << 16) |
+		       (pDecInfo->cacheConfig.CbBufferSize << 8) |
+		       (pDecInfo->cacheConfig.CrBufferSize);
 		VpuWriteReg(CMD_SET_FRAME_CACHE_CONFIG, val);
 	}
 
@@ -2962,7 +2944,8 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 			     1024));
 	}
 
-	VpuWriteReg(CMD_SET_FRAME_MAX_DEC_SIZE,
+	if (!cpu_is_mx6q())
+		VpuWriteReg(CMD_SET_FRAME_MAX_DEC_SIZE,
 		     (pBufInfo->maxDecFrmInfo.maxMbNum << 16 |
 		      pBufInfo->maxDecFrmInfo.maxMbX << 8 |
 		      pBufInfo->maxDecFrmInfo.maxMbY));
@@ -3446,14 +3429,14 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 	if (cpu_is_mx6q()) {
 		val = (pDecInfo->secAxiUse.useBitEnable |
 		       pDecInfo->secAxiUse.useIpEnable << 1 |
-		       pDecInfo->secAxiUse.useDbkYEnable << 2 |
-		       pDecInfo->secAxiUse.useDbkCEnable << 3 |
+		       pDecInfo->secAxiUse.useDbkEnable << 2 |
+		       pDecInfo->secAxiUse.useDbkEnable << 3 |
 		       pDecInfo->secAxiUse.useOvlEnable << 4 |
 		       pDecInfo->secAxiUse.useBtpEnable << 5 |
 		       pDecInfo->secAxiUse.useHostBitEnable << 8 |
 		       pDecInfo->secAxiUse.useHostIpEnable << 9 |
-		       pDecInfo->secAxiUse.useHostDbkYEnable << 10 |
-		       pDecInfo->secAxiUse.useHostDbkCEnable << 11 |
+		       pDecInfo->secAxiUse.useHostDbkEnable << 10 |
+		       pDecInfo->secAxiUse.useHostDbkEnable << 11 |
 		       pDecInfo->secAxiUse.useHostOvlEnable << 12 |
 		       pDecInfo->secAxiUse.useHostBtpEnable << 13 );
 	} else {
