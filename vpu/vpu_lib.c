@@ -433,6 +433,7 @@ RetCode vpu_EncOpen(EncHandle * pHandle, EncOpenParam * pop)
 	}
 	pEncInfo->openParam = *pop;
 
+	pCodecInst->codecModeAux = 0;
 	if ((pop->bitstreamFormat == STD_MPEG4) ||
 	    (pop->bitstreamFormat == STD_H263))
 		pCodecInst->codecMode = MP4_ENC;
@@ -821,8 +822,9 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 	}
 
 	if (pEncOP->bitRate) {	/* rate control enabled */
-		data = (!pEncInfo->openParam.enableAutoSkip) << 31 |
-			pEncOP->initialDelay << 16 | pEncOP->bitRate << 1 | 1;
+		data = pEncOP->initialDelay << 16 | pEncOP->bitRate << 1 | 1;
+		if (cpu_is_mx6q())
+			data |= (!pEncInfo->openParam.enableAutoSkip) << 31;
 		VpuWriteReg(CMD_ENC_SEQ_RC_PARA, data);
 	} else {
 		VpuWriteReg(CMD_ENC_SEQ_RC_PARA, 0);
@@ -839,13 +841,14 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 		data |= (pEncOP->sliceReport << 1) | pEncOP->mbReport;
 		data |= (pEncOP->mbQpReport << 3);
 	}
-	if (pEncOP->rcIntraQp >= 0) {
+	if (pEncOP->rcIntraQp >= 0)
 		data |= (1 << 5);
-		VpuWriteReg(CMD_ENC_SEQ_INTRA_QP, pEncOP->rcIntraQp);
-	}
+	VpuWriteReg(CMD_ENC_SEQ_INTRA_QP, pEncOP->rcIntraQp);
+
 	if (pCodecInst->codecMode == AVC_ENC) {
 		data |= (pEncOP->EncStdParam.avcParam.avc_audEnable << 2);
-		data |= (pEncOP->EncStdParam.avcParam.avc_fmoEnable << 4);
+		if (!cpu_is_mx6q())
+			data |= (pEncOP->EncStdParam.avcParam.avc_fmoEnable << 4);
 	}
 
 	if (cpu_is_mx6q()) {
@@ -875,7 +878,7 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 		}
 	}
 
-	if (pCodecInst->codecMode == AVC_ENC) {
+	if (!cpu_is_mx6q() && pCodecInst->codecMode == AVC_ENC) {
 		if (pEncOP->avcIntra16x16OnlyModeEnable)
 			data |= (1 << 9);
 	}
@@ -1065,7 +1068,6 @@ RetCode vpu_EncRegisterFrameBuffer(EncHandle handle, FrameBuffer * bufArray,
 		       (pEncInfo->cacheConfig.CbBufferSize << 8) |
 		       (pEncInfo->cacheConfig.CrBufferSize);
 		VpuWriteReg(CMD_SET_FRAME_CACHE_CONFIG, val);
-
 	}
 
 	if (!cpu_is_mx27()) {
@@ -1400,7 +1402,6 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 			    (pEncInfo->encReportMVInfo.enable << 4) |
 			    (pEncInfo->encReportMBInfo.enable << 3) | 1);
 	} else {
-
 		if (cpu_is_mx6q()) {
 			VpuWriteReg(CMD_ENC_PIC_SRC_INDEX, pSrcFrame->myIndex);
 			VpuWriteReg(CMD_ENC_PIC_SRC_STRIDE, pSrcFrame->strideY);
@@ -1412,12 +1413,13 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 		VpuWriteReg(CMD_ENC_PIC_SRC_ADDR_CR, pSrcFrame->bufCr +
 			    param->encTopOffset/2 * pSrcFrame->strideC + param->encLeftOffset/2);
 
-		VpuWriteReg(CMD_ENC_PIC_OPTION,
-			    (pEncInfo->encReportSliceInfo.enable << 5) |
-			    (pEncInfo->encReportMVInfo.enable << 4) |
-			    (pEncInfo->encReportMBInfo.enable << 3) |
-			    ((!param->enableAutoSkip) << 2) |
-			    (param->forceIPicture << 1 & 0x2));
+		val = (pEncInfo->encReportSliceInfo.enable << 5) |
+		      (pEncInfo->encReportMVInfo.enable << 4) |
+		      (pEncInfo->encReportMBInfo.enable << 3) |
+		      (param->forceIPicture << 1 & 0x2);
+		if (!cpu_is_mx6q())
+			val |= (!param->enableAutoSkip) << 2;
+		VpuWriteReg(CMD_ENC_PIC_OPTION, val);
 	}
 
 	if (pEncInfo->dynamicAllocEnable == 1) {
