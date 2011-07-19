@@ -277,7 +277,7 @@
 #if defined(IMX6Q)
 #define CMD_ENC_PIC_SRC_ADDR_Y          0x1A8
 #define CMD_ENC_PIC_SRC_ADDR_CB         0x1AC
-#define CMD_ENC_PIC_SRC_ADDR_CR         0x1A4
+#define CMD_ENC_PIC_SRC_ADDR_CR         0x1B0
 #else
 #define CMD_ENC_PIC_SRC_ADDR_Y          0x180
 #define CMD_ENC_PIC_SRC_ADDR_CB         0x184
