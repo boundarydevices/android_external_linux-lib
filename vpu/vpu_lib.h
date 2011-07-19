@@ -60,9 +60,7 @@ typedef enum {
 	STD_RV = 6,
 	STD_MJPG = 7,
 	STD_AVS = 8,
-	// STD_THO = 9,
-	STD_VP6 = 10,
-	STD_VP8 = 11
+	STD_VP8 = 9
 } CodStd;
 
 typedef enum {
@@ -404,6 +402,11 @@ typedef struct {
 	int avc_fmoSliceNum;
 	int avc_fmoType;
 	int avc_fmoSliceSaveBufSize;
+	int avc_frameCroppingFlag;
+	int avc_frameCropLeft;
+	int avc_frameCropRight;
+	int avc_frameCropTop;
+	int avc_frameCropBottom;
 } EncAvcParam;
 
 typedef struct {
