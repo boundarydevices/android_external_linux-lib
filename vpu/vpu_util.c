@@ -447,6 +447,19 @@ RetCode CheckEncOpenParam(EncOpenParam * pop)
 		    param->avc_chromaQpOffset > 12) {
 			return RETCODE_INVALID_PARAM;
 		}
+
+		if (param->avc_frameCroppingFlag != 0 &&
+		    param->avc_frameCroppingFlag != 1) {
+			return RETCODE_INVALID_PARAM;
+		}
+
+		if (param->avc_frameCropLeft & 0x01 ||
+		    param->avc_frameCropRight & 0x01 ||
+		    param->avc_frameCropTop & 0x01 ||
+		    param->avc_frameCropBottom & 0x01) {
+			return RETCODE_INVALID_PARAM;
+		}
+
 		if (param->avc_audEnable != 0 && param->avc_audEnable != 1) {
 			return RETCODE_INVALID_PARAM;
 		}
@@ -509,7 +522,7 @@ void EncodeHeader(EncHandle handle, EncHeaderParam * encHeaderParam)
 	EncInfo *pEncInfo;
 	PhysicalAddress rdPtr;
 	PhysicalAddress wrPtr;
-	int data = 0;
+	int data = 0, frameCroppingFlag = 0;
 
 	pCodecInst = handle;
 	pEncInfo = &pCodecInst->CodecInfo.encInfo;
@@ -520,14 +533,36 @@ void EncodeHeader(EncHandle handle, EncHeaderParam * encHeaderParam)
 		VpuWriteReg(CMD_ENC_HEADER_BB_SIZE, encHeaderParam->size);
 	}
 
-	if (encHeaderParam->headerType == VOS_HEADER ||
-	    encHeaderParam->headerType == SPS_RBSP) {
-		data = (((encHeaderParam->userProfileLevelIndication & 0xFF) << 8) |
-			((encHeaderParam->userProfileLevelEnable & 0x01) << 4) |
-			(encHeaderParam->headerType & 0x0F));
-		VpuWriteReg(CMD_ENC_HEADER_CODE, data);
+	if (cpu_is_mx6q() && (encHeaderParam->headerType == 0) &&
+	    (pEncInfo->openParam.bitstreamFormat == STD_AVC)) {
+		EncOpenParam *encOP;
+		Uint32 CropV, CropH;
+
+		encOP = &(pEncInfo->openParam);
+		if (encOP->EncStdParam.avcParam.avc_frameCroppingFlag == 1) {
+			frameCroppingFlag = 1;
+			CropH = encOP->EncStdParam.avcParam.avc_frameCropLeft << 16;
+			CropH |= encOP->EncStdParam.avcParam.avc_frameCropRight;
+			CropV = encOP->EncStdParam.avcParam.avc_frameCropTop << 16;
+			CropV |= encOP->EncStdParam.avcParam.avc_frameCropBottom;
+			VpuWriteReg(CMD_ENC_HEADER_FRAME_CROP_H, CropH);
+			VpuWriteReg(CMD_ENC_HEADER_FRAME_CROP_V, CropV);
+		}
+	}
+
+	if (cpu_is_mx6q()) {
+		VpuWriteReg(CMD_ENC_HEADER_CODE, encHeaderParam->headerType |
+			frameCroppingFlag << 2);
 	} else {
-		VpuWriteReg(CMD_ENC_HEADER_CODE, encHeaderParam->headerType); /* 0: SPS, 1: PPS */
+		if (encHeaderParam->headerType == VOS_HEADER ||
+		    encHeaderParam->headerType == SPS_RBSP) {
+			data = (((encHeaderParam->userProfileLevelIndication & 0xFF) << 8) |
+				((encHeaderParam->userProfileLevelEnable & 0x01) << 4) |
+				(encHeaderParam->headerType & 0x0F));
+			VpuWriteReg(CMD_ENC_HEADER_CODE, data);
+		} else {
+			VpuWriteReg(CMD_ENC_HEADER_CODE, encHeaderParam->headerType); /* 0: SPS, 1: PPS */
+		}
 	}
 
 	BitIssueCommandEx(pCodecInst, ENCODE_HEADER);
@@ -663,14 +698,32 @@ void GetParaSet(EncHandle handle, int paraSetType, EncParamSet * para)
 {
 	CodecInst *pCodecInst;
 	EncInfo *pEncInfo;
+	int frameCroppingFlag = 0;
 
 	pCodecInst = handle;
 	pEncInfo = &pCodecInst->CodecInfo.encInfo;
 
 	IOClkGateSet(true);
 
+	if (cpu_is_mx6q() && (paraSetType == 0) &&
+	    (pEncInfo->openParam.bitstreamFormat == STD_AVC)) {
+		EncOpenParam *encOP;
+		Uint32 CropV, CropH;
+
+		encOP = &(pEncInfo->openParam);
+		if (encOP->EncStdParam.avcParam.avc_frameCroppingFlag == 1) {
+			frameCroppingFlag = 1;
+			CropH = encOP->EncStdParam.avcParam.avc_frameCropLeft << 16;
+			CropH |= encOP->EncStdParam.avcParam.avc_frameCropRight;
+			CropV = encOP->EncStdParam.avcParam.avc_frameCropTop << 16;
+			CropV |= encOP->EncStdParam.avcParam.avc_frameCropBottom;
+			VpuWriteReg(CMD_ENC_HEADER_FRAME_CROP_H, CropH);
+			VpuWriteReg(CMD_ENC_HEADER_FRAME_CROP_V, CropV);
+		}
+	}
+
 	/* SPS: 0, PPS: 1, VOS: 1, VO: 2, VOL: 0 */
-	VpuWriteReg(CMD_ENC_PARA_SET_TYPE, paraSetType);
+	VpuWriteReg(CMD_ENC_PARA_SET_TYPE, paraSetType | (frameCroppingFlag << 2));
 	BitIssueCommandEx(pCodecInst, ENC_PARA_SET);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
