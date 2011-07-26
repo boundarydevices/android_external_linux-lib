@@ -53,8 +53,6 @@ extern semaphore_t *vpu_semap;
 static int mutex_timeout;
 static vpu_mem_desc share_mem;
 
-static semaphore_t  g_sema_buffer;
-
 RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 {
 	FILE *fp;
@@ -93,7 +91,7 @@ RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 		return RETCODE_FAILURE;
 	}
 
-	fread(&info, sizeof(headerInfo), 1, fp);
+	ret = fread(&info, sizeof(headerInfo), 1, fp);
 
 	if (info.size > MAX_FW_BINARY_LEN) {
 		err_msg("Size in VPU header is too large.Size: %d\n",
@@ -1106,16 +1104,18 @@ semaphore_t *vpu_semaphore_open(void)
 	char *timeout_env;
 	int i;
 
-
+	/*
+	 * Currently only mx6q uses vmalloced share memory, mx5x platfrom
+	 * keeps current solution, then it is convenient to do vpu lib
+	 * upgrade, no need to upgrade depenent kernel.
+	 * Will change mx5x solution later.
+	 */
 	if (cpu_is_mx6q()) {
-		/*
-		 * Temporarily to use global variable for shared memory for mx6q now,
-		 * Will fix this later since getting shared memory from kernel will
-		 * make vpu hang now.
-		 * And mx6q cannot support multi-instances currently.
-		 * Fixme later......
-		 */
-		semap = &g_sema_buffer;
+		semap = (semaphore_t *)IOGetVShareMem(sizeof(semaphore_t));
+		if (!semap) {
+			err_msg("Unable to Get VShare memory\n");
+			return NULL;
+		}
 		goto semap_init;
 	}
 
@@ -1193,13 +1193,8 @@ unsigned char semaphore_wait(semaphore_t *semap, int mutex)
 
 void vpu_semaphore_close(semaphore_t * semap)
 {
-	/* Fixme later for mx6q */
-	if (cpu_is_mx6q())
-	    goto ret;
-
 	if (munmap((void *)semap, sizeof(semaphore_t)) != 0)
 		err_msg("munmap share mem failed\n");
-ret:
 	return;
 }
 
