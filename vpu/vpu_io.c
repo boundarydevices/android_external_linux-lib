@@ -382,6 +382,32 @@ int IOFreeVirtMem(vpu_mem_desc * buff)
 	return 0;
 }
 
+/*!
+ * @brief map vmalloced share memory to user space.
+ *
+ * @param       buff    the structure containing memory information to be unmapped;
+ *
+ * @return      user space address.
+ */
+int IOGetVShareMem(int size)
+{
+	unsigned long va_addr;
+	vpu_mem_desc buff = { 0 };
+
+	buff.size = size;
+	if (ioctl(vpu_fd, VPU_IOC_REQ_VSHARE_MEM, &buff)) {
+		err_msg("mem allocation failed!\n");
+		return 0;
+	}
+	va_addr = (unsigned long)mmap(NULL, size, PROT_READ | PROT_WRITE,
+                       MAP_SHARED, vpu_fd, buff.cpu_addr);
+
+	if ((void *)va_addr == MAP_FAILED)
+		return 0;
+
+	return va_addr;
+}
+
 int IOWaitForInt(int timeout_in_ms)
 {
 	int ret = 0;
