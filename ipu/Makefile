@@ -1,10 +1,14 @@
 CC=$(CROSS_COMPILE)gcc
 AR=$(CROSS_COMPILE)ar
 
+ifeq ($(PLATFORM), IMX6Q)
+OBJS = mxc_ipu_hl_lib_dummy.o
+else
 OBJS = mxc_ipu_hl_lib.o mxc_ipu_lib.o
+endif
 
 # list of platforms which want this test case
-INCLUDE_LIST:= IMX37_3STACK IMX51 IMX53
+INCLUDE_LIST:= IMX37_3STACK IMX51 IMX53 IMX6Q
 
 LIBNAME=libipu
 
