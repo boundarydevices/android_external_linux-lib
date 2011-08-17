@@ -32,6 +32,7 @@
 #include "vpu_util.h"
 #include "vpu_io.h"
 #include "vpu_debug.h"
+#include "vpu_gdi.h"
 
 #define IMAGE_ENDIAN			0
 #define STREAM_ENDIAN			0
@@ -527,9 +528,10 @@ RetCode vpu_EncOpen(EncHandle * pHandle, EncOpenParam * pop)
 	VpuWriteReg(BIT_BIT_STREAM_CTRL, val);
 
 	val = VpuReadReg(BIT_FRAME_MEM_CTRL);
-	val &= ~(1 << 2);  /* clear the bit firstly */
+	val &= ~(1 << 2 | 0x7 << 9);  /* clear the bit firstly */
 	pCodecInst->ctxRegs[CTX_BIT_FRAME_MEM_CTRL] =
 	    val | (pEncInfo->openParam.chromaInterleave << 2);
+
 	UnlockVpu(vpu_semap);
 
 	return RETCODE_SUCCESS;
@@ -2322,6 +2324,7 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 		pDecInfo->tiledLinearEnable = pop->tiled2LinearEnable;
 		pDecInfo->cacheConfig.Bypass = 1;
 		pDecInfo->jpgInfo.frameIdx = 0;
+		SetTiledMapType(pDecInfo->mapType);
 	}
 
 	if (!LockVpu(vpu_semap))
@@ -2354,14 +2357,14 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 	UnlockVpuReg(vpu_semap);
 
 	val = VpuReadReg(BIT_FRAME_MEM_CTRL);
-	val &= ~(1 << 2); /* clear the bit firstly */
+	val &= ~(1 << 2 | 0x03 << 9); /* clear the bit firstly */
 
-	if (cpu_is_mx6q() && pDecInfo->mapType) {
-		val |= pDecInfo->tiledLinearEnable << 11 |
-			0x02 << 9 | CHROMA_FORMAT_420 << 6;
-	}
+	if (cpu_is_mx6q() && pDecInfo->mapType)
+		val |= (pDecInfo->tiledLinearEnable << 11 | 0x03 << 9);
+
 	pCodecInst->ctxRegs[CTX_BIT_FRAME_MEM_CTRL] =
 		    val | (pDecInfo->openParam.chromaInterleave << 2);
+
 	UnlockVpu(vpu_semap);
 
 	return RETCODE_SUCCESS;

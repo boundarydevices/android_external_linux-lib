@@ -155,17 +155,6 @@ enum {
 	SOS_Marker      = 0xFFDA,           // Start of scan
 };
 
-enum {
-	LINEAR_FRAME_MAP  = 0,
-	TILED_FRAME_V_MAP = 1,
-	TILED_FRAME_H_MAP = 2,
-	TILED_FIELD_V_MAP = 3,
-	TILED_MIXED_V_MAP = 4,
-	TILED_FRAME_MB_RASTER_MAP = 5,
-	TILED_FIELD_MB_RASTER_MAP = 6,
-	TILED_MAP_TYPE_MAX
-};
-
 typedef struct {
 	int useBitEnable;
 	int useIpEnable;
