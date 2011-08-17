@@ -86,6 +86,13 @@ typedef enum {
 } RetCode;
 
 typedef enum {
+	LINEAR_FRAME_MAP = 0,
+	TILED_FRAME_MB_RASTER_MAP = 1,
+	TILED_FIELD_MB_RASTER_MAP = 2,
+	TILED_MAP_TYPE_MAX
+} GDI_TILED_MAP_TYPE;
+
+typedef enum {
 	ENABLE_ROTATION,
 	DISABLE_ROTATION,
 	ENABLE_MIRRORING,
@@ -591,7 +598,7 @@ typedef struct vpu_versioninfo {
  * v4.2.2 [2008.09.03] support encoder on MX51
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 3, 1)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 3, 2)
 
 extern unsigned int system_rev;
 
@@ -655,6 +662,8 @@ int vpu_IsBusy(void);
 int jpu_IsBusy(void);
 int vpu_WaitForInt(int timeout_in_ms);
 RetCode vpu_SWReset(DecHandle handle, int index);
+int vpu_GetXY2AXIAddr(int ycbcr, int posY, int posX, int stride,
+                   unsigned int addrY, unsigned int addrCb, unsigned int addrCr);
 
 void SaveGetEncodeHeader(EncHandle handle, int encHeaderType, char *filename);
 
