@@ -7,6 +7,7 @@ INCLUDE_LIST:= IMX27ADS IMX51 IMX53 IMX6Q
 OBJ = vpu_io.o vpu_util.o vpu_lib.o
 
 LIBNAME = libvpu
+SONAMEVERSION=0
 
 ifeq ($(PLATFORM), $(findstring $(PLATFORM), $(INCLUDE_LIST)))
 
@@ -21,7 +22,7 @@ all: $(LIBNAME).so $(LIBNAME).a
 
 install: install_headers
 	@mkdir -p $(DEST_DIR)/usr/lib
-	cp $(LIBNAME).* $(DEST_DIR)/usr/lib
+	cp -P $(LIBNAME).* $(DEST_DIR)/usr/lib
 
 install_headers:
 	@mkdir -p $(DEST_DIR)/usr/include
@@ -34,8 +35,11 @@ endif
 %.o: %.c
 	$(CC) -D$(PLATFORM) -Wall -O2 -fPIC -c $^ -o $@
 
-$(LIBNAME).so: $(OBJ)
+$(LIBNAME).so.$(SONAMEVERSION): $(OBJ)
 	$(CC) -shared -nostartfiles -Wl,-soname,$@ $^ -o $@
+
+$(LIBNAME).so: $(LIBNAME).so.$(SONAMEVERSION)
+	ln -s $< $@
 
 $(LIBNAME).a: $(OBJ)
 	$(AR) -rc $@  $^
