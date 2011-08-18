@@ -16,12 +16,13 @@ OBJS= fsl_shw_rand.o  fsl_shw_hash.o  fsl_shw_sym.o  fsl_shw_user.o         \
 		fsl_shw_keystore.o fsl_shw_auth.o  fsl_shw_hmac.o  fsl_shw_wrap.o
 
 LIBNAME=libfsl_shw
+SONAMEVERSION=0
 
 all: $(LIBNAME).so $(LIBNAME).a
 
 install: install_headers
 	@mkdir -p $(DEST_DIR)/usr/lib
-	cp $(LIBNAME).* $(DEST_DIR)/usr/lib
+	cp -P $(LIBNAME).* $(DEST_DIR)/usr/lib
 
 install_headers:
 	@mkdir -p $(DEST_DIR)/usr/include
@@ -29,8 +30,11 @@ install_headers:
 $(LIBNAME).a: $(OBJS)
 	$(AR) $@ $^
 
-$(LIBNAME).so: $(OBJS)
+$(LIBNAME).so.$(SONAMEVERSION): $(OBJS)
 	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^
+
+$(LIBNAME).so: $(LIBNAME).so.$(SONAMEVERSION)
+	ln -s $< $@
 
 .PHONY: clean
 clean:
