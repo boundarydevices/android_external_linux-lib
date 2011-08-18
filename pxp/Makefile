@@ -7,6 +7,7 @@ INCLUDE_LIST:=IMX50 IMX51 IMX5
 OBJ = pxp_lib.o
 
 LIBNAME = libpxp
+SONAMEVERSION=0
 
 ifeq ($(PLATFORM), $(findstring $(PLATFORM), $(INCLUDE_LIST)))
 
@@ -14,7 +15,7 @@ all: $(LIBNAME).so $(LIBNAME).a
 
 install: install_headers
 	@mkdir -p $(DEST_DIR)/usr/lib
-	cp $(LIBNAME).* $(DEST_DIR)/usr/lib
+	cp -P $(LIBNAME).* $(DEST_DIR)/usr/lib
 
 install_headers:
 	@mkdir -p $(DEST_DIR)/usr/include
@@ -26,8 +27,11 @@ endif
 %.o: %.c
 	$(CC) -D$(PLATFORM) $(INCLUDE) -Wall -O2 -fPIC -c $^ -o $@
 
-$(LIBNAME).so: $(OBJ)
+$(LIBNAME).so.$(SONAMEVERSION): $(OBJ)
 	$(CC) -shared -nostartfiles -Wl,-soname,$@ $^ -o $@
+
+$(LIBNAME).so: $(LIBNAME).so.$(SONAMEVERSION)
+	ln -s $< $@
 
 $(LIBNAME).a: $(OBJ)
 	$(AR) -rc $@  $^
