@@ -30,6 +30,7 @@ CFLAGS += $(TARGET_ARCH)
 #CFLAGS += -DDIAG_MEM_ERRORS -DDIAG_MEM_CONST=5
 
 LIBNAME=libsahara
+SONAMEVERSION=0
 
 ifeq ("$(TARGET_ARCH)", "")
 all install:
@@ -38,7 +39,7 @@ all: $(LIBNAME).so $(LIBNAME).a
 
 install: install_headers
 	@mkdir -p $(DEST_DIR)/usr/lib
-	cp $(LIBNAME).* $(DEST_DIR)/usr/lib
+	cp -P $(LIBNAME).* $(DEST_DIR)/usr/lib
 
 install_headers:
 	@mkdir -p $(DEST_DIR)/usr/include
@@ -48,8 +49,11 @@ endif
 $(LIBNAME).a: $(OBJS)
 	$(AR) $@ $^
 
-$(LIBNAME).so: $(OBJS)
+$(LIBNAME).so.$(SONAMEVERSION): $(OBJS)
 	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^
+
+$(LIBNAME).so: $(LIBNAME).so.$(SONAMEVERSION)
+	ln -s $< $@
 
 .PHONY: clean
 clean:
