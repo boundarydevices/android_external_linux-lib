@@ -7,7 +7,8 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
 	vpu_io.c \
 	vpu_util.c \
-	vpu_lib.c
+	vpu_lib.c \
+	vpu_gdi.c
 LOCAL_CFLAGS += -DBUILD_FOR_ANDROID -D$(BOARD_SOC_TYPE)
 LOCAL_C_INCLUDES += $(LOCAL_PATH)
 LOCAL_MODULE := libvpu
