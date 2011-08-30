@@ -1244,6 +1244,10 @@ again:
 		else
 			fbdev = FBDEV2;
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,35)
+		fbdev = FBDEV1;
+#endif
+
 		dbg(DBG_INFO, "Output Show to %s\n", fbdev);
 
 		if ((ipu_priv_handle->output.fd_fb = open(fbdev, O_RDWR, 0)) < 0) {
@@ -2453,8 +2457,9 @@ int mxc_ipu_lib_ipc_init(void)
 	main_ver = propBuf[0] - '0';
 	sec_ver = propBuf[2] - '0';
 	dbg(DBG_INFO, "android version is %d.%d\n", main_ver, sec_ver);
-	if (main_ver >= 2 && sec_ver >= 3)
+	if ((main_ver >= 2 && sec_ver >= 3) || main_ver >= 3) {
 		pshare = 1;
+	}
 #endif
 
 	g_ipu_shm = (ipu_lib_shm_t *)
@@ -3468,6 +3473,10 @@ int mxc_ipu_lib_task_control(int ctl_cmd, void * arg, ipu_lib_handle_t * ipu_han
 					fbdev = FBDEV1;
 				else
 					fbdev = FBDEV2;
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,35)
+				fbdev = FBDEV1;
+#endif
+
 				if ((ipu_priv_handle->output.fd_fb = open(fbdev, O_RDWR, 0)) < 0) {
 					dbg(DBG_ERR, "Unable to open %s\n", fbdev);
 					ret = -1;
