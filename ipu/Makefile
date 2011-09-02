@@ -21,6 +21,7 @@ install:
 	cp -P $(LIBNAME).* $(DEST_DIR)/usr/lib
 	@mkdir -p $(DEST_DIR)/usr/include
 	cp mxc_ipu_hl_lib.h $(DEST_DIR)/usr/include
+	cp ipu.h $(DEST_DIR)/usr/include
 else
 all install:
 	@echo "Not support platform, will not complile"
