@@ -3552,6 +3552,9 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		info->notSufficientSliceBuffer = (val >> 2) & 0x1;
 	} else if (pCodecInst->codecMode == MP4_DEC) {
 		info->mp4PackedPBframe = ((val >> 16) & 0x01);
+		/* Need to backup WR_PTR for mp4PackedPBframe */
+		if (info->mp4PackedPBframe)
+			pCodecInst->ctxRegs[CTX_BIT_WR_PTR] = VpuReadReg(BIT_WR_PTR);
 	}
 
 	val = VpuReadReg(RET_DEC_PIC_SIZE);     /* decoding picture size */
