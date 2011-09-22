@@ -27,6 +27,12 @@
 #include "vpu_io.h"
 #include "vpu_debug.h"
 
+#ifdef BUILD_FOR_ANDROID
+#define LOG_TAG "vpulib"
+#include <utils/Log.h>
+#include <cutils/properties.h>
+#endif
+
 #define MAX_VSIZE       8192
 #define MAX_HSIZE       8192
 
@@ -1165,15 +1171,24 @@ void semaphore_post(semaphore_t *semap, int mutex)
 
 unsigned char semaphore_wait(semaphore_t *semap, int mutex)
 {
-#ifdef ANDROID
+	int ret = -1;
+
+#ifdef BUILD_FOR_ANDROID
+	unsigned int msec = mutex_timeout * 1000;
+
 	if (mutex == API_MUTEX)
-		pthread_mutex_lock(&semap->api_lock);
+		ret = pthread_mutex_lock_timeout_np(&semap->api_lock, msec);
 	else if (mutex == REG_MUTEX)
-		pthread_mutex_lock(&semap->reg_lock);
+		ret = pthread_mutex_lock_timeout_np(&semap->reg_lock, msec);
+	else
+		LOGE("Not supported mutex\n");
+	if (ret) {
+		LOGE("VPU mutex couldn't be locked,ret = %d\n", ret);
+		return false;
+	}
 	return true;
 #else
 	struct timespec ts;
-	int ret = 0;
 
 	ts.tv_sec = time(NULL) + mutex_timeout;
 	ts.tv_nsec = 0;
