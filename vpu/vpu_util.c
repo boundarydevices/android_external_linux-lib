@@ -287,41 +287,34 @@ void FreeCodecInstance(CodecInst * pCodecInst)
 	pCodecInst->inUse = 0;
 }
 
-void BitIssueCommand(int instIdx, int cdcMode, int cdcModeAux, int cmd)
+void BitIssueCommand(CodecInst *pCodecInst, int cmd)
 {
+	int instIdx = 0, cdcMode = 0, auxMode = 0;
+
 	LockVpuReg(vpu_semap);
+
+	if (pCodecInst != NULL) {
+		/* Save context related registers to vpu */
+		VpuWriteReg(BIT_BIT_STREAM_PARAM,
+				pCodecInst->ctxRegs[CTX_BIT_STREAM_PARAM]);
+		VpuWriteReg(BIT_FRM_DIS_FLG,
+				pCodecInst->ctxRegs[CTX_BIT_FRM_DIS_FLG]);
+		VpuWriteReg(BIT_WR_PTR,
+				pCodecInst->ctxRegs[CTX_BIT_WR_PTR]);
+		VpuWriteReg(BIT_RD_PTR,
+				pCodecInst->ctxRegs[CTX_BIT_RD_PTR]);
+		VpuWriteReg(BIT_FRAME_MEM_CTRL,
+				pCodecInst->ctxRegs[CTX_BIT_FRAME_MEM_CTRL]);
+		VpuWriteReg(BIT_WORK_BUF_ADDR, pCodecInst->contextBufMem.phy_addr);
+		instIdx = pCodecInst->instIndex;
+		cdcMode = pCodecInst->codecMode;
+		auxMode = pCodecInst->codecModeAux;
+	}
 
 	VpuWriteReg(BIT_BUSY_FLAG, 0x1);
 	VpuWriteReg(BIT_RUN_INDEX, instIdx);
 	VpuWriteReg(BIT_RUN_COD_STD, cdcMode);
-	VpuWriteReg(BIT_RUN_AUX_STD, cdcModeAux);
-	VpuWriteReg(BIT_RUN_COMMAND, cmd);
-
-	UnlockVpuReg(vpu_semap);
-}
-void BitIssueCommandEx(CodecInst *pCodecInst, int cmd)
-{
-	LockVpuReg(vpu_semap);
-
-	/* Save context related registers to vpu */
-	VpuWriteReg(BIT_BIT_STREAM_PARAM,
-			pCodecInst->ctxRegs[CTX_BIT_STREAM_PARAM]);
-	VpuWriteReg(BIT_FRM_DIS_FLG,
-			pCodecInst->ctxRegs[CTX_BIT_FRM_DIS_FLG]);
-	VpuWriteReg(BIT_WR_PTR,
-			pCodecInst->ctxRegs[CTX_BIT_WR_PTR]);
-	VpuWriteReg(BIT_RD_PTR,
-			pCodecInst->ctxRegs[CTX_BIT_RD_PTR]);
-	VpuWriteReg(BIT_FRAME_MEM_CTRL,
-			pCodecInst->ctxRegs[CTX_BIT_FRAME_MEM_CTRL]);
-
-	if (!cpu_is_mx6q())
-		VpuWriteReg(BIT_WORK_BUF_ADDR, pCodecInst->contextBufMem.phy_addr);
-
-	VpuWriteReg(BIT_BUSY_FLAG, 0x1);
-	VpuWriteReg(BIT_RUN_INDEX, pCodecInst->instIndex);
-	VpuWriteReg(BIT_RUN_COD_STD, pCodecInst->codecMode);
-	VpuWriteReg(BIT_RUN_AUX_STD, pCodecInst->codecModeAux);
+	VpuWriteReg(BIT_RUN_AUX_STD, auxMode);
 	VpuWriteReg(BIT_RUN_COMMAND, cmd);
 	UnlockVpuReg(vpu_semap);
 }
@@ -532,7 +525,10 @@ void EncodeHeader(EncHandle handle, EncHeaderParam * encHeaderParam)
 	pEncInfo = &pCodecInst->CodecInfo.encInfo;
 
 	IOClkGateSet(true);
-	if (pEncInfo->dynamicAllocEnable == 1) {
+	if (cpu_is_mx6q() && (pEncInfo->ringBufferEnable == 0)) {
+		VpuWriteReg(CMD_ENC_HEADER_BB_START, pEncInfo->streamBufStartAddr);
+		VpuWriteReg(CMD_ENC_HEADER_BB_SIZE, pEncInfo->streamBufSize / 1024);
+	} else if (!cpu_is_mx6q() && (pEncInfo->dynamicAllocEnable == 1)) {
 		VpuWriteReg(CMD_ENC_HEADER_BB_START, encHeaderParam->buf);
 		VpuWriteReg(CMD_ENC_HEADER_BB_SIZE, encHeaderParam->size);
 	}
@@ -569,13 +565,14 @@ void EncodeHeader(EncHandle handle, EncHeaderParam * encHeaderParam)
 		}
 	}
 
-	BitIssueCommandEx(pCodecInst, ENCODE_HEADER);
+	BitIssueCommand(pCodecInst, ENCODE_HEADER);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
 	IOClkGateSet(false);
 
 	LockVpuReg(vpu_semap);
-	if (pEncInfo->dynamicAllocEnable == 1) {
+	if ((cpu_is_mx6q() && (pEncInfo->ringBufferEnable == 0)) ||
+	    (!cpu_is_mx6q() && (pEncInfo->dynamicAllocEnable == 1))) {
 		rdPtr = VpuReadReg(CMD_ENC_HEADER_BB_START);
 		wrPtr = VpuReadReg(BIT_WR_PTR);
 		pCodecInst->ctxRegs[CTX_BIT_WR_PTR] = wrPtr;
@@ -624,6 +621,10 @@ RetCode CheckDecOpenParam(DecOpenParam * pop)
 		    pop->bitstreamFormat != STD_VP8 &&
 		    pop->bitstreamFormat != STD_MJPG)
 			return RETCODE_INVALID_PARAM;
+		if (pop->filePlayEnable) {
+			err_msg("Not support file play mode and prescan of mx6 vpu\n");
+			return RETCODE_INVALID_PARAM;
+		}
 	} else {
 		if (pop->bitstreamFormat != STD_MPEG4 &&
 		    pop->bitstreamFormat != STD_AVC &&
@@ -728,7 +729,7 @@ void GetParaSet(EncHandle handle, int paraSetType, EncParamSet * para)
 
 	/* SPS: 0, PPS: 1, VOS: 1, VO: 2, VOL: 0 */
 	VpuWriteReg(CMD_ENC_PARA_SET_TYPE, paraSetType | (frameCroppingFlag << 2));
-	BitIssueCommandEx(pCodecInst, ENC_PARA_SET);
+	BitIssueCommand(pCodecInst, ENC_PARA_SET);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
 	para->paraSet = virt_paraBuf;
@@ -760,7 +761,7 @@ void SetParaSet(DecHandle handle, int paraSetType, DecParamSet * para)
 	VpuWriteReg(CMD_DEC_PARA_SET_TYPE, paraSetType);
 	VpuWriteReg(CMD_DEC_PARA_SET_SIZE, para->size);
 
-	BitIssueCommandEx(pCodecInst, DEC_PARA_SET);
+	BitIssueCommand(pCodecInst, DEC_PARA_SET);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
 	IOClkGateSet(false);
@@ -778,7 +779,7 @@ RetCode SetGopNumber(EncHandle handle, Uint32 * pGopNumber)
 	IOClkGateSet(true);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_RC_GOP, gopNumber);
-	BitIssueCommandEx(pCodecInst, RC_CHANGE_PARAMETER);
+	BitIssueCommand(pCodecInst, RC_CHANGE_PARAMETER);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	IOClkGateSet(false);
 
@@ -797,7 +798,7 @@ RetCode SetIntraQp(EncHandle handle, Uint32 * pIntraQp)
 	data = 1 << 1;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_RC_INTRA_QP, intraQp);
-	BitIssueCommandEx(pCodecInst, RC_CHANGE_PARAMETER);
+	BitIssueCommand(pCodecInst, RC_CHANGE_PARAMETER);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	IOClkGateSet(false);
 
@@ -816,7 +817,7 @@ RetCode SetBitrate(EncHandle handle, Uint32 * pBitrate)
 	data = 1 << 2;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_RC_BITRATE, bitrate);
-	BitIssueCommandEx(pCodecInst, RC_CHANGE_PARAMETER);
+	BitIssueCommand(pCodecInst, RC_CHANGE_PARAMETER);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	IOClkGateSet(false);
 
@@ -835,7 +836,7 @@ RetCode SetFramerate(EncHandle handle, Uint32 * pFramerate)
 	data = 1 << 3;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_RC_FRAME_RATE, framerate);
-	BitIssueCommandEx(pCodecInst, RC_CHANGE_PARAMETER);
+	BitIssueCommand(pCodecInst, RC_CHANGE_PARAMETER);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	IOClkGateSet(false);
 
@@ -854,7 +855,7 @@ RetCode SetIntraRefreshNum(EncHandle handle, Uint32 * pIntraRefreshNum)
 	data = 1 << 4;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_INTRA_MB_NUM, intraRefreshNum);
-	BitIssueCommandEx(pCodecInst, RC_CHANGE_PARAMETER);
+	BitIssueCommand(pCodecInst, RC_CHANGE_PARAMETER);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	IOClkGateSet(false);
 
@@ -876,7 +877,7 @@ RetCode SetSliceMode(EncHandle handle, EncSliceMode * pSliceMode)
 	data2 = 1 << 5;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data2);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_SLICE_MODE, data);
-	BitIssueCommandEx(pCodecInst, RC_CHANGE_PARAMETER);
+	BitIssueCommand(pCodecInst, RC_CHANGE_PARAMETER);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	IOClkGateSet(false);
 
@@ -895,7 +896,7 @@ RetCode SetHecMode(EncHandle handle, int mode)
 	data = 1 << 6;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
 	VpuWriteReg(CMD_ENC_SEQ_PARA_HEC_MODE, HecMode);
-	BitIssueCommandEx(pCodecInst, RC_CHANGE_PARAMETER);
+	BitIssueCommand(pCodecInst, RC_CHANGE_PARAMETER);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	IOClkGateSet(false);
 
@@ -1198,8 +1199,8 @@ unsigned char semaphore_wait(semaphore_t *semap, int mutex)
 		ret = pthread_mutex_timedlock(&semap->reg_lock, &ts);
 	else
 		warn_msg("Not supported mutex\n");
-	if (ret == ETIMEDOUT) {
-		warn_msg("VPU mutex couldn't be locked before timeout expired\n");
+	if (ret) {
+		warn_msg("VPU mutex couldn't be locked before timeout expired or get lock failure\n");
 		return false;
 	}
 	return true;
@@ -1217,6 +1218,28 @@ void vpu_semaphore_close(semaphore_t * semap)
 #define PUT_BYTE(_p, _b) \
 	    if (tot++ > len) return 0; \
 		    *_p++ = (unsigned char)(_b);
+
+int vpu_mx6q_swreset(int forcedReset)
+{
+	volatile int i;
+	Uint32 cmd;
+
+	if (forcedReset == 0) {
+		VpuWriteReg(GDI_BUS_CTRL, 0x11);
+		while (VpuReadReg(GDI_BUS_STATUS) != 0x77);
+		VpuWriteReg(GDI_BUS_CTRL, 0x00);
+	}
+
+	cmd =  VPU_SW_RESET_BPU_CORE | VPU_SW_RESET_BPU_BUS;
+	cmd |= VPU_SW_RESET_VCE_CORE | VPU_SW_RESET_VCE_BUS;
+	VpuWriteReg(BIT_SW_RESET, cmd);
+	/* delay more than 64 vpu cycles */
+	for (i = 0; i < 50; i++);
+	while(VpuReadReg(BIT_SW_RESET_STATUS) != 0);
+
+	VpuWriteReg(BIT_SW_RESET, 0);
+	return RETCODE_SUCCESS;
+}
 
 int JpgEncGenHuffTab(EncInfo * pEncInfo, int tabNum)
 {
@@ -1383,7 +1406,7 @@ int JpgEncEncodeHeader(EncHandle handle, EncParamSet * para)
 	for (i = 0; i < 64; i++)
 		PUT_BYTE(p, pEncInfo->jpgInfo.pQMatTab[0][i]);
 
-	if (pEncInfo->jpgInfo.format != CHROMA_FORMAT_400) {
+	if (pEncInfo->jpgInfo.format != FORMAT_400) {
 		PUT_BYTE(p, 0xFF);
 		PUT_BYTE(p, 0xDB);
 		PUT_BYTE(p, 0x00);
@@ -1419,7 +1442,7 @@ int JpgEncEncodeHeader(EncHandle handle, EncParamSet * para)
 	for (i = 0; i < 162; i++)
 		PUT_BYTE(p, pEncInfo->jpgInfo.pHuffVal[1][i]);
 
-	if (pEncInfo->jpgInfo.format != CHROMA_FORMAT_400) {
+	if (pEncInfo->jpgInfo.format != FORMAT_400) {
 		PUT_BYTE(p, 0xFF);
 		PUT_BYTE(p, 0xC4);
 		PUT_BYTE(p, 0x00);
@@ -2048,19 +2071,19 @@ int decode_sof_header(JpgDecInfo *jpg)
 
 	switch(sampleFactor) {
 		case SAMPLE_420:
-			jpg->format = CHROMA_FORMAT_420;
+			jpg->format = FORMAT_420;
 			break;
 		case SAMPLE_H422:
-			jpg->format = CHROMA_FORMAT_422;
+			jpg->format = FORMAT_422;
 			break;
 		case SAMPLE_V422:
-			jpg->format = CHROMA_FORMAT_224;
+			jpg->format = FORMAT_224;
 			break;
 		case SAMPLE_444:
-			jpg->format = CHROMA_FORMAT_444;
+			jpg->format = FORMAT_444;
 			break;
 		default:
-			jpg->format = CHROMA_FORMAT_400;
+			jpg->format = FORMAT_400;
 	}
 
 	jpg->picWidth = picX;
@@ -2240,7 +2263,7 @@ DONE_DEC_HEADER:
 	jpg->huffAcIdx = temp;
 
 	switch(jpg->format) {
-	case CHROMA_FORMAT_420:
+	case FORMAT_420:
 		jpg->busReqNum = 2;
 		jpg->mcuBlockNum = 6;
 		jpg->compNum = 3;
@@ -2250,7 +2273,7 @@ DONE_DEC_HEADER:
 		jpg->alignedWidth = ((jpg->picWidth+15)&~15);
 		jpg->alignedHeight = ((jpg->picHeight+15)&~15);
 		break;
-	case CHROMA_FORMAT_422:
+	case FORMAT_422:
 		jpg->busReqNum = 3;
 		jpg->mcuBlockNum = 4;
 		jpg->compNum = 3;
@@ -2260,7 +2283,7 @@ DONE_DEC_HEADER:
 		jpg->alignedWidth = ((jpg->picWidth+15)&~15);
 		jpg->alignedHeight = ((jpg->picHeight+7)&~7);
 		break;
-	case CHROMA_FORMAT_224:
+	case FORMAT_224:
 		jpg->busReqNum = 3;
 		jpg->mcuBlockNum = 4;
 		jpg->compNum = 3;
@@ -2270,7 +2293,7 @@ DONE_DEC_HEADER:
 		jpg->alignedWidth = ((jpg->picWidth+7)&~7);
 		jpg->alignedHeight = ((jpg->picHeight+15)&~15);
 		break;
-	case CHROMA_FORMAT_444:
+	case FORMAT_444:
 		jpg->busReqNum = 4;
 		jpg->mcuBlockNum = 3;
 		jpg->compNum = 3;
@@ -2280,7 +2303,7 @@ DONE_DEC_HEADER:
 		jpg->alignedWidth = ((jpg->picWidth+7)&~7);
 		jpg->alignedHeight = ((jpg->picHeight+7)&~7);
 		break;
-	case CHROMA_FORMAT_400:
+	case FORMAT_400:
 		jpg->busReqNum = 4;
 		jpg->mcuBlockNum = 1;
 		jpg->compNum = 1;
