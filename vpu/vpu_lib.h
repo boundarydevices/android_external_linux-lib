@@ -50,6 +50,8 @@ typedef Uint32 VirtualAddress;
 #define PRJ_CODA7541			0xF012
 #define PRJ_CODA_960			0xF020
 
+#define MAX_NUM_INSTANCE		8
+
 typedef enum {
 	STD_MPEG4 = 0,
 	STD_H263 = 1,
@@ -168,11 +170,11 @@ typedef enum {
 } MirrorDirection;
 
 typedef enum {
-    CHROMA_FORMAT_420,
-    CHROMA_FORMAT_422,
-    CHROMA_FORMAT_224,
-    CHROMA_FORMAT_444,
-    CHROMA_FORMAT_400
+	FORMAT_420,
+	FORMAT_422,
+	FORMAT_224,
+	FORMAT_444,
+	FORMAT_400
 } ChromaFormat;
 
 typedef struct {
@@ -183,10 +185,10 @@ typedef struct {
 
 /* VP8 specific display information */
 typedef struct {
-    unsigned hScaleFactor : 2;
-    unsigned vScaleFactor : 2;
-    unsigned picWidth     : 14;
-    unsigned picHeight    : 14;
+	unsigned hScaleFactor : 2;
+	unsigned vScaleFactor : 2;
+	unsigned picWidth     : 14;
+	unsigned picHeight    : 14;
 } Vp8ScaleInfo;
 
 /* Decode struct and definition */
@@ -201,19 +203,21 @@ typedef struct {
 	int mp4DeblkEnable;
 	int reorderEnable;
 	int chromaInterleave;
-	int filePlayEnable;
+	int filePlayEnable;     /* Not used on mx6 */
 	int picWidth;
 	int picHeight;
-	int dynamicAllocEnable;
+	int avcExtension;	/* Not used on none mx6 */
+	int dynamicAllocEnable; /* Not used on mx6 */
 	int streamStartByteOffset;
 	int mjpg_thumbNailDecEnable;
 	PhysicalAddress psSaveBuffer;
 	int psSaveBufferSize;
 	int mp4Class;
 
-	int vc1AnnexL3MetaDisable;
 	int mapType;
 	int tiled2LinearEnable;
+	int bitstreamMode;
+
 } DecOpenParam;
 
 typedef struct {
@@ -228,11 +232,11 @@ typedef struct {
 } JpegHeaderBufInfo;
 
 typedef struct {
-	int picWidth;		// {(PicX+15)/16} * 16
-	int picHeight;		// {(PicY+15)/16} * 16
-	Uint32 frameRateInfo;
-	Uint32 frameRateRes;
-	Uint32 frameRateDiv;
+	int picWidth;
+	int picHeight;
+	Uint32 frameRateInfo;   /* Not used on mx6 */
+	Uint32 frameRateRes;    /* Not used on none mx6 */
+	Uint32 frameRateDiv;    /* Not used on none mx6 */
 
 	Rect picCropRect;
 
@@ -301,15 +305,15 @@ typedef enum {
 } ExtParaType;
 
 typedef struct {
-	int prescanEnable;
-	int prescanMode;
+	int prescanEnable; /* Not used on mx6 */
+	int prescanMode;   /* Not used on mx6 */
 	int dispReorderBuf;
 	int iframeSearchEnable;
 	int skipframeMode;
 	int skipframeNum;
-	int chunkSize;
-	int picStartByteOffset;
-	PhysicalAddress picStreamBufferAddr;
+	int chunkSize;      /* Not used on mx6 */
+	int picStartByteOffset;   /* Not used on mx6 */
+	PhysicalAddress picStreamBufferAddr;  /* Not used on mx6 */
 } DecParam;
 
 typedef	struct {
@@ -326,26 +330,56 @@ typedef	struct {
 	Uint8 *addr;
 } DecReportInfo;
 
-// VP8 specific header information
+/* VP8 specific header information */
 typedef struct {
-    unsigned showFrame     : 1;
-    unsigned versionNumber : 3;
-    unsigned refIdxLast    : 8;
-    unsigned refIdxAltr    : 8;
-    unsigned refIdxGold    : 8;
+	unsigned showFrame     : 1;
+	unsigned versionNumber : 3;
+	unsigned refIdxLast    : 8;
+	unsigned refIdxAltr    : 8;
+	unsigned refIdxGold    : 8;
 } Vp8PicInfo;
+
+/* MVC specific picture information */
+typedef struct {
+	int viewIdxDisplay;
+	int viewIdxDecoded;
+} MvcPicInfo;
+
+/* AVC specific SEI information (frame packing arrangement SEI) */
+typedef struct {
+	unsigned exist;
+	unsigned frame_packing_arrangement_id;
+	unsigned frame_packing_arrangement_cancel_flag;
+	unsigned quincunx_sampling_flag;
+	unsigned spatial_flipping_flag;
+	unsigned frame0_flipped_flag;
+	unsigned field_views_flag;
+	unsigned current_frame_is_frame0_flag;
+	unsigned frame0_self_contained_flag;
+	unsigned frame1_self_contained_flag;
+	unsigned frame_packing_arrangement_ext_flag;
+	unsigned frame_packing_arrangement_type;
+	unsigned content_interpretation_type;
+	unsigned frame0_grid_position_x;
+	unsigned frame0_grid_position_y;
+	unsigned frame1_grid_position_x;
+	unsigned frame1_grid_position_y;
+	unsigned frame_packing_arrangement_repetition_period;
+} AvcFpaSei;
 
 typedef struct {
 	int indexFrameDisplay;
 	int indexFrameDecoded;
 	int NumDecFrameBuf;
 	int picType;
+	int picTypeFirst;    /* Not used on none mx6 */
+	int idrFlg;	     /* Not used on none mx6 */
 	int numOfErrMBs;
-	Uint32 *qpInfo;
+	Uint32 *qpInfo;      /* Not used on mx5 and mx6 */
 	int hScaleFlag;
 	int vScaleFlag;
 	int indexFrameRangemap;
-	int prescanresult;
+	int prescanresult;    /* Not used on mx6 */
 	int notSufficientPsBuffer;
 	int notSufficientSliceBuffer;
 	int decodingSuccess;
@@ -367,15 +401,20 @@ typedef struct {
 	Rect decPicCrop;
 
 	int aspectRateInfo;
-	Uint32 frameRateRes;
-	Uint32 frameRateDiv;
+	Uint32 frameRateRes;   /* Not used on none mx6 */
+	Uint32 frameRateDiv;   /* Not used on none mx6 */
 	Vp8ScaleInfo vp8ScaleInfo;
 	Vp8PicInfo vp8PicInfo;
-	int mjpg_consumedByte;
+	MvcPicInfo mvcPicInfo;  /* Not used on none mx6 */
+	AvcFpaSei avcFpaSei;
 
-	DecReportInfo mbInfo;
-	DecReportInfo mvInfo;
-	DecReportInfo frameBufStat;
+	int frameStartPos;   /* Not used on none mx6 */
+	int frameEndPos;     /* Not used on none mx6 */
+	int consumedByte;    /* Not used on none mx6 */
+
+	DecReportInfo mbInfo;        /* Not used on mx6 */
+	DecReportInfo mvInfo;        /* Not used on mx6 */
+	DecReportInfo frameBufStat;  /* Not used on mx6 */
 	DecReportInfo userData;
 } DecOutputInfo;
 
@@ -455,7 +494,7 @@ typedef struct {
 
 	int rcIntraQp;
 	int chromaInterleave;
-	int dynamicAllocEnable;
+	int dynamicAllocEnable; /* Not used for mx6 */
 	int ringBufferEnable;
 
 	union {
@@ -517,6 +556,8 @@ typedef struct {
 	int skipEncoded;
 	int picType;
 	int numOfSlices;
+	int reconFrameIndex;
+
 	Uint32 *pSliceInfo;
 	Uint32 *pMBInfo;
 	Uint32 *pMBQpInfo;
@@ -598,7 +639,7 @@ typedef struct vpu_versioninfo {
  * v4.2.2 [2008.09.03] support encoder on MX51
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 3, 2)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 3, 3)
 
 extern unsigned int system_rev;
 
@@ -634,7 +675,8 @@ RetCode vpu_EncClose(EncHandle);
 RetCode vpu_EncGetInitialInfo(EncHandle, EncInitialInfo *);
 RetCode vpu_EncRegisterFrameBuffer(EncHandle handle, FrameBuffer * bufArray,
 				   int num, int frameBufStride, int sourceBufStride,
-				    PhysicalAddress subSampBaseA, PhysicalAddress subSampBaseB);
+				   PhysicalAddress subSampBaseA, PhysicalAddress subSampBaseB,
+				   ExtBufCfg *scratchBuf);
 RetCode vpu_EncGetBitstreamBuffer(EncHandle handle, PhysicalAddress * prdPrt,
 				  PhysicalAddress * pwrPtr, Uint32 * size);
 RetCode vpu_EncUpdateBitstreamBuffer(EncHandle handle, Uint32 size);
