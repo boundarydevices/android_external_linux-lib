@@ -7,7 +7,7 @@ INCLUDE_LIST:= IMX27ADS IMX51 IMX53 IMX6Q
 OBJ = vpu_io.o vpu_util.o vpu_lib.o vpu_gdi.o
 
 LIBNAME = libvpu
-SONAMEVERSION=0
+SONAMEVERSION=1
 
 ifeq ($(PLATFORM), $(findstring $(PLATFORM), $(INCLUDE_LIST)))
 
