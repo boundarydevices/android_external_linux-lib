@@ -26,9 +26,16 @@
 #include "sw_gbu.h"
 
 #define MAX_FW_BINARY_LEN		200 * 1024
-#define MAX_NUM_INSTANCE		8
 
-#define BIT_WORK_SIZE			0x20000
+#define INT_BIT_PIC_RUN			3
+#define INT_BIT_BIT_BUF_FULL		15
+#define INT_BIT_BIT_BUF_EMPTY		14
+
+#if defined(IMX6Q)
+#define BIT_WORK_SIZE			47 * 1024
+#else
+#define BIT_WORK_SIZE			128 * 1024
+#endif
 #define SIZE_CONTEXT_BUF		BIT_WORK_SIZE
 
 #define SIZE_PIC_PARA_BASE_BUF          0x100
@@ -53,6 +60,14 @@
 #define Q_COMPONENT0		    0
 #define Q_COMPONENT1		    0x40
 #define Q_COMPONENT2		    0x80
+
+/* SW Reset command */
+#define VPU_SW_RESET_BPU_CORE   0x008
+#define VPU_SW_RESET_BPU_BUS    0x010
+#define VPU_SW_RESET_VCE_CORE   0x020
+#define VPU_SW_RESET_VCE_BUS    0x040
+#define VPU_SW_RESET_GDI_CORE   0x080
+#define VPU_SW_RESET_GDI_BUS    0x100
 
 #if defined(IMX51) || defined(IMX53)
 enum {
@@ -110,6 +125,11 @@ enum {
 	VPX_AUX_THO = 0,
 	VPX_AUX_VP6 = 1,
 	VPX_AUX_VP8 = 2
+};
+
+enum {
+	AVC_AUX_AVC = 0,
+	AVC_AUX_MVC = 1
 };
 
 enum {
@@ -282,6 +302,7 @@ typedef struct {
 	int initialInfoObtained;
 	int dynamicAllocEnable;
 	int ringBufferEnable;
+	int mp4_dataPartitionEnable;
 
 	SecAxiUse secAxiUse;
 	MaverickCacheConfig cacheConfig;
@@ -371,13 +392,14 @@ typedef struct {
 	int tiledLinearEnable;
 
 	DbkOffset dbkOffset;
-
 	SecAxiUse secAxiUse;
 	MaverickCacheConfig cacheConfig;
 	JpgDecInfo jpgInfo;
 
 	vpu_mem_desc picParaBaseMem;
 	vpu_mem_desc userDataBufMem;
+
+	WriteMemProtectCfg writeMemProtectCfg;
 
 	DecReportInfo decReportFrameBufStat; /* Frame Buffer Status */
 	DecReportInfo decReportMBInfo;      /* Mb Param for Error Concealment */
@@ -412,8 +434,7 @@ typedef struct {
 	CodecInst *pendingInst;
 } semaphore_t;
 
-void BitIssueCommand(int instIdx, int cdcMode, int cdcModeAux, int cmd);
-void BitIssueCommandEx(CodecInst *pCodecInst, int cmd);
+void BitIssueCommand(CodecInst *pCodecInst, int cmd);
 
 RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size);
 RetCode DownloadBitCodeTable(unsigned long *virtCodeBuf, Uint16 *bit_code);
@@ -479,6 +500,7 @@ static inline void UnlockVpuReg(semaphore_t *semap)
 	IOClkGateSet(0);
 }
 
+int vpu_mx6q_swreset(int forcedReset);
 int JpgEncLoadHuffTab(EncInfo * pEncInfo);
 int JpgEncLoadQMatTab(EncInfo * pEncInfo);
 int JpgEncEncodeHeader(EncHandle handle, EncParamSet * para);
