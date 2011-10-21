@@ -249,16 +249,22 @@ RetCode vpu_SWReset(DecHandle handle, int index)
 
 	if (*ppendingInst && (pCodecInst != *ppendingInst))
 		return RETCODE_FAILURE;
-	else {
+	else if (*ppendingInst) {
 		/* Need to unlock VPU since mutex is locked when StartOneFrame */
 		UnlockVpu(vpu_semap);
+		*ppendingInst = 0;
 	}
 
 	if (!LockVpu(vpu_semap))
 		return RETCODE_FAILURE_TIMEOUT;
 
 	if (cpu_is_mx6q()) {
-		vpu_mx6q_swreset(0);
+		IOSysSWReset();
+
+		VpuWriteReg(BIT_BUSY_FLAG, 1);
+		VpuWriteReg(BIT_CODE_RUN, 1);
+		while (vpu_IsBusy());
+
 		UnlockVpu(vpu_semap);
 		return RETCODE_SUCCESS;
 	}
