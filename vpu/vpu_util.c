@@ -907,6 +907,7 @@ void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 {
 	iram_t iram;
 	int size, dbk_size, bitram_size, ipacdc_size, ovl_size, btp_size;
+	int mbNumX, mbNumY;
 
 	if (!parm->width) {
 		err_msg("Width is zero when calling SetDecSecondAXIIRAM function\n");
@@ -918,11 +919,14 @@ void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 	IOGetIramBase(&iram);
 	size = iram.end - iram.start + 1;
 
+	mbNumX = (parm->width + 15 ) / 16;
+	mbNumY = (parm->height + 15 ) / 16;
+
 	/* Setting internal iram usage per priority when iram isn't enough */
 	if ((parm->codecMode == VC1_DEC) && (parm->profile == 2))
-		dbk_size = (512 * parm->width / 16 + 1023) & ~1023;
+		dbk_size = (512 * mbNumX + 1023) & ~1023;
 	else
-		dbk_size = (256 * parm->width / 16 + 1023) & ~1023;
+		dbk_size = (256 * mbNumX + 1023) & ~1023;
 
 	if (size >= dbk_size) {
 		psecAxiIramInfo->useHostDbkEnable = 1;
@@ -932,7 +936,7 @@ void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 	} else
 		goto out;
 
-	bitram_size = (128 * parm->width / 16 + 1023) & ~1023;
+	bitram_size = (128 * mbNumX + 1023) & ~1023;
 	if (size >= bitram_size) {
 		psecAxiIramInfo->useHostBitEnable = 1;
 		psecAxiIramInfo->bufBitUse = psecAxiIramInfo->bufDbkCUse + dbk_size / 2;
@@ -940,7 +944,7 @@ void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 	} else
 		goto out;
 
-	ipacdc_size = (128 * parm->width / 16 + 1023) & ~1023;
+	ipacdc_size = (128 * mbNumX + 1023) & ~1023;
 	if (size >= ipacdc_size) {
 		psecAxiIramInfo->useHostIpEnable = 1;
 		psecAxiIramInfo->bufIpAcDcUse = psecAxiIramInfo->bufBitUse + bitram_size;
@@ -948,7 +952,7 @@ void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 	} else
 		goto out;
 
-	ovl_size = (160 * parm->width / 16 + 1023) & ~1023;
+	ovl_size = (80 * mbNumX + 1023) & ~1023;
 	if (parm->codecMode == VC1_DEC) {
 		if (size >= ovl_size) {
 			psecAxiIramInfo->useHostOvlEnable = 1;
@@ -956,7 +960,7 @@ void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 			size -= ovl_size;
 		}
 		if (cpu_is_mx6q()) {
-			btp_size = (160 * parm->width / 16 + 1023) & ~1023;
+			btp_size = ((((mbNumX + 15) / 16) * mbNumY + 1) * 6 + 255) & ~255;
 			if (size >= btp_size) {
 				psecAxiIramInfo->useHostBtpEnable = 1;
 				psecAxiIramInfo->bufBtpUse = psecAxiIramInfo->bufOvlUse + ovl_size;
@@ -987,7 +991,7 @@ out:
 void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 {
 	iram_t iram;
-	int size, dbk_size, bitram_size, ipacdc_size;
+	int size, dbk_size, bitram_size, ipacdc_size, mbNumX;
 
 	if (!parm->width) {
 		err_msg("Width is zero when calling SetEncSecondAXIIRAM function\n");
@@ -998,6 +1002,8 @@ void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 
 	IOGetIramBase(&iram);
 	size = iram.end - iram.start + 1;
+
+	mbNumX = (parm->width + 15 ) / 16;
 
 	if (cpu_is_mx6q()) {
 		psecAxiIramInfo->searchRamSize = 0;
@@ -1018,7 +1024,7 @@ void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 
 set_dbk:
 	/* Only H.264BP and H.263P3 are considered */
-	dbk_size = (128 * parm->width / 16 + 1023) & ~1023;
+	dbk_size = (128 * mbNumX + 1023) & ~1023;
 	if (size >= dbk_size) {
 		psecAxiIramInfo->useHostDbkEnable = 1;
 		psecAxiIramInfo->bufDbkYUse = iram.start + psecAxiIramInfo->searchRamSize;
@@ -1027,7 +1033,7 @@ set_dbk:
 	} else
 		goto out;
 
-	bitram_size = (128 * parm->width / 16 + 1023) & ~1023;
+	bitram_size = (128 * mbNumX + 1023) & ~1023;
 	if (size >= bitram_size) {
 		psecAxiIramInfo->useHostBitEnable = 1;
 		psecAxiIramInfo->bufBitUse = psecAxiIramInfo->bufDbkCUse + dbk_size / 2;
@@ -1035,7 +1041,7 @@ set_dbk:
 	} else
 		goto out;
 
-	ipacdc_size = (128 * parm->width / 16 + 1023) & ~1023;
+	ipacdc_size = (128 * mbNumX + 1023) & ~1023;
 	if (size >= ipacdc_size) {
 		psecAxiIramInfo->useHostIpEnable = 1;
 		psecAxiIramInfo->bufIpAcDcUse = psecAxiIramInfo->bufBitUse + bitram_size;
