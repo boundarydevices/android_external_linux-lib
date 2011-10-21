@@ -980,7 +980,7 @@ out:
 		psecAxiIramInfo->useIpEnable = psecAxiIramInfo->useHostIpEnable;
 		psecAxiIramInfo->useDbkEnable = psecAxiIramInfo->useHostDbkEnable;
 		psecAxiIramInfo->useOvlEnable = psecAxiIramInfo->useHostOvlEnable;
-		psecAxiIramInfo->useBtpEnable = psecAxiIramInfo->useHostBtpEnable;
+		psecAxiIramInfo->useBtpEnable = psecAxiIramInfo->useHostBtpEnable = 0;
 	}
 
 	if (((parm->codecMode == VC1_DEC) && !psecAxiIramInfo->useHostOvlEnable) ||
