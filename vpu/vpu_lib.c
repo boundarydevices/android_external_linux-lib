@@ -2853,6 +2853,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	/* Set secondAXI IRAM */
 	if (!cpu_is_mx27()) {
 		iramParam.width = (info->picWidth + 15) & ~15;
+		iramParam.height = (info->picHeight + 15) & ~15;
 		iramParam.profile = info->profile;
 		iramParam.codecMode = pCodecInst->codecMode;
 		SetDecSecondAXIIRAM(&pDecInfo->secAxiUse, &iramParam);
