@@ -245,6 +245,7 @@ typedef struct {
 
 typedef struct {
 	int width;
+	int height;
 	int codecMode;
 	int profile;
 } SetIramParam;
