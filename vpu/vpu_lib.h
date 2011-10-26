@@ -52,6 +52,11 @@ typedef Uint32 VirtualAddress;
 
 #define MAX_NUM_INSTANCE		8
 
+#define DC_TABLE_INDEX0		    0
+#define AC_TABLE_INDEX0		    1
+#define DC_TABLE_INDEX1		    2
+#define AC_TABLE_INDEX1		    3
+
 typedef enum {
 	STD_MPEG4 = 0,
 	STD_H263 = 1,
@@ -84,7 +89,9 @@ typedef enum {
 	RETCODE_NOT_SUPPORTED = -15,
 	RETCODE_REPORT_BUF_NOT_SET = -16,
 	RETCODE_FAILURE_TIMEOUT = -17,
-	RETCODE_MEMORY_ACCESS_VIOLATION = -18
+	RETCODE_MEMORY_ACCESS_VIOLATION = -18,
+	RETCODE_JPEG_EOS = -19,
+	RETCODE_JPEG_BIT_EMPTY = -20
 } RetCode;
 
 typedef enum {
@@ -133,12 +140,7 @@ typedef enum {
 	DEC_SET_REPORT_MVINFO,
 	DEC_SET_REPORT_USERDATA,
 	SET_DBK_OFFSET,
-
-	SET_MC_CACHE_CONFIG,
-	ENABLE_MC_CACHE,
-	DISABLE_MC_CACHE,
 	SET_WRITE_MEM_PROTECT,
-	SET_JPG_HEADER_BUFFER,
 
 	ENC_SET_SUB_FRAME_SYNC,
 	ENC_ENABLE_SUB_FRAME_SYNC,
@@ -198,6 +200,7 @@ typedef DecInst *DecHandle;
 typedef struct {
 	CodStd bitstreamFormat;
 	PhysicalAddress bitstreamBuffer;
+	Uint8 *pBitStream;
 	int bitstreamBufferSize;
 	int qpReport;
 	int mp4DeblkEnable;
@@ -209,7 +212,7 @@ typedef struct {
 	int avcExtension;	/* Not used on none mx6 */
 	int dynamicAllocEnable; /* Not used on mx6 */
 	int streamStartByteOffset;
-	int mjpg_thumbNailDecEnable;
+	int mjpg_thumbNailDecEnable; /* Not used on mx6 */
 	PhysicalAddress psSaveBuffer;
 	int psSaveBufferSize;
 	int mp4Class;
@@ -217,6 +220,7 @@ typedef struct {
 	int mapType;
 	int tiled2LinearEnable;
 	int bitstreamMode;
+	int jpgLineBufferMode; /* mx6 */
 
 } DecOpenParam;
 
@@ -314,6 +318,12 @@ typedef struct {
 	int chunkSize;      /* Not used on mx6 */
 	int picStartByteOffset;   /* Not used on mx6 */
 	PhysicalAddress picStreamBufferAddr;  /* Not used on mx6 */
+	int mjpegScaleDownRatioWidth;  /* mx6 */
+	int mjpegScaleDownRatioHeight;  /* mx6 */
+
+	PhysicalAddress phyJpgChunkBase;
+	unsigned char *virtJpgChunkBase;
+
 } DecParam;
 
 typedef	struct {
@@ -639,7 +649,7 @@ typedef struct vpu_versioninfo {
  * v4.2.2 [2008.09.03] support encoder on MX51
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 3, 4)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 3, 5)
 
 extern unsigned int system_rev;
 
