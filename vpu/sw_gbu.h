@@ -201,23 +201,23 @@ static inline int get_xbits(GetBitContext * s, int n)
 	register int sign;
 	register int32_t cache;
 	OPEN_READER(re, s)
-	    UPDATE_CACHE(re, s)
-	    cache = GET_CACHE(re, s);
+	UPDATE_CACHE(re, s)
+	cache = GET_CACHE(re, s);
 	sign = (~cache) >> 31;
 	LAST_SKIP_BITS(re, s, n)
-	    CLOSE_READER(re, s)
-	    return (NEG_USR32(sign ^ cache, n) ^ sign) - sign;
+	CLOSE_READER(re, s)
+	return (NEG_USR32(sign ^ cache, n) ^ sign) - sign;
 }
 
 static inline int get_sbits(GetBitContext * s, int n)
 {
 	register int tmp;
 	OPEN_READER(re, s)
-	    UPDATE_CACHE(re, s)
-	    tmp = SHOW_SBITS(re, s, n);
+	UPDATE_CACHE(re, s)
+	tmp = SHOW_SBITS(re, s, n);
 	LAST_SKIP_BITS(re, s, n)
-	    CLOSE_READER(re, s)
-	    return tmp;
+	CLOSE_READER(re, s)
+	return tmp;
 }
 
 /**
@@ -228,11 +228,14 @@ static inline unsigned int get_bits(GetBitContext * s, int n)
 {
 	register int tmp;
 	OPEN_READER(re, s)
-	    UPDATE_CACHE(re, s)
-	    tmp = SHOW_UBITS(re, s, n);
+	if (s->index > s->size_in_bits)
+		return -1;
+
+	UPDATE_CACHE(re, s)
+	tmp = SHOW_UBITS(re, s, n);
 	LAST_SKIP_BITS(re, s, n)
-	    CLOSE_READER(re, s)
-	    return tmp;
+	CLOSE_READER(re, s)
+	return tmp;
 }
 
 /**
@@ -243,18 +246,18 @@ static inline unsigned int show_bits(GetBitContext * s, int n)
 {
 	register int tmp;
 	OPEN_READER(re, s)
-	    UPDATE_CACHE(re, s)
-	    tmp = SHOW_UBITS(re, s, n);
+	UPDATE_CACHE(re, s)
+	tmp = SHOW_UBITS(re, s, n);
 	return tmp;
 }
 
 static inline void skip_bits(GetBitContext * s, int n)
 {
-	//Note gcc seems to optimize this to s->index+=n for the ALT_READER :))
+	/* Note gcc seems to optimize this to s->index+=n for the ALT_READER :)) */
 	OPEN_READER(re, s)
-	    UPDATE_CACHE(re, s)
-	    LAST_SKIP_BITS(re, s, n)
-	    CLOSE_READER(re, s)
+	UPDATE_CACHE(re, s)
+	LAST_SKIP_BITS(re, s, n)
+	CLOSE_READER(re, s)
 }
 
 static inline unsigned int get_bits1(GetBitContext * s)
@@ -355,14 +358,6 @@ static inline void init_get_bits(GetBitContext * s,
 	s->buffer_end = buffer + buffer_size;
 #ifdef ALT_BITSTREAM_READER
 	s->index = 0;
-#elif defined LIBMPEG2_BITSTREAM_READER
-	s->buffer_ptr = (uint8_t *) ((intptr_t) buffer & (~1));
-	s->bit_count = 16 + 8 * ((intptr_t) buffer & 1);
-	skip_bits_long(s, 0);
-#elif defined A32_BITSTREAM_READER
-	s->buffer_ptr = (uint32_t *) ((intptr_t) buffer & (~3));
-	s->bit_count = 32 + 8 * ((intptr_t) buffer & 3);
-	skip_bits_long(s, 0);
 #endif
 }
 
