@@ -27,9 +27,20 @@
 
 #define MAX_FW_BINARY_LEN		200 * 1024
 
-#define INT_BIT_PIC_RUN			3
-#define INT_BIT_BIT_BUF_FULL		15
-#define INT_BIT_BIT_BUF_EMPTY		14
+typedef enum {
+	INT_BIT_PIC_RUN = 3,
+	INT_BIT_BIT_BUF_EMPTY = 14,
+	INT_BIT_BIT_BUF_FULL = 15
+}InterruptBit;
+
+typedef enum {
+	INT_JPU_DONE = 0,
+	INT_JPU_ERROR = 1,
+	INT_JPU_BIT_BUF_EMPTY = 2,
+	INT_JPU_BIT_BUF_FULL = 2,
+	INT_JPU_PARIAL_OVERFLOW = 3
+}InterruptJpu;
+
 
 #if defined(IMX6Q)
 #define BIT_WORK_SIZE			47 * 1024
@@ -275,7 +286,7 @@ typedef struct {
 	Uint32 huffSize[4][256];
 	Uint8 *pHuffVal[4];
 	Uint8 *pHuffBits[4];
-	Uint8 *pCInfoTab[4];
+	Uint8 *pCInfoTab[5];
 	Uint8 *pQMatTab[4];
 
 } JpgEncInfo;
@@ -320,42 +331,47 @@ typedef struct {
 } EncInfo;
 
 typedef struct {
-    /* for Nieuport */
-    int picWidth;
-    int picHeight;
-    int alignedWidth;
-    int alignedHeight;
+	/* for Nieuport */
+	int picWidth;
+	int picHeight;
+	int alignedWidth;
+	int alignedHeight;
+	int frameOffset;
+	int ecsPtr;
+	int pagePtr;
+	int wordPtr;
+	int bitPtr;
+	int format;
+	int rstIntval;
 
-    int ecsPtr;
-    int format;
-    int rstIntval;
+	int userHuffTab;
 
-    int userHuffTab;
+	int huffDcIdx;
+	int huffAcIdx;
+	int Qidx;
 
-    int huffDcIdx;
-    int huffAcIdx;
-    int Qidx;
+	Uint8 huffVal[4][162];
+	Uint8 huffBits[4][256];
+	Uint8 cInfoTab[4][6];
+	Uint8 qMatTab[4][64];
 
-    Uint8 huffVal[4][162];
-    Uint8 huffBits[4][256];
-    Uint8 cInfoTab[4][6];
-    Uint8 qMatTab[4][64];
+	Uint32 huffMin[4][16];
+	Uint32 huffMax[4][16];
+	Uint8 huffPtr[4][16];
 
-    Uint32 huffMin[4][16];
-    Uint32 huffMax[4][16];
-    Uint8 huffPtr[4][16];
+	int busReqNum;
+	int compNum;
+	int mcuBlockNum;
+	int compInfo[3];
 
-    int busReqNum;
-    int compNum;
-    int mcuBlockNum;
-    int compInfo[3];
+	int frameIdx;
+	int seqInited;
 
-    int frameIdx;
-    int seqInited;
+	Uint8 *pHeader;
+	int headerSize;
+	GetBitContext gbc;
+	int lineBufferMode;
 
-    Uint8 *pHeader;
-    int headerSize;
-    GetBitContext gbc;
 } JpgDecInfo;
 
 typedef struct {
@@ -366,6 +382,7 @@ typedef struct {
 	PhysicalAddress streamBufStartAddr;
 	PhysicalAddress streamBufEndAddr;
 	int streamBufSize;
+	Uint8 *pBitStream;
 
 	FrameBuffer *frameBufPool;
 	int numFrameBuffers;
@@ -502,13 +519,13 @@ static inline void UnlockVpuReg(semaphore_t *semap)
 }
 
 int vpu_mx6q_swreset(int forcedReset);
-int JpgEncLoadHuffTab(EncInfo * pEncInfo);
-int JpgEncLoadQMatTab(EncInfo * pEncInfo);
-int JpgEncEncodeHeader(EncHandle handle, EncParamSet * para);
-void JpgDecGramSetup(DecInfo * pDecInfo);
+int JpgEncLoadHuffTab(EncInfo *pEncInfo);
+int JpgEncLoadQMatTab(EncInfo *pEncInfo);
+int JpgEncEncodeHeader(EncHandle handle, EncParamSet *para);
+void JpgDecGramSetup(DecInfo *pDecInfo);
 RetCode JpgDecHuffTabSetUp(DecInfo *pDecInfo);
 RetCode JpgDecQMatTabSetUp(DecInfo *pDecInfo);
-int JpegDecodeHeader(DecInfo * pDecInfo);
+int JpegDecodeHeader(DecInfo *pDecInfo, unsigned char *b, int size);
 
 #define swab32(x) \
 	((Uint32)( \
