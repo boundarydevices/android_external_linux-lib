@@ -1124,35 +1124,13 @@ semaphore_t *vpu_semaphore_open(void)
 	char *timeout_env;
 	int i;
 
-	/*
-	 * Currently only mx6q uses vmalloced share memory, mx5x platfrom
-	 * keeps current solution, then it is convenient to do vpu lib
-	 * upgrade, no need to upgrade depenent kernel.
-	 * Will change mx5x solution later.
-	 */
-	if (cpu_is_mx6q()) {
-		semap = (semaphore_t *)IOGetVShareMem(sizeof(semaphore_t));
-		if (!semap) {
-			err_msg("Unable to Get VShare memory\n");
-			return NULL;
-		}
-		goto semap_init;
-	}
-
-	share_mem.size = sizeof(semaphore_t);
-
-	if (IOGetPhyShareMem(&share_mem)) {
-		err_msg("Unable to obtain physical of share memory\n");
+	/* Use vmalloced share memory for all platforms */
+	semap = (semaphore_t *)IOGetVShareMem(sizeof(semaphore_t));
+	if (!semap) {
+		err_msg("Unable to Get VShare memory\n");
 		return NULL;
 	}
 
-	semap = (semaphore_t *)IOGetVirtMem(&share_mem);
-	if (semap == NULL) {
-		err_msg("Unable to map physical of share memory\n");
-		return NULL;
-	}
-
-semap_init:
 	if (!semap->is_initialized) {
 		pthread_mutexattr_init(&psharedm);
 		pthread_mutexattr_setpshared(&psharedm, PTHREAD_PROCESS_SHARED);
