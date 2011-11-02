@@ -57,7 +57,6 @@ typedef struct {
 extern unsigned long *virt_paraBuf;
 extern semaphore_t *vpu_semap;
 static int mutex_timeout;
-static vpu_mem_desc share_mem;
 
 RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 {
