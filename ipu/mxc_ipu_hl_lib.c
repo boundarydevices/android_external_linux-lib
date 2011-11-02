@@ -1185,18 +1185,27 @@ static int _ipu_mem_alloc(ipu_lib_input_param_t * input,
 			}
 		}
 
-		/* allocate dma buffer for rotation? */
+		/* allocate or get dma buffer for rotation? */
 		if((ipu_priv_handle->output.task_mode == (ROT_MODE | IC_MODE)) ||
 		   (ipu_priv_handle->output.task_mode == (ROT_MODE | VDI_IC_MODE))) {
 			ipu_priv_handle->output.r_minfo[i].size =
 				ipu_priv_handle->output.owidth/8*ipu_priv_handle->output.oheight
 				*fmt_to_bpp(output->fmt);
-			ret = __ipu_mem_alloc(&ipu_priv_handle->output.r_minfo[i], NULL);
-			if (ret < 0)
-				goto err;
-			dbg(DBG_INFO, "\033[0;35mAlocate %d dma mem [%d] for rotation, dma addr 0x%x!\033[0m\n",
-					ipu_priv_handle->output.r_minfo[i].size, i,
-					ipu_priv_handle->output.r_minfo[i].paddr);
+			if (ipu_handle->rotbuf_phy_start[i] == 0 ||
+			    ipu_handle->rotfr_size < ipu_priv_handle->output.r_minfo[i].size) {
+				ret = __ipu_mem_alloc(&ipu_priv_handle->output.r_minfo[i], NULL);
+				if (ret < 0)
+					goto err;
+				dbg(DBG_INFO, "\033[0;35mAlocate %d dma mem [%d] for rotation, dma addr 0x%x!\033[0m\n",
+						ipu_priv_handle->output.r_minfo[i].size, i,
+						ipu_priv_handle->output.r_minfo[i].paddr);
+			} else {
+				ipu_priv_handle->output.r_minfo[i].paddr = ipu_handle->rotbuf_phy_start[i];
+				ipu_priv_handle->output.r_minfo[i].size = ipu_handle->rotfr_size;
+				dbg(DBG_INFO, "\033[0;35mGet %d dma mem [%d] from user for rotation, dma addr 0x%x!\033[0m\n",
+						ipu_priv_handle->output.r_minfo[i].size, i,
+						ipu_priv_handle->output.r_minfo[i].paddr);
+			}
 		}
 
 again:
