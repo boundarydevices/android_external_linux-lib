@@ -59,6 +59,8 @@ typedef struct iram_t {
 #define VPU_IOC_REQ_VSHARE_MEM  _IO(VPU_IOC_MAGIC, 9)
 #define VPU_IOC_SYS_SW_RESET	_IO(VPU_IOC_MAGIC, 11)
 #define VPU_IOC_GET_SHARE_MEM   _IO(VPU_IOC_MAGIC, 12)
+#define VPU_IOC_QUERY_BITWORK_MEM  _IO(VPU_IOC_MAGIC, 13)
+#define VPU_IOC_SET_BITWORK_MEM    _IO(VPU_IOC_MAGIC, 14)
 
 typedef void (*vpu_callback) (int status);
 
