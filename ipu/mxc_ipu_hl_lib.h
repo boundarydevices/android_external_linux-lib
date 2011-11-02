@@ -307,17 +307,23 @@ typedef struct {
  * The ifr_size/ofr_size indicate the size of input/output buffer.
  * User should not care the priv parameter and DO NOT change it.
  * Note that inbuf_start[2] is used only for TASK_VDI_VF_MODE and motion
- * mode is selected to be medium motion or low motion.
+ * mode is selected to be medium motion or low motion,
+ * rotbuf_phy_start[] is set by the user to tell the physical address(es)
+ * of rotation buffer(s) so that IPU lib will not do allocation in kernel
+ * and rotfr_size is also set by the user to tell the rotation buffer
+ * size.
  */
 typedef struct {
         void * inbuf_start[3];
         void * ovbuf_start[2];
         void * ovbuf_alpha_start[2];
 	void * outbuf_start[3];
+	void * rotbuf_phy_start[2];
 	int ifr_size;
 	int ovfr_size;
 	int ovfr_alpha_size;
 	int ofr_size;
+	int rotfr_size;
 
 	void * priv;
 } ipu_lib_handle_t;
