@@ -211,10 +211,7 @@ RetCode vpu_Init(void *cb)
 		    BUF_PIC_FLUSH << BIT_BUF_PIC_FLUSH | BUF_PIC_RESET <<
 		    BIT_BUF_PIC_RESET;
 		VpuWriteReg(BIT_BIT_STREAM_CTRL, data);
-		if (cpu_is_mx6q())
-			VpuWriteReg(BIT_FRAME_MEM_CTRL, IMAGE_ENDIAN | 1 << 12);
-		else
-			VpuWriteReg(BIT_FRAME_MEM_CTRL, IMAGE_ENDIAN);
+		VpuWriteReg(BIT_FRAME_MEM_CTRL, IMAGE_ENDIAN);
 		VpuWriteReg(BIT_INT_ENABLE, 1 << INT_BIT_PIC_RUN);
 		VpuWriteReg(BIT_AXI_SRAM_USE, 0);	/* init to not use SRAM */
 
@@ -2470,7 +2467,6 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 
 		if (pDecInfo->mapType)
 			val |= (pDecInfo->tiledLinearEnable << 11 | 0x03 << 9);
-		val |= 1 << 12;
 	}
 	pCodecInst->ctxRegs[CTX_BIT_FRAME_MEM_CTRL] =
 		    val | (pDecInfo->openParam.chromaInterleave << 2);
