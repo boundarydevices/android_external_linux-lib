@@ -337,7 +337,7 @@ int _IOGetPhyMem(int which, vpu_mem_desc *buff)
 	}
 
 	buff->size = (buff->size + pagesize-1) & ~(pagesize - 1);
-	fd_pem = (unsigned long)open("/dev/pmem_adsp", O_RDWR);
+	fd_pem = (unsigned long)open("/dev/pmem_adsp", O_RDWR | O_SYNC);
 	if (fd_pem < 0) {
 		LOGE("Error!_IOGetPhyMem Error,cannot open pmem");
 		return -1;
