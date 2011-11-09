@@ -2462,7 +2462,7 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 	UnlockVpuReg(vpu_semap);
 
 	val = VpuReadReg(BIT_FRAME_MEM_CTRL);
-	val &= ~(1 << 2 || 1 << 3); /* clear the bit firstly */
+	val &= ~(1 << 2 | 1 << 3); /* clear the bit firstly */
 	val &= 0x3f;
 	if (cpu_is_mx6q()) {
 		if (pDecInfo->openParam.bitstreamMode)
