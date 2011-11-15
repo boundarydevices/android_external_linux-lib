@@ -177,6 +177,9 @@ RetCode vpu_Init(void *cb)
 		}
 
 		IOClkGateSet(true);
+
+		for (i = 0; i < 64; i++)
+			VpuWriteReg(BIT_CODE_BUF_ADDR + (i * 4), 0);
 		VpuWriteReg(BIT_PARA_BUF_ADDR, paraBuffer);
 		VpuWriteReg(BIT_CODE_BUF_ADDR, codeBuffer);
 		VpuWriteReg(BIT_TEMP_BUF_ADDR, tempBuffer);
