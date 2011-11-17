@@ -2659,15 +2659,16 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 			    pDecInfo->openParam.streamStartByteOffset);
 	}
 
+	if (pCodecInst->codecMode == VPX_DEC)
+		VpuWriteReg(CMD_DEC_SEQ_START_BYTE, 0);
+
 	val = 0;
 	if (!cpu_is_mx6q())
 		val = ((pDecInfo->dynamicAllocEnable << 3) & 0x8) |
 			((pDecInfo->filePlayEnable << 2) & 0x4);
 
 	val |= ((pDecInfo->openParam.reorderEnable << 1) & 0x2);
-	if (pCodecInst->codecMode == VPX_DEC)
-		val |= (1 << 2) & 0x4;
-	else if (pCodecInst->codecMode == MJPG_DEC) {
+	if (pCodecInst->codecMode == MJPG_DEC) {
 		val |= 1 << 10; /* force not interrupt mode */
 		val |= pDecInfo->decReportUserData.enable << 5;
 	}
@@ -3221,7 +3222,7 @@ RetCode vpu_DecUpdateBitstreamBuffer(DecHandle handle, Uint32 size)
 		    pCodecInst->ctxRegs[CTX_BIT_RD_PTR];
 
 	if ((!cpu_is_mx6q() && pDecInfo->filePlayEnable != 1) ||
-	    (cpu_is_mx6q() && pCodecInst->codecMode != VPX_DEC)) {
+	    cpu_is_mx6q()) {
 		if (wrPtr < rdPtr) {
 			if (rdPtr <= wrPtr + size) {
 				UnlockVpuReg(vpu_semap);
@@ -3232,16 +3233,14 @@ RetCode vpu_DecUpdateBitstreamBuffer(DecHandle handle, Uint32 size)
 
 	wrPtr += size;
 
-	if (pCodecInst->codecMode != VPX_DEC) {
-		if (wrPtr > pDecInfo->streamBufEndAddr) {
-			room = wrPtr - pDecInfo->streamBufEndAddr;
-			wrPtr = pDecInfo->streamBufStartAddr;
-			wrPtr += room;
-		}
+	if (wrPtr > pDecInfo->streamBufEndAddr) {
+		room = wrPtr - pDecInfo->streamBufEndAddr;
+		wrPtr = pDecInfo->streamBufStartAddr;
+		wrPtr += room;
+	}
 
-		if (wrPtr == pDecInfo->streamBufEndAddr) {
-			wrPtr = pDecInfo->streamBufStartAddr;
-		}
+	if (wrPtr == pDecInfo->streamBufEndAddr) {
+		wrPtr = pDecInfo->streamBufStartAddr;
 	}
 
 	pDecInfo->streamWrPtr = wrPtr;
@@ -3649,11 +3648,6 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		       pDecInfo->secAxiUse.useHostOvlEnable << 10);
 	}
 	VpuWriteReg(BIT_AXI_SRAM_USE, val);
-
-	if (pCodecInst->codecMode == VPX_DEC) {
-		VpuWriteReg(CMD_DEC_PIC_CHUNK_SIZE,
-			    pDecInfo->streamWrPtr - pDecInfo->streamBufStartAddr);
-	}
 
 	BitIssueCommand(pCodecInst, PIC_RUN);
 
@@ -4104,11 +4098,6 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	pCodecInst->ctxRegs[CTX_BIT_FRM_DIS_FLG] = VpuReadReg(BIT_FRM_DIS_FLG);
 	pCodecInst->ctxRegs[CTX_BIT_RD_PTR] = VpuReadReg(BIT_RD_PTR);
 	pCodecInst->ctxRegs[CTX_BIT_STREAM_PARAM] = VpuReadReg(BIT_BIT_STREAM_PARAM);
-
-	if (pCodecInst->codecMode == VPX_DEC) {
-		pCodecInst->ctxRegs[CTX_BIT_WR_PTR] = pDecInfo->streamBufStartAddr;
-		pDecInfo->streamWrPtr = pDecInfo->streamBufStartAddr;
-	}
 
 	if (cpu_is_mx27()) {
 		if (pCodecInst->codecMode == MP4_DEC &&
