@@ -3440,27 +3440,14 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		while (!val)
 			val = VpuReadReg(GDI_STATUS);
 
-		if (rotMir & 0x10) {
-			VpuWriteReg(GDI_INFO_CONTROL, ((pDecInfo->jpgInfo.format & 0x07) << 17) |
-							pDecInfo->rotatorStride);
-			VpuWriteReg(GDI_INFO_PIC_SIZE, (pDecInfo->jpgInfo.alignedWidth << 16) |
-							pDecInfo->jpgInfo.alignedHeight);
-			VpuWriteReg(GDI_INFO_BASE_Y,  pDecInfo->rotatorOutput.bufY);
-			VpuWriteReg(GDI_INFO_BASE_CB,  pDecInfo->rotatorOutput.bufCb);
-			VpuWriteReg(GDI_INFO_BASE_CR,  pDecInfo->rotatorOutput.bufCr);
-			VpuWriteReg(MJPEG_DPB_BASE00_REG, 0);
-		} else {
-			val = (pDecInfo->jpgInfo.frameIdx % pDecInfo->numFrameBuffers);
-			VpuWriteReg(GDI_INFO_CONTROL, ((pDecInfo->jpgInfo.format & 0x07) << 17) |
-							pDecInfo->stride);
-			VpuWriteReg(GDI_INFO_PIC_SIZE, (pDecInfo->jpgInfo.alignedWidth << 16) |
-							pDecInfo->jpgInfo.alignedHeight);
-
-			VpuWriteReg(GDI_INFO_BASE_Y,  pDecInfo->frameBufPool[val].bufY);
-			VpuWriteReg(GDI_INFO_BASE_CB,  pDecInfo->frameBufPool[val].bufCb);
-			VpuWriteReg(GDI_INFO_BASE_CR,  pDecInfo->frameBufPool[val].bufCr);
-			VpuWriteReg(MJPEG_DPB_BASE00_REG, 0);
-		}
+		VpuWriteReg(GDI_INFO_CONTROL, ((pDecInfo->jpgInfo.format & 0x07) << 17) |
+						pDecInfo->rotatorStride);
+		VpuWriteReg(GDI_INFO_PIC_SIZE, (pDecInfo->jpgInfo.alignedWidth << 16) |
+						pDecInfo->jpgInfo.alignedHeight);
+		VpuWriteReg(GDI_INFO_BASE_Y,  pDecInfo->rotatorOutput.bufY);
+		VpuWriteReg(GDI_INFO_BASE_CB,  pDecInfo->rotatorOutput.bufCb);
+		VpuWriteReg(GDI_INFO_BASE_CR,  pDecInfo->rotatorOutput.bufCr);
+		VpuWriteReg(MJPEG_DPB_BASE00_REG, 0);
 
 		VpuWriteReg(GDI_CONTROL, 0);
 		VpuWriteReg(GDI_PIC_INIT_HOST, 1);
