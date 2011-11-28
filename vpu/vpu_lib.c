@@ -37,7 +37,6 @@
 #define IMAGE_ENDIAN			0
 #define STREAM_ENDIAN			0
 
-
 /* If a frame is started, pendingInst is set to the proper instance. */
 static CodecInst **ppendingInst;
 
@@ -74,6 +73,7 @@ int vpu_IsBusy()
 {
 	Uint32 val, vpu_busy = 0, jpu_busy = 0;
 	CodecInst *pCodecInst;
+	DecInfo *pDecInfo;
 
 	ENTER_FUNC();
 
@@ -85,12 +85,19 @@ int vpu_IsBusy()
 		if (pCodecInst &&
 		    (pCodecInst->codecMode == MJPG_ENC ||
 		     pCodecInst->codecMode == MJPG_DEC)) {
+			jpu_busy = 1;
+			/* jpu is idle if DONE or ERROR interrupt received */
 			val = VpuReadReg(MJPEG_PIC_STATUS_REG);
 			if (val & (1 << INT_JPU_DONE) ||
 			    val & (1 << INT_JPU_ERROR))
 				jpu_busy = 0;
-			else
-				jpu_busy = 1;
+			else if (pCodecInst->codecMode == MJPG_DEC) {
+				/* jpu is idle if quitCodec or rollBack is equal 1 */
+				pDecInfo = &pCodecInst->CodecInfo.decInfo;
+				if (pDecInfo->jpgInfo.quitCodec ||
+				    pDecInfo->jpgInfo.rollBack)
+					jpu_busy = 0;
+			}
 		}
 	}
 	IOClkGateSet(false);
@@ -101,8 +108,9 @@ int vpu_IsBusy()
 int vpu_WaitForInt(int timeout_in_ms)
 {
 	int ret;
-	Uint32 val;
+	Uint32 bbcEnd, status, rdPtr, wrPtr;
 	CodecInst *pCodecInst;
+	DecInfo *pDecInfo;
 
 	ENTER_FUNC();
 
@@ -110,16 +118,58 @@ int vpu_WaitForInt(int timeout_in_ms)
 
 	if (cpu_is_mx6q()) {
 		pCodecInst = *ppendingInst;
-		if (pCodecInst &&
-		    (pCodecInst->codecMode == MJPG_DEC) &&
-		    pCodecInst->CodecInfo.decInfo.jpgInfo.lineBufferMode) {
-			/* Need to clear bit buffer empty interrupt since the interrupt
-			   has higher priority than PIC DONE */
+		if (pCodecInst && (pCodecInst->codecMode == MJPG_DEC)) {
+			pDecInfo = &pCodecInst->CodecInfo.decInfo;
+
 			IOClkGateSet(true);
-			val = VpuReadReg(MJPEG_PIC_STATUS_REG);
-			if (val & 1 << INT_JPU_BIT_BUF_EMPTY) {
-				VpuWriteReg(MJPEG_PIC_STATUS_REG, val);
-				ret = -1;
+			status = VpuReadReg(MJPEG_PIC_STATUS_REG);
+			if (pDecInfo->jpgInfo.lineBufferMode) {
+				/* Need to clear bit buffer empty interrupt since the interrupt
+				 * has higher priority than PIC DONE */
+				if (status & 1 << INT_JPU_BIT_BUF_EMPTY) {
+					VpuWriteReg(MJPEG_PIC_STATUS_REG, 1 << INT_JPU_BIT_BUF_EMPTY);
+					ret = -1;
+				}
+			} else {
+				rdPtr = VpuReadReg(MJPEG_BBC_RD_PTR_REG);
+				bbcEnd = VpuReadReg(MJPEG_BBC_END_ADDR_REG);
+
+				if (status & 1 << INT_JPU_BIT_BUF_EMPTY) {
+					/* JPU_EMPTY interrupt is received */
+					if (rdPtr == pDecInfo->streamBufEndAddr) {
+						dprintf(4, "wrap around in decoding\n");
+						VpuWriteReg(MJPEG_BBC_CUR_POS_REG, 0);
+						wrPtr = pDecInfo->streamWrPtr;
+						if (pDecInfo->streamEndflag)
+							VpuWriteReg(MJPEG_BBC_END_ADDR_REG, wrPtr);
+						else
+							VpuWriteReg(MJPEG_BBC_END_ADDR_REG,
+									wrPtr & 0xFFFFFE00);
+					} else if (rdPtr == bbcEnd && !(status & 0x3)) {
+						VpuWriteReg(MJPEG_PIC_STATUS_REG,
+								1 << INT_JPU_BIT_BUF_EMPTY);
+						usleep(2); /* adding delay before reset */
+						IOSysSWReset(); /* reset JPU */
+						if (pDecInfo->streamEndflag)
+							pDecInfo->jpgInfo.quitCodec = 1;
+						else {
+							/* Input bitstream isn't enough for one frame */
+							pDecInfo->jpgInfo.rollBack = 1;
+							pDecInfo->jpgInfo.consumeByte = 0;
+						}
+						IOClkGateSet(false);
+						return 0;
+					}
+					VpuWriteReg(MJPEG_PIC_STATUS_REG, 1 << INT_JPU_BIT_BUF_EMPTY);
+					if (status & 0x3)
+						ret = 0;
+					else
+						ret = -1;
+				} else if (pDecInfo->streamEndflag && !status && (rdPtr >= bbcEnd)) {
+					IOSysSWReset(); /* reset JPU */
+					pDecInfo->jpgInfo.quitCodec = 1;
+					ret = 0;
+				}
 			}
 			IOClkGateSet(false);
 		}
@@ -2392,7 +2442,7 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 	pDecInfo->streamBufSize = pop->bitstreamBufferSize;
 	pDecInfo->streamBufEndAddr =
 	    pop->bitstreamBuffer + pop->bitstreamBufferSize;
-	pDecInfo->pBitStream = pop->pBitStream;
+	pDecInfo->jpgInfo.pVirtBitStream = pop->pBitStream;
 	pDecInfo->jpgInfo.frameOffset = 0;
 	pDecInfo->jpgInfo.lineBufferMode = pop->jpgLineBufferMode;
 
@@ -2429,7 +2479,6 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 		pDecInfo->mapType = pop->mapType;
 		pDecInfo->tiledLinearEnable = pop->tiled2LinearEnable;
 		pDecInfo->cacheConfig.Bypass = 1;
-		pDecInfo->jpgInfo.frameIdx = 0;
 		for (i = 0; i < 6; i++)
 			pDecInfo->writeMemProtectCfg.region[i].enable = 0;
 
@@ -2453,8 +2502,9 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 			VpuWriteReg(MJPEG_BBC_RD_PTR_REG,
 					pDecInfo->streamBufStartAddr);
 			VpuWriteReg(MJPEG_BBC_WR_PTR_REG, pDecInfo->streamWrPtr);
-			pDecInfo->jpgInfo.frameIdx = 0;
 			pDecInfo->jpgInfo.seqInited = 0;
+			pDecInfo->jpgInfo.quitCodec = 0;
+			pDecInfo->jpgInfo.rollBack = 0;
 			VpuWriteReg(MJPEG_BBC_BAS_ADDR_REG,
 					pDecInfo->streamBufStartAddr);
 			VpuWriteReg(MJPEG_BBC_END_ADDR_REG,
@@ -2619,7 +2669,11 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		if (!LockVpu(vpu_semap))
 			return RETCODE_FAILURE_TIMEOUT;
 
-		if (!JpegDecodeHeader(pDecInfo, pDecInfo->pBitStream, pDecInfo->streamBufSize)) {
+		if (pDecInfo->jpgInfo.lineBufferMode) {
+			pDecInfo->jpgInfo.pVirtJpgChunkBase = pDecInfo->jpgInfo.pVirtBitStream;
+			pDecInfo->jpgInfo.chunkSize = pDecInfo->streamBufSize;
+		}
+		if (!JpegDecodeHeader(pDecInfo)) {
 			UnlockVpu(vpu_semap);
 			err_msg("JpegDecodeHeader failure\n");
 			return RETCODE_FAILURE;
@@ -2632,6 +2686,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		info->streamInfoObtained = 1;
 		pDecInfo->initialInfo = *info;
 		pDecInfo->initialInfoObtained = 1;
+		pDecInfo->jpgInfo.frameOffset = 0;
 
 		UnlockVpu(vpu_semap);
 		return RETCODE_SUCCESS;
@@ -3114,15 +3169,33 @@ RetCode vpu_DecGetBitstreamBuffer(DecHandle handle,
 
 	pCodecInst = handle;
 	pDecInfo = &pCodecInst->CodecInfo.decInfo;
+	wrPtr = pDecInfo->streamWrPtr;
+
+	LockVpuReg(vpu_semap);
 
 	if (is_mx6q_mjpg_codec(pCodecInst->codecMode)) {
-		*paRdPtr = pDecInfo->streamBufStartAddr;
-		*paWrPtr = pDecInfo->streamBufStartAddr;
-		*size = pDecInfo->streamBufSize;
+		Uint32 wroffset = 0;
+
+		instIndex = VpuReadReg(BIT_RUN_INDEX);
+		rdPtr = (pCodecInst->instIndex == instIndex) ?
+			VpuReadReg(MJPEG_BBC_RD_PTR_REG) :
+			pCodecInst->ctxRegs[CTX_BIT_RD_PTR];
+
+		wroffset = wrPtr - pDecInfo->streamBufStartAddr;
+		if (wroffset < pDecInfo->jpgInfo.frameOffset)
+			room = pDecInfo->jpgInfo.frameOffset - wroffset - 1;
+		else
+			room = (pDecInfo->streamBufEndAddr - wrPtr) +
+				    pDecInfo->jpgInfo.frameOffset - 1;
+
+		UnlockVpuReg(vpu_semap);
+
+		*paRdPtr = rdPtr;
+		*paWrPtr = wrPtr;
+		*size = room;
 		return RETCODE_SUCCESS;
 	}
 
-	LockVpuReg(vpu_semap);
 	/* Check current instance is in running or not, if not
 	   Get the pointer from back context regs */
 	instIndex = VpuReadReg(BIT_RUN_INDEX);
@@ -3130,7 +3203,6 @@ RetCode vpu_DecGetBitstreamBuffer(DecHandle handle,
 		    VpuReadReg(BIT_RD_PTR) :
 		    pCodecInst->ctxRegs[CTX_BIT_RD_PTR];
 	UnlockVpuReg(vpu_semap);
-	wrPtr = pDecInfo->streamWrPtr;
 
 	if (wrPtr < rdPtr) {
 		room = rdPtr - wrPtr - 1;
@@ -3164,7 +3236,8 @@ RetCode vpu_DecUpdateBitstreamBuffer(DecHandle handle, Uint32 size)
 	PhysicalAddress wrPtr;
 	PhysicalAddress rdPtr;
 	RetCode ret;
-	int room = 0, val = 0, instIndex;
+	int room = 0, instIndex, wrOffset;
+	Uint32 val = 0;
 
 	ENTER_FUNC();
 
@@ -3177,25 +3250,45 @@ RetCode vpu_DecUpdateBitstreamBuffer(DecHandle handle, Uint32 size)
 	wrPtr = pDecInfo->streamWrPtr;
 
 	LockVpuReg(vpu_semap);
+	instIndex = VpuReadReg(BIT_RUN_INDEX);
 
 	if (is_mx6q_mjpg_codec(pCodecInst->codecMode)) {
-		if (size == 0) {
-			val = (wrPtr - pDecInfo->streamBufStartAddr) / 256;
-			if ((wrPtr - pDecInfo->streamBufStartAddr) % 256)
-				val += 1;
-			VpuWriteReg(MJPEG_BBC_STRM_CTRL_REG, (1 << 31 | val));
-		} else {
-			wrPtr = pDecInfo->streamBufStartAddr;
-			rdPtr = VpuReadReg(MJPEG_BBC_RD_PTR_REG);
+		wrOffset = wrPtr - pDecInfo->streamBufStartAddr;
 
+		rdPtr = (pCodecInst->instIndex == instIndex) ?
+			VpuReadReg(MJPEG_BBC_RD_PTR_REG) :
+			pCodecInst->ctxRegs[CTX_BIT_RD_PTR];
+
+		if (size == 0) {
+			val = wrOffset / 256;
+			if (wrOffset % 256)
+				val += 1;
+			val = (1 << 31 | val);
+			pDecInfo->jpgInfo.bbcStreamCtl = val;
+			pDecInfo->streamEndflag = 1;
+		} else {
 			wrPtr += size;
+			if (wrPtr > pDecInfo->streamBufEndAddr) {
+				room = wrPtr - pDecInfo->streamBufEndAddr;
+				wrPtr = pDecInfo->streamBufStartAddr;
+				wrPtr += room;
+			}
+
 			if (wrPtr == pDecInfo->streamBufEndAddr)
 				wrPtr = pDecInfo->streamBufStartAddr;
 
-			VpuWriteReg(MJPEG_BBC_CUR_POS_REG, 0);
+			if (pCodecInst->instIndex == instIndex)
+				VpuWriteReg(MJPEG_BBC_WR_PTR_REG, wrPtr);
 			pDecInfo->streamWrPtr = wrPtr;
-			VpuWriteReg(MJPEG_BBC_WR_PTR_REG, wrPtr);
 		}
+
+		if (wrOffset < pDecInfo->jpgInfo.frameOffset)
+			pDecInfo->jpgInfo.bbcEndAddr = pDecInfo->streamBufEndAddr;
+		else if (pDecInfo->streamEndflag)
+			pDecInfo->jpgInfo.bbcEndAddr = wrPtr;
+		else
+			pDecInfo->jpgInfo.bbcEndAddr = wrPtr & 0xFFFFFE00;
+
 		UnlockVpuReg(vpu_semap);
 		return RETCODE_SUCCESS;
 	}
@@ -3205,7 +3298,6 @@ RetCode vpu_DecUpdateBitstreamBuffer(DecHandle handle, Uint32 size)
 	val = (size == 0) ? (val | 1 << 2) : (val & ~(1 << 2));
 	/* Backup to context reg */
 	pCodecInst->ctxRegs[CTX_BIT_STREAM_PARAM] = val;
-	instIndex = VpuReadReg(BIT_RUN_INDEX);
 
 	if (pCodecInst->instIndex == instIndex)
 		VpuWriteReg(BIT_BIT_STREAM_PARAM, val); /* Write to vpu hardware */
@@ -3341,7 +3433,9 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 				return RETCODE_INVALID_PARAM;
 			}
 
-			val = JpegDecodeHeader(pDecInfo, param->virtJpgChunkBase, param->chunkSize);
+			pDecInfo->jpgInfo.pVirtJpgChunkBase = param->virtJpgChunkBase;
+			pDecInfo->jpgInfo.chunkSize = param->chunkSize;
+			val = JpegDecodeHeader(pDecInfo);
 			if (val == 0) {
 				UnlockVpu(vpu_semap);
 				return RETCODE_FAILURE;
@@ -3361,23 +3455,42 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 			VpuWriteReg(MJPEG_BBC_STRM_CTRL_REG, (1 << 31 | val));
 		} else {
 			if (pDecInfo->jpgInfo.frameOffset < 0) {
-				*ppendingInst = pCodecInst;
+				UnlockVpu(vpu_semap);
 				return RETCODE_JPEG_EOS;
 			}
 
-			val = JpegDecodeHeader(pDecInfo, pDecInfo->pBitStream + pDecInfo->jpgInfo.frameOffset,
-				    pDecInfo->streamBufSize - pDecInfo->jpgInfo.frameOffset);
+			val = JpegDecodeHeader(pDecInfo);
 			if (val == 0) {
 				UnlockVpu(vpu_semap);
 				return RETCODE_FAILURE;
-			} else if (val == -1) {
+			} else if (val == -2) { /* wrap around in header case */
+				pDecInfo->jpgInfo.frameOffset = 0;
+				pDecInfo->jpgInfo.ecsPtr = 0;
+				val = JpegDecodeHeader(pDecInfo);
+				if (val == 0) {
+					UnlockVpu(vpu_semap);
+					return RETCODE_FAILURE;
+				} else if (val == -1) {
+					UnlockVpu(vpu_semap);
+					if (pDecInfo->streamEndflag == 1) {
+						pDecInfo->jpgInfo.frameOffset = -1;
+						return RETCODE_JPEG_EOS;
+					}
+					return RETCODE_JPEG_BIT_EMPTY;
+				}
+			} else if (val == -1) { /* stream empty case */
 				UnlockVpu(vpu_semap);
+				if (pDecInfo->streamEndflag == 1) {
+					pDecInfo->jpgInfo.frameOffset = -1;
+					return RETCODE_JPEG_EOS;
+				}
 				return RETCODE_JPEG_BIT_EMPTY;
 			}
 
 			VpuWriteReg(MJPEG_BBC_BAS_ADDR_REG, pDecInfo->streamBufStartAddr);
-			VpuWriteReg(MJPEG_BBC_END_ADDR_REG, pDecInfo->streamBufEndAddr);
-			VpuWriteReg(MJPEG_BBC_STRM_CTRL_REG, 0);
+			VpuWriteReg(MJPEG_BBC_STRM_CTRL_REG, pDecInfo->jpgInfo.bbcStreamCtl);
+			VpuWriteReg(MJPEG_BBC_WR_PTR_REG, pDecInfo->streamWrPtr);
+			VpuWriteReg(MJPEG_BBC_END_ADDR_REG, pDecInfo->jpgInfo.bbcEndAddr);
 		}
 
 		VpuWriteReg(MJPEG_GBU_TT_CNT_REG, 0);
@@ -3657,7 +3770,6 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	CodecInst *pCodecInst;
 	DecInfo *pDecInfo;
 	RetCode ret;
-	Uint8 *pSoi, *pBas;
 	Uint32 val = 0;
 	Uint32 val2 = 0;
 	PhysicalAddress paraBuffer;
@@ -3688,47 +3800,40 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	}
 
 	memset(info, 0, sizeof(DecOutputInfo));
- 	/* Clock is gated off when received interrupt in driver, so need to gate on here. */
-	IOClkGateSet(true);
+
 	if (is_mx6q_mjpg_codec(pCodecInst->codecMode)) {
-		if (pDecInfo->jpgInfo.frameOffset < 0) {
+		if (pDecInfo->jpgInfo.frameOffset < 0 ||
+		    pDecInfo->jpgInfo.quitCodec) {
 			info->indexFrameDisplay = -1;
+			info->decodingSuccess = 1;
 			*ppendingInst = 0;
 			UnlockVpu(vpu_semap);
 			return RETCODE_SUCCESS;
 		}
 
+		if (pDecInfo->jpgInfo.rollBack) {
+                        info->decodingSuccess = 0x10 | 0x01;
+			info->indexFrameDisplay = -1;
+			pDecInfo->jpgInfo.rollBack = 0;
+			*ppendingInst = 0;
+			UnlockVpu(vpu_semap);
+			return RETCODE_SUCCESS;
+		}
+
+		/* Clock is gated off when received interrupt in driver, so need to gate on here. */
+		IOClkGateSet(true);
+
 		info->decPicWidth = pDecInfo->jpgInfo.alignedWidth;
 		info->decPicHeight = pDecInfo->jpgInfo.alignedHeight;
 		info->indexFrameDecoded = 0;
-		info->indexFrameDisplay = (pDecInfo->jpgInfo.frameIdx % pDecInfo->numFrameBuffers);
+		info->indexFrameDisplay = 0;
 		info->consumedByte = VpuReadReg(MJPEG_GBU_TT_CNT_REG) / 8;
+
 		if (pDecInfo->jpgInfo.lineBufferMode)
 			pDecInfo->jpgInfo.frameOffset = 0;
-		else {
-			pBas = pDecInfo->pBitStream + pDecInfo->jpgInfo.frameOffset;
-			pSoi = pBas + (info->consumedByte+pDecInfo->jpgInfo.ecsPtr) - 16;
-			while (1) {
-				if (pSoi[0] == 0xff && pSoi[1] == 0xd9) // find eoi
-					break;
-				pSoi++;
-				if (pSoi > (pDecInfo->pBitStream+pDecInfo->streamBufSize)) {
-					pSoi = pDecInfo->pBitStream;
-					pDecInfo->jpgInfo.frameOffset = 0;
-				}
-			}
-			pSoi += 2; /* position to SOI of next frame */
-			if (pSoi[0] == 0xff && pSoi[1] == 0xd8)	{   /* check if the next data is jpeg header. */
-				if ((int)(pSoi-pBas) < 0)
-					pDecInfo->jpgInfo.frameOffset +=
-						    (Uint32)pSoi - (Uint32)pDecInfo->pBitStream;
-				else
-					pDecInfo->jpgInfo.frameOffset += (Uint32)pSoi - (Uint32)pBas;
-			} else
-				pDecInfo->jpgInfo.frameOffset = -1;
-		}
-
-		pDecInfo->jpgInfo.frameIdx++;
+		pDecInfo->jpgInfo.ecsPtr = 0;
+		pDecInfo->jpgInfo.consumeByte = info->consumedByte;
+		pCodecInst->ctxRegs[CTX_BIT_RD_PTR] = VpuReadReg(MJPEG_BBC_RD_PTR_REG);
 
 		val = VpuReadReg(MJPEG_PIC_STATUS_REG);
 		if (val & (1 << INT_JPU_DONE))
@@ -3740,12 +3845,14 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 
 		if (val != 0)
 			VpuWriteReg(MJPEG_PIC_STATUS_REG, val);
-		while (VpuReadReg(MJPEG_WRESP_CHECK_REG));
 
 		*ppendingInst = 0;
 		UnlockVpu(vpu_semap);
 		return RETCODE_SUCCESS;
 	}
+
+	/* Clock is gated off when received interrupt in driver, so need to gate on here. */
+	IOClkGateSet(true);
 
 	val = VpuReadReg(RET_DEC_PIC_SUCCESS);
 	info->decodingSuccess = (val & 0x01);
