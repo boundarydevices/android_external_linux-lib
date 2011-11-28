@@ -1831,32 +1831,60 @@ int find_start_code(JpgDecInfo *jpg)
 	int word;
 
 	while (1) {
+		if (get_bits_left(&jpg->gbc) < 16 + 24)
+			return 0;
+
 		word = show_bits(&jpg->gbc, 16);
 		if ((word > 0xFF00) && (word < 0xFFFF))
 			break;
 
-		if (get_bits_left(&jpg->gbc) <= 0)
+		if (get_bits_left(&jpg->gbc) < 8 + 24)
 			return 0;
 
 		get_bits(&jpg->gbc, 8);
 	}
 
-	return 1;
+	return word;
 }
 
+int find_start_soi_code(JpgDecInfo *jpg)
+{
+	unsigned int word;
+
+	while (1) {
+		if (get_bits_left(&jpg->gbc) < 16 + 24)
+			return 0;
+
+		word = show_bits(&jpg->gbc, 16);
+		if ((word > 0xFF00) && (word < 0xFFFF)) {
+			if (word != SOI_Marker) {
+				if (get_bits_left(&jpg->gbc) < 8 + 24)
+					return 0;
+				get_bits(&jpg->gbc, 8);
+			}
+			break;
+		}
+
+		if (get_bits_left(&jpg->gbc) < 8 + 24)
+			return 0;
+		get_bits(&jpg->gbc, 8);
+	}
+
+	return word;
+}
 
 int decode_app_header(JpgDecInfo *jpg)
 {
 	int length;
 
-	if (get_bits_left(&jpg->gbc) < 16)
+	if (get_bits_left(&jpg->gbc) < 16 + 24)
 		return 0;
 
 	length = get_bits(&jpg->gbc, 16);
 	length -= 2;
 
 	while (length-- > 0) {
-		if (get_bits_left(&jpg->gbc) < 8)
+		if (get_bits_left(&jpg->gbc) < 8 + 24)
 			return 0;
 		get_bits(&jpg->gbc, 8);
 	}
@@ -1867,7 +1895,7 @@ int decode_app_header(JpgDecInfo *jpg)
 
 int decode_dri_header(JpgDecInfo *jpg)
 {
-	if (get_bits_left(&jpg->gbc) < 16 * 2)
+	if (get_bits_left(&jpg->gbc) < 16 * 2 + 24)
 		return 0;
 
 	get_bits(&jpg->gbc, 16);
@@ -1881,12 +1909,14 @@ int decode_dqt_header(JpgDecInfo *jpg)
 {
 	int Pq, Tq, i;
 
-	if (get_bits_left(&jpg->gbc) < 16 + 4 + 4 + 8 * 64)
+	if (get_bits_left(&jpg->gbc) < 16 + 24)
 		return 0;
 
 	get_bits(&jpg->gbc, 16);
 
 	do {
+		if (get_bits_left(&jpg->gbc) < (4 + 4 + 8 * 64 + 24))
+			return 0;
 		Pq = get_bits(&jpg->gbc, 4);
 		Tq = get_bits(&jpg->gbc, 4);
 		for (i = 0; i < 64; i++)
@@ -1903,13 +1933,13 @@ int decode_dth_header(JpgDecInfo *jpg)
 {
 	int Tc, Th, ThTc, bitCnt, i;
 
-	if (get_bits_left(&jpg->gbc) < 16)
+	if (get_bits_left(&jpg->gbc) < 16 + 24)
 		return 0;
 
 	get_bits(&jpg->gbc, 16);
 
 	do {
-		if (get_bits_left(&jpg->gbc) < 8 + 8 * 16)
+		if (get_bits_left(&jpg->gbc) < 8 + 8 * 16 + 24)
 			return 0;
 
 		Tc = get_bits(&jpg->gbc, 4);
@@ -1925,7 +1955,7 @@ int decode_dth_header(JpgDecInfo *jpg)
 				jpg->userHuffTab = 1;
 		}
 
-		if (get_bits_left(&jpg->gbc) <  8 * bitCnt)
+		if (get_bits_left(&jpg->gbc) <  8 * bitCnt + 24)
 			return 0;
 		for (i = 0; i < bitCnt; i++)  {
 			jpg->huffVal[ThTc][i] = get_bits(&jpg->gbc, 8);
@@ -1943,7 +1973,7 @@ int decode_sof_header(JpgDecInfo *jpg)
 	int samplePrecision, sampleFactor, i, Tqi, compID;
 	int hSampFact[3], vSampFact[3], picX, picY, numComp;
 
-	if (get_bits_left(&jpg->gbc) < 16 + 8 + 16 + 16 + 8)
+	if (get_bits_left(&jpg->gbc) < 16 + 8 + 16 + 16 + 8 + 24)
 		return 0;
 
 	get_bits(&jpg->gbc, 16);
@@ -1970,7 +2000,7 @@ int decode_sof_header(JpgDecInfo *jpg)
 	if (numComp > 3)
 		info_msg("Picture Horizontal Size limits Maximum size\n");
 
-	if (get_bits_left(&jpg->gbc) < numComp * ( 8 + 4 + 4 + 8))
+	if (get_bits_left(&jpg->gbc) < (numComp * ( 8 + 4 + 4 + 8) + 24))
 		return 0;
 
 	for (i=0; i<numComp; i++) {
@@ -2024,7 +2054,7 @@ int decode_sos_header(JpgDecInfo *jpg)
 	int ss, se, ah, al, ecsPtr;
 	int dcHufTblIdx[3], acHufTblIdx[3];
 
-	if (get_bits_left(&jpg->gbc) < 8)
+	if (get_bits_left(&jpg->gbc) < 8 + 24)
 		return 0;
 
 	len = get_bits(&jpg->gbc, 16);
@@ -2048,7 +2078,7 @@ int decode_sos_header(JpgDecInfo *jpg)
 
 	numComp = get_bits(&jpg->gbc, 8);
 
-	if (get_bits_left(&jpg->gbc) < numComp * (8 + 4 + 4))
+	if (get_bits_left(&jpg->gbc) < (numComp * (8 + 4 + 4) + 24))
 		return 0;
 
 	for (i = 0; i < numComp; i++) {
@@ -2064,7 +2094,7 @@ int decode_sos_header(JpgDecInfo *jpg)
 		}
 	}
 
-	if (get_bits_left(&jpg->gbc) < 8 + 8 + 4 + 4)
+	if (get_bits_left(&jpg->gbc) < 8 + 8 + 4 + 4 + 24)
 		return 0;
 
 	ss = get_bits(&jpg->gbc, 8);
@@ -2117,14 +2147,77 @@ void genDecHuffTab(JpgDecInfo *jpg, int tabNum)
 	}
 }
 
-int JpegDecodeHeader(DecInfo *pDecInfo, unsigned char *b, int size)
+int JpegDecodeHeader(DecInfo *pDecInfo)
 {
 	unsigned int code;
-	int i, temp;
+	int i, temp, ret = 1, size, val, temp_size = 0, src_size = 0;
+	int wrOffset = 0;
+	Uint8 *b, *temp_buf = NULL;
 	JpgDecInfo *jpg = &pDecInfo->jpgInfo;
 
-	if (!b || !size)
-		return 0;
+	if (jpg->lineBufferMode) {
+		b = jpg->pVirtJpgChunkBase;
+		size = jpg->chunkSize;
+	} else {
+		b = jpg->pVirtBitStream + jpg->frameOffset;
+		wrOffset = pDecInfo->streamWrPtr - pDecInfo->streamBufStartAddr;
+
+		if (wrOffset <= jpg->frameOffset)
+			size = pDecInfo->streamBufSize - jpg->frameOffset;
+		else
+			size = wrOffset - jpg->frameOffset;
+
+		if (!b || !size) {
+			ret = -1;
+			err_msg("b or size is zero\n");
+			goto DONE_DEC_HEADER;
+		}
+
+		/* find start code of next frame */
+		if (!jpg->ecsPtr) {
+			int nextOffset = 0, soiOffset = 0;
+
+			if (jpg->consumeByte != 0)	{ /* meaning is frameIdx > 0 */
+				nextOffset = jpg->consumeByte;
+				if (nextOffset <= 0)
+					nextOffset = 2; /* in order to consume start code */
+			}
+			dprintf(4, "JpegDecodeHeader: last_consumeByte=0x%x\n", nextOffset);
+			/* consume to find the start code of next frame */
+			b += nextOffset;
+			if (b - jpg->pVirtBitStream > pDecInfo->streamBufSize) { /* wrap around */
+				b -= pDecInfo->streamBufSize;
+				size = wrOffset - (b - jpg->pVirtBitStream);
+				jpg->frameOffset = b - jpg->pVirtBitStream;
+				jpg->consumeByte = 0;
+			} else {
+				jpg->frameOffset +=nextOffset;
+				size -= nextOffset;
+			}
+
+			if (size < 0) {
+				ret = -1;
+				err_msg("Size is less than 0\n");
+				goto DONE_DEC_HEADER;
+			}
+
+			init_get_bits(&jpg->gbc, b, size * 8);
+			for (;;) {
+				code = find_start_soi_code(jpg);
+				if (code == 0) {
+					ret = -1;
+					dprintf(4, "return 0 in soi finding\n");
+					goto DONE_DEC_HEADER;
+				}
+				if (code == SOI_Marker)
+					break;
+			}
+			soiOffset = get_bits_count(&pDecInfo->jpgInfo.gbc) / 8;
+			b += soiOffset;
+			size -= soiOffset;
+			jpg->frameOffset += soiOffset;
+		}
+	}
 
 	init_get_bits(&jpg->gbc, b, size * 8);
 
@@ -2139,8 +2232,11 @@ int JpegDecodeHeader(DecInfo *pDecInfo, unsigned char *b, int size)
 	}
 
 	for (;;) {
-		if (find_start_code(jpg) == 0)
-			return -1;
+		if (find_start_code(jpg) == 0) {
+			ret = -1;
+			err_msg("err in find start code\n");
+			goto DONE_DEC_HEADER;
+		}
 
 		code = get_bits(&jpg->gbc, 16);
 		switch (code) {
@@ -2148,28 +2244,45 @@ int JpegDecodeHeader(DecInfo *pDecInfo, unsigned char *b, int size)
 			break;
 		case JFIF_CODE:
 		case EXIF_CODE:
-			if (!decode_app_header(jpg))
-				return -1;
+			if (!decode_app_header(jpg)) {
+				dprintf(4, "err in JFIF_CODE or EXIF_CODE\n");
+				ret = -1;
+				goto DONE_DEC_HEADER;
+			}
 			break;
 		case DRI_Marker:
-			if (!decode_dri_header(jpg))
-				return -1;
+			if (!decode_dri_header(jpg)) {
+				ret = -1;
+				dprintf(4, "error in DRI_Marker\n");
+				goto DONE_DEC_HEADER;
+			}
 			break;
 		case DQT_Marker:
-			if (!decode_dqt_header(jpg))
-				return -1;
+			if (!decode_dqt_header(jpg)) {
+				ret = -1;
+				dprintf(4, "error in DQT_Marker\n");
+				goto DONE_DEC_HEADER;
+			}
 			break;
 		case DHT_Marker:
-			if (!decode_dth_header(jpg))
-				return -1;
+			if (!decode_dth_header(jpg)) {
+				ret = -1;
+				dprintf(4, "error in DHT_Marker\n");
+				goto DONE_DEC_HEADER;
+			}
 			break;
 		case SOF_Marker:
-			if (!decode_sof_header(jpg))
-				return -1;
+			if (!decode_sof_header(jpg)) {
+				ret = -1;
+				dprintf(4, "error in SOF_Marker\n");
+				goto DONE_DEC_HEADER;
+			}
 			break;
 		case SOS_Marker:
-			if (!decode_sos_header(jpg))
-				return -1;
+			if (!decode_sos_header(jpg)) {
+				ret = -1;
+				dprintf(4, "error in SOS_Marker\n");
+			}
 			goto DONE_DEC_HEADER;
 			break;
 		case EOI_Marker:
@@ -2178,24 +2291,87 @@ int JpegDecodeHeader(DecInfo *pDecInfo, unsigned char *b, int size)
 			switch (code & 0xFFF0) {
 			case 0xFFE0:
 			case 0xFFF0:
-				if (get_bits_left(&jpg->gbc) <=0 )
-					return 0;
-				else {
-					if (!decode_app_header(jpg))
-						return -1;
+				if (get_bits_left(&jpg->gbc) <=0 ) {
+					dprintf(4, "error in 0xFFF0 or 0xFFE0\n");
+					ret = -1;
+					goto DONE_DEC_HEADER;
+				} else {
+					if (!decode_app_header(jpg)) {
+						ret = -1;
+						dprintf(4, "error in 0xFFF0 or 0xFFE0 app\n");
+						goto DONE_DEC_HEADER;
+					}
 					break;
 				}
 			default:
-				info_msg("code = [%x]\n", code);
-				return	0;
+				dprintf(4, "code = [%x]\n", code);
+				if (jpg->lineBufferMode)
+					return 0;
+				else {
+					jpg->frameOffset += get_bits_count(&pDecInfo->jpgInfo.gbc) / 8;
+					return	-2;
+				}
 			}
 			break;
 		}
 	}
 
 DONE_DEC_HEADER:
+	if (pDecInfo->jpgInfo.lineBufferMode) {
+		if (ret == -1)
+			return -1;
+	} else { /* streaming mode */
+		if (ret == -1) {
+			if (wrOffset < jpg->frameOffset) {
+				dprintf(4, "wrap around in header parsing\n");
+				goto proc_wrap;
+			}
+			return -1;
+		}
+	}
+
 	if (!jpg->ecsPtr)
 		return 0;
+
+	if (!jpg->lineBufferMode) {
+		/* Workaround to avoid the case that JPU is run over without interrupt */
+		if (pDecInfo->streamBufSize - (jpg->frameOffset + jpg->ecsPtr)
+			< JPU_GBU_SIZE) {
+proc_wrap:
+			temp_size = pDecInfo->streamWrPtr - pDecInfo->streamBufStartAddr;
+			if (temp_size) {
+				temp_buf = malloc(temp_size);
+				if (!temp_buf)
+					err_msg("Allocate memory failure\n");
+				else
+					memcpy(temp_buf, (void *)jpg->pVirtBitStream, temp_size);
+			}
+			src_size = pDecInfo->streamBufSize - jpg->frameOffset;
+			memcpy((void *)jpg->pVirtBitStream,
+				    (void *)(jpg->pVirtBitStream + jpg->frameOffset), src_size);
+			memcpy((void *)jpg->pVirtBitStream + src_size, temp_buf, temp_size);
+			free(temp_buf);
+			pDecInfo->streamWrPtr += src_size;
+			jpg->frameOffset = 0;
+			jpg->consumeByte = 0;
+			return -2;
+		}
+
+		/* Re-calculate bbcEndAddr and bbcStreamCtl after header parsing */
+		wrOffset = pDecInfo->streamWrPtr - pDecInfo->streamBufStartAddr;
+		if (wrOffset < pDecInfo->jpgInfo.frameOffset)
+			pDecInfo->jpgInfo.bbcEndAddr = pDecInfo->streamBufEndAddr;
+		else if (pDecInfo->streamEndflag) {
+			val = wrOffset / 256;
+			if (wrOffset % 256)
+				val += 1;
+			val = (1 << 31 | val);
+			pDecInfo->jpgInfo.bbcStreamCtl = val;
+			pDecInfo->jpgInfo.bbcEndAddr = pDecInfo->streamWrPtr;
+		}
+		else
+			pDecInfo->jpgInfo.bbcEndAddr = pDecInfo->streamWrPtr & 0xFFFFFE00;
+	}
 
 	/* Generate Huffman table information */
 	for (i = 0; i < 4; i++)
