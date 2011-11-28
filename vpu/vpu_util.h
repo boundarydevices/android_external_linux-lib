@@ -55,6 +55,7 @@ typedef enum {
 #define SIZE_FRAME_BUF_STAT             0x100
 #define SIZE_SLICE_INFO                 0x4000
 #define USER_DATA_INFO_OFFSET           8*17
+#define JPU_GBU_SIZE			512
 
 #define ADDR_PIC_PARA_BASE_OFFSET       0
 #define ADDR_MV_BASE_OFFSET             ADDR_PIC_PARA_BASE_OFFSET + SIZE_PIC_PARA_BASE_BUF
@@ -337,6 +338,7 @@ typedef struct {
 	int alignedWidth;
 	int alignedHeight;
 	int frameOffset;
+	int consumeByte;
 	int ecsPtr;
 	int pagePtr;
 	int wordPtr;
@@ -367,11 +369,16 @@ typedef struct {
 	int frameIdx;
 	int seqInited;
 
-	Uint8 *pHeader;
-	int headerSize;
+	Uint8 *pVirtBitStream;
 	GetBitContext gbc;
 	int lineBufferMode;
+	Uint8 *pVirtJpgChunkBase;
+	int chunkSize;
 
+	Uint32 bbcEndAddr;
+	Uint32 bbcStreamCtl;
+	int quitCodec;
+	int rollBack;
 } JpgDecInfo;
 
 typedef struct {
@@ -381,8 +388,8 @@ typedef struct {
 	PhysicalAddress streamWrPtr;
 	PhysicalAddress streamBufStartAddr;
 	PhysicalAddress streamBufEndAddr;
+	int streamEndflag;
 	int streamBufSize;
-	Uint8 *pBitStream;
 
 	FrameBuffer *frameBufPool;
 	int numFrameBuffers;
@@ -525,7 +532,7 @@ int JpgEncEncodeHeader(EncHandle handle, EncParamSet *para);
 void JpgDecGramSetup(DecInfo *pDecInfo);
 RetCode JpgDecHuffTabSetUp(DecInfo *pDecInfo);
 RetCode JpgDecQMatTabSetUp(DecInfo *pDecInfo);
-int JpegDecodeHeader(DecInfo *pDecInfo, unsigned char *b, int size);
+int JpegDecodeHeader(DecInfo *pDecInfo);
 
 #define swab32(x) \
 	((Uint32)( \
