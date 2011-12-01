@@ -1513,6 +1513,7 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 		while(!val)
 			val = VpuReadReg(GDI_STATUS);
 		VpuWriteReg(GDI_INFO_CONTROL, ((pEncInfo->jpgInfo.format & 0x07) << 17) |
+					       (pEncInfo->openParam.chromaInterleave << 16) |
 					       pSrcFrame->strideY);
 		VpuWriteReg(GDI_INFO_PIC_SIZE, (pEncInfo->jpgInfo.alignedWidth << 16) |
 						pEncInfo->jpgInfo.alignedHeight);
@@ -3552,6 +3553,7 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 			val = VpuReadReg(GDI_STATUS);
 
 		VpuWriteReg(GDI_INFO_CONTROL, ((pDecInfo->jpgInfo.format & 0x07) << 17) |
+					       (pDecInfo->openParam.chromaInterleave << 16) |
 						pDecInfo->rotatorStride);
 		VpuWriteReg(GDI_INFO_PIC_SIZE, (pDecInfo->jpgInfo.alignedWidth << 16) |
 						pDecInfo->jpgInfo.alignedHeight);
