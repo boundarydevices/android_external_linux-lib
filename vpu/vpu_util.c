@@ -551,7 +551,7 @@ void EncodeHeader(EncHandle handle, EncHeaderParam * encHeaderParam)
 
 	if (cpu_is_mx6q()) {
 		VpuWriteReg(CMD_ENC_HEADER_CODE, encHeaderParam->headerType |
-			frameCroppingFlag << 2);
+			frameCroppingFlag << 3);
 	} else {
 		if (encHeaderParam->headerType == VOS_HEADER ||
 		    encHeaderParam->headerType == SPS_RBSP) {
