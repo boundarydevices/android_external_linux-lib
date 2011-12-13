@@ -146,10 +146,13 @@ int vpu_WaitForInt(int timeout_in_ms)
 							VpuWriteReg(MJPEG_BBC_END_ADDR_REG,
 									wrPtr & 0xFFFFFE00);
 					} else if (rdPtr == bbcEnd && !(status & 0x3)) {
+						VpuWriteReg(GDI_BUS_CTRL, 0x11);
+						while (VpuReadReg(GDI_BUS_STATUS) != 0x77);
+						VpuWriteReg(GDI_BUS_CTRL, 0x00);
+						IOSysSWReset(); /* reset JPU */
+
 						VpuWriteReg(MJPEG_PIC_STATUS_REG,
 								1 << INT_JPU_BIT_BUF_EMPTY);
-						usleep(2); /* adding delay before reset */
-						IOSysSWReset(); /* reset JPU */
 						if (pDecInfo->streamEndflag)
 							pDecInfo->jpgInfo.quitCodec = 1;
 						else {
@@ -166,7 +169,11 @@ int vpu_WaitForInt(int timeout_in_ms)
 					else
 						ret = -1;
 				} else if (pDecInfo->streamEndflag && !status && (rdPtr >= bbcEnd)) {
+					VpuWriteReg(GDI_BUS_CTRL, 0x11);
+					while (VpuReadReg(GDI_BUS_STATUS) != 0x77);
+					VpuWriteReg(GDI_BUS_CTRL, 0x00);
 					IOSysSWReset(); /* reset JPU */
+
 					pDecInfo->jpgInfo.quitCodec = 1;
 					ret = 0;
 				}
@@ -349,6 +356,9 @@ RetCode vpu_SWReset(DecHandle handle, int index)
 		return RETCODE_FAILURE_TIMEOUT;
 
 	if (cpu_is_mx6q()) {
+		VpuWriteReg(GDI_BUS_CTRL, 0x11);
+		while (VpuReadReg(GDI_BUS_STATUS) != 0x77);
+		VpuWriteReg(GDI_BUS_CTRL, 0x00);
 		IOSysSWReset();
 
 		VpuWriteReg(BIT_BUSY_FLAG, 1);
@@ -1446,6 +1456,9 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 		VpuWriteReg(MJPEG_GBU_BT_PTR_REG, 0);
 		VpuWriteReg(MJPEG_GBU_WD_PTR_REG, 0);
 		VpuWriteReg(MJPEG_GBU_BBSR_REG, 0);
+		VpuWriteReg(MJPEG_BBC_STRM_CTRL_REG, 0);
+		VpuWriteReg(MJPEG_GBU_CTRL_REG, 0);
+		VpuWriteReg(MJPEG_GBU_FF_RPTR_REG, 0);
 
 		VpuWriteReg(MJPEG_GBU_BBER_REG, ((256 / 4) * 2) - 1);
 		VpuWriteReg(MJPEG_GBU_BBIR_REG, 256 / 4);
@@ -1695,8 +1708,10 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 
 	if (is_mx6q_mjpg_codec(pCodecInst->codecMode)) {
 		val = VpuReadReg(MJPEG_PIC_STATUS_REG);
-		if ((val & 0x4) >> 2)
+		if ((val & 0x4) >> 2) {
+			UnlockVpu(vpu_semap);
 			return RETCODE_WRONG_CALL_SEQUENCE;
+		}
 
 		if (val != 0)
 			VpuWriteReg(MJPEG_PIC_STATUS_REG, val);
@@ -1709,6 +1724,14 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 		info->picType = 0;
 		info->numOfSlices = 0;
 		*ppendingInst = 0;
+
+		/* Workaround to reset JPU after each encoder: decoder may be blocked
+		 * after encoder randomly if not do reset. Fixme later */
+		VpuWriteReg(GDI_BUS_CTRL, 0x11);
+		while (VpuReadReg(GDI_BUS_STATUS) != 0x77);
+		VpuWriteReg(GDI_BUS_CTRL, 0x00);
+		IOSysSWReset();
+
 		UnlockVpu(vpu_semap);
 		return RETCODE_SUCCESS;
 	}
@@ -3464,6 +3487,9 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 			if (val == 0) {
 				UnlockVpu(vpu_semap);
 				return RETCODE_FAILURE;
+			} else if (val == -3) {
+				UnlockVpu(vpu_semap);
+				return RETCODE_JPEG_BIT_EMPTY;
 			} else if (val == -2) { /* wrap around in header case */
 				pDecInfo->jpgInfo.frameOffset = 0;
 				pDecInfo->jpgInfo.ecsPtr = 0;
@@ -3471,6 +3497,9 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 				if (val == 0) {
 					UnlockVpu(vpu_semap);
 					return RETCODE_FAILURE;
+				} else if (val == -3) {
+					UnlockVpu(vpu_semap);
+					return RETCODE_JPEG_BIT_EMPTY;
 				} else if (val == -1) {
 					UnlockVpu(vpu_semap);
 					if (pDecInfo->streamEndflag == 1) {
@@ -3847,6 +3876,13 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 
 		if (val != 0)
 			VpuWriteReg(MJPEG_PIC_STATUS_REG, val);
+
+		/* Workaround to reset JPU after each decoder: encoder may be blocked
+		 * after decoder randomly if not do reset. Fixme later */
+		VpuWriteReg(GDI_BUS_CTRL, 0x11);
+		while (VpuReadReg(GDI_BUS_STATUS) != 0x77);
+		VpuWriteReg(GDI_BUS_CTRL, 0x00);
+		IOSysSWReset();
 
 		*ppendingInst = 0;
 		UnlockVpu(vpu_semap);
