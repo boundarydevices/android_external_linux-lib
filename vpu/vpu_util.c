@@ -1819,6 +1819,9 @@ const Uint8 cDefHuffVal[4][162] =
 
 int check_start_code(JpgDecInfo *jpg)
 {
+	if (get_bits_left(&jpg->gbc) < 8 + 24)
+		return 0;
+
 	if (show_bits(&jpg->gbc, 8) == 0xFF)
 		return 1;
 	else
@@ -1917,8 +1920,11 @@ int decode_dqt_header(JpgDecInfo *jpg)
 	do {
 		if (get_bits_left(&jpg->gbc) < (4 + 4 + 8 * 64 + 24))
 			return 0;
+
 		Pq = get_bits(&jpg->gbc, 4);
 		Tq = get_bits(&jpg->gbc, 4);
+		if (Tq > 3)
+			return 0;
 		for (i = 0; i < 64; i++)
 			jpg->qMatTab[Tq][i] = get_bits(&jpg->gbc, 8);
 	} while(!check_start_code(jpg));
@@ -1945,7 +1951,8 @@ int decode_dth_header(JpgDecInfo *jpg)
 		Tc = get_bits(&jpg->gbc, 4);
 		Th = get_bits(&jpg->gbc, 4);
 		ThTc = ((Th & 1) << 1) | (Tc & 1);
-
+		if (ThTc > 3)
+			return 0;
 		bitCnt = 0;
 		for (i = 0; i < 16; i++) {
 			jpg->huffBits[ThTc][i] = get_bits(&jpg->gbc, 8);
@@ -1958,10 +1965,13 @@ int decode_dth_header(JpgDecInfo *jpg)
 		if (get_bits_left(&jpg->gbc) <  8 * bitCnt + 24)
 			return 0;
 		for (i = 0; i < bitCnt; i++)  {
-			jpg->huffVal[ThTc][i] = get_bits(&jpg->gbc, 8);
-
-			if (cDefHuffVal[ThTc][i] != jpg->huffVal[ThTc][i])
-				jpg->userHuffTab = 1;
+			if (i < HUFF_VAL_SIZE) {
+				jpg->huffVal[ThTc][i] = get_bits(&jpg->gbc, 8);
+				if (cDefHuffVal[ThTc][i] != jpg->huffVal[ThTc][i])
+					jpg->userHuffTab = 1;
+			}
+			else
+				get_bits(&jpg->gbc, 8);
 		}
 	} while(!check_start_code(jpg));
 
@@ -2155,6 +2165,10 @@ int JpegDecodeHeader(DecInfo *pDecInfo)
 	Uint8 *b, *temp_buf = NULL;
 	JpgDecInfo *jpg = &pDecInfo->jpgInfo;
 
+	/* Init some variable in jpgInfo */
+	jpg->rstIntval = 0;
+	jpg->userHuffTab = 0;
+
 	if (jpg->lineBufferMode) {
 		b = jpg->pVirtJpgChunkBase;
 		size = jpg->chunkSize;
@@ -2176,6 +2190,10 @@ int JpegDecodeHeader(DecInfo *pDecInfo)
 		/* find start code of next frame */
 		if (!jpg->ecsPtr) {
 			int nextOffset = 0, soiOffset = 0;
+
+			/* workaround to avoid to find current incomplete header looply */
+			if (jpg->wrappedHeader && jpg->consumeByte == 0)
+				jpg->consumeByte++;
 
 			if (jpg->consumeByte != 0)	{ /* meaning is frameIdx > 0 */
 				nextOffset = jpg->consumeByte;
@@ -2286,6 +2304,7 @@ int JpegDecodeHeader(DecInfo *pDecInfo)
 			goto DONE_DEC_HEADER;
 			break;
 		case EOI_Marker:
+			ret = -3;
 			goto DONE_DEC_HEADER;
 		default:
 			switch (code & 0xFFF0) {
@@ -2307,10 +2326,6 @@ int JpegDecodeHeader(DecInfo *pDecInfo)
 				dprintf(4, "code = [%x]\n", code);
 				if (jpg->lineBufferMode)
 					return 0;
-				else {
-					jpg->frameOffset += get_bits_count(&pDecInfo->jpgInfo.gbc) / 8;
-					return	-2;
-				}
 			}
 			break;
 		}
@@ -2324,14 +2339,23 @@ DONE_DEC_HEADER:
 		if (ret == -1) {
 			if (wrOffset < jpg->frameOffset) {
 				dprintf(4, "wrap around in header parsing\n");
+				jpg->wrappedHeader = 1;
 				goto proc_wrap;
 			}
 			return -1;
 		}
 	}
 
-	if (!jpg->ecsPtr)
-		return 0;
+	if (!jpg->ecsPtr || ret == -3) {
+		if (pDecInfo->jpgInfo.lineBufferMode)
+			return 0;
+		else {
+			/* Skip the bitstream to EOI if EOI marker is found */
+			jpg->frameOffset += get_bits_count(&jpg->gbc) / 8 + 2;
+			jpg->consumeByte = 0;
+			return -3;
+		}
+	}
 
 	if (!jpg->lineBufferMode) {
 		/* Workaround to avoid the case that JPU is run over without interrupt */

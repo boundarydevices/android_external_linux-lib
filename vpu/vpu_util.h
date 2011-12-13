@@ -72,6 +72,7 @@ typedef enum {
 #define Q_COMPONENT0		    0
 #define Q_COMPONENT1		    0x40
 #define Q_COMPONENT2		    0x80
+#define HUFF_VAL_SIZE		    162
 
 /* SW Reset command */
 #define VPU_SW_RESET_BPU_CORE   0x008
@@ -352,7 +353,7 @@ typedef struct {
 	int huffAcIdx;
 	int Qidx;
 
-	Uint8 huffVal[4][162];
+	Uint8 huffVal[4][HUFF_VAL_SIZE];
 	Uint8 huffBits[4][256];
 	Uint8 cInfoTab[4][6];
 	Uint8 qMatTab[4][64];
@@ -379,6 +380,7 @@ typedef struct {
 	Uint32 bbcStreamCtl;
 	int quitCodec;
 	int rollBack;
+	int wrappedHeader;
 } JpgDecInfo;
 
 typedef struct {
