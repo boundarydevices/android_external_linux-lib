@@ -424,7 +424,7 @@ RetCode vpu_SWReset(DecHandle handle, int index)
  */
 RetCode vpu_GetVersionInfo(vpu_versioninfo * verinfo)
 {
-	Uint32 ver;
+	Uint32 ver, fw_code = 0;
 	Uint16 pn, version;
 	RetCode ret = RETCODE_SUCCESS;
 	char productstr[18] = { 0 };
@@ -445,6 +445,8 @@ RetCode vpu_GetVersionInfo(vpu_versioninfo * verinfo)
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
 	ver = VpuReadReg(RET_VER_NUM);
+	if (cpu_is_mx6q())
+		fw_code = VpuReadReg(RET_FW_CODE_REV);
 	UnlockVpu(vpu_semap);
 
 	if (ver == 0)
@@ -477,7 +479,7 @@ RetCode vpu_GetVersionInfo(vpu_versioninfo * verinfo)
 		verinfo->fw_major = (version >> 12) & 0x0f;
 		verinfo->fw_minor = (version >> 8) & 0x0f;
 		verinfo->fw_release = version & 0xff;
-
+		verinfo->fw_code = fw_code;
 		verinfo->lib_major = (VPU_LIB_VERSION_CODE >> (12)) & 0x0f;
 		verinfo->lib_minor = (VPU_LIB_VERSION_CODE >> (8)) & 0x0f;
 		verinfo->lib_release = (VPU_LIB_VERSION_CODE) & 0xff;
