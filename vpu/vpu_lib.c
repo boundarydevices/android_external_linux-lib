@@ -553,9 +553,11 @@ RetCode vpu_EncOpen(EncHandle * pHandle, EncOpenParam * pop)
 	if ((pop->bitstreamFormat == STD_MPEG4) ||
 	    (pop->bitstreamFormat == STD_H263))
 		pCodecInst->codecMode = MP4_ENC;
-	else if (pop->bitstreamFormat == STD_AVC)
+	else if (pop->bitstreamFormat == STD_AVC) {
 		pCodecInst->codecMode = AVC_ENC;
-	else if (pop->bitstreamFormat == STD_MJPG)
+		if (cpu_is_mx6q())
+			pCodecInst->codecModeAux = pop->EncStdParam.avcParam.mvc_extension;
+	} else if (pop->bitstreamFormat == STD_MJPG)
 		pCodecInst->codecMode = MJPG_ENC;
 
 	pEncInfo->streamRdPtr = pop->bitstreamBuffer;
@@ -928,6 +930,11 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 		data |= (pEncOP->EncStdParam.avcParam.avc_audEnable << 2);
 		if (!cpu_is_mx6q())
 			data |= (pEncOP->EncStdParam.avcParam.avc_fmoEnable << 4);
+		else if (pCodecInst->codecModeAux == AVC_AUX_MVC) {
+			data |= (pEncInfo->openParam.EncStdParam.avcParam.interview_en << 4);
+			data |= (pEncInfo->openParam.EncStdParam.avcParam.paraset_refresh_en << 8);
+			data |= (pEncInfo->openParam.EncStdParam.avcParam.prefix_nal_en << 9);
+		}
 	}
 
 	if (cpu_is_mx6q()) {
@@ -1015,8 +1022,13 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 
 	if (pCodecInst->codecMode == MJPG_ENC)
 		info->minFrameBufferCount = 0;
-	else
-		info->minFrameBufferCount = 2;	/* reconstructed frame + reference frame */
+	else {
+		if (pCodecInst->codecMode == AVC_ENC &&
+		    pCodecInst->codecModeAux == AVC_AUX_MVC)
+			info->minFrameBufferCount = 3; /* reconstructed frame + 2 reference frame */
+		else
+			info->minFrameBufferCount = 2;	/* reconstructed frame + reference frame */
+	}
 
 	info->reportBufSize.sliceInfoBufSize = SIZE_SLICE_INFO;
 	info->reportBufSize.mbInfoBufSize = SIZE_MB_DATA;
@@ -1053,7 +1065,7 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 RetCode vpu_EncRegisterFrameBuffer(EncHandle handle, FrameBuffer * bufArray,
 				   int num, int frameBufStride, int sourceBufStride,
 				   PhysicalAddress subSampBaseA, PhysicalAddress subSampBaseB,
-				   ExtBufCfg *scratchBuf)
+				   EncExtBufInfo *pBufInfo)
 {
 	CodecInst *pCodecInst;
 	EncInfo *pEncInfo;
@@ -1174,15 +1186,27 @@ RetCode vpu_EncRegisterFrameBuffer(EncHandle handle, FrameBuffer * bufArray,
 		VpuWriteReg(CMD_SET_FRAME_SUBSAMP_A, subSampBaseA);
 		VpuWriteReg(CMD_SET_FRAME_SUBSAMP_B, subSampBaseB);
 
+		if (pCodecInst->codecMode == AVC_ENC &&
+		    pCodecInst->codecModeAux == AVC_AUX_MVC) {
+			if (pBufInfo == NULL ||
+			    !pBufInfo->subSampBaseAMvc ||
+			    !pBufInfo->subSampBaseBMvc) {
+				UnlockVpu(vpu_semap);
+				return RETCODE_INVALID_PARAM;
+			}
+			VpuWriteReg(CMD_SET_FRAME_SUBSAMP_A_MVC, pBufInfo->subSampBaseAMvc);
+			VpuWriteReg(CMD_SET_FRAME_SUBSAMP_B_MVC, pBufInfo->subSampBaseBMvc);
+		}
+
 		if (pCodecInst->codecMode == MP4_ENC) {
 			if (pEncInfo->mp4_dataPartitionEnable) {
-				if (scratchBuf == NULL) {
+				if (pBufInfo == NULL) {
 					UnlockVpu(vpu_semap);
 					return RETCODE_INVALID_PARAM;
 				}
 				/* MPEG4 Encoder Data-Partitioned bitstream temporal buffer */
-				VpuWriteReg(CMD_SET_FRAME_DP_BUF_BASE, scratchBuf->bufferBase);
-				VpuWriteReg(CMD_SET_FRAME_DP_BUF_SIZE, scratchBuf->bufferSize);
+				VpuWriteReg(CMD_SET_FRAME_DP_BUF_BASE, pBufInfo->scratchBuf.bufferBase);
+				VpuWriteReg(CMD_SET_FRAME_DP_BUF_SIZE, pBufInfo->scratchBuf.bufferSize);
 			} else {
 				VpuWriteReg(CMD_SET_FRAME_DP_BUF_BASE, 0);
 				VpuWriteReg(CMD_SET_FRAME_DP_BUF_SIZE, 0);
@@ -2034,7 +2058,7 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 
 			encHeaderParam = (EncHeaderParam *) param;
 			if (!(SPS_RBSP <= encHeaderParam->headerType &&
-			      encHeaderParam->headerType <= PPS_RBSP)) {
+			      encHeaderParam->headerType <= PPS_RBSP_MVC)) {
 				return RETCODE_INVALID_PARAM;
 			}
 
@@ -2617,7 +2641,7 @@ dec_out:
 	/* Gate-off the clock that is enabled in vpuDecOpen for workaround the issue
 	 * of mult-instances decoding on mx6q */
 	if (cpu_is_mx6q())
-                IOClkGateSet(false);
+		IOClkGateSet(false);
 
 	UnlockVpu(vpu_semap);
 
