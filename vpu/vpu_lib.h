@@ -626,6 +626,7 @@ typedef struct vpu_versioninfo {
 	int fw_major;		/* firmware major version */
 	int fw_minor;		/* firmware minor version */
 	int fw_release;		/* firmware release version */
+	int fw_code;		/* firmware checkin code number */
 	int lib_major;		/* library major version */
 	int lib_minor;		/* library minor version */
 	int lib_release;	/* library release version */
@@ -649,7 +650,7 @@ typedef struct vpu_versioninfo {
  * v4.2.2 [2008.09.03] support encoder on MX51
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 3, 6)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 3, 7)
 
 extern unsigned int system_rev;
 
