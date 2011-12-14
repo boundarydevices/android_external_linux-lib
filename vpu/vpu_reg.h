@@ -342,6 +342,8 @@
 #define CMD_SET_FRAME_SUBSAMP_B		0x18C
 #define CMD_SET_FRAME_DP_BUF_BASE	0x1B0
 #define CMD_SET_FRAME_DP_BUF_SIZE	0x1B4
+#define CMD_SET_FRAME_SUBSAMP_A_MVC	0x1B0
+#define CMD_SET_FRAME_SUBSAMP_B_MVC	0x1B4
 
 /*---------------------------------------------------------------------------
  * [ENC HEADER] COMMAND
