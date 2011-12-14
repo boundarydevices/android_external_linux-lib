@@ -286,6 +286,12 @@ typedef struct {
 } EncSliceMode;
 
 typedef struct {
+	PhysicalAddress subSampBaseAMvc;
+	PhysicalAddress subSampBaseBMvc;
+	ExtBufCfg scratchBuf;
+} EncExtBufInfo;
+
+typedef struct {
 	PhysicalAddress sliceSaveBuffer;
 	int sliceSaveBufferSize;
 } DecAvcSliceBufInfo;
@@ -463,6 +469,11 @@ typedef struct {
 	int avc_frameCropRight;
 	int avc_frameCropTop;
 	int avc_frameCropBottom;
+
+	int mvc_extension;
+	int interview_en;
+	int paraset_refresh_en;
+	int prefix_nal_en;
 } EncAvcParam;
 
 typedef struct {
@@ -494,6 +505,8 @@ typedef struct {
 	int vbvBufferSize;
 	int enableAutoSkip;
 	int gopSize;
+	int linear2TiledEnable;
+	int mapType;
 
 	EncSliceMode slicemode;
 	int intraRefresh;
@@ -604,7 +617,11 @@ typedef enum {
 
 typedef enum {
 	SPS_RBSP,
-	PPS_RBSP
+	PPS_RBSP,
+	END_SEQ_RBSP,
+	END_STREAM_RBSP,
+	SPS_RBSP_MVC,
+	PPS_RBSP_MVC
 } AvcHeaderType;
 
 typedef struct {
@@ -687,7 +704,7 @@ RetCode vpu_EncGetInitialInfo(EncHandle, EncInitialInfo *);
 RetCode vpu_EncRegisterFrameBuffer(EncHandle handle, FrameBuffer * bufArray,
 				   int num, int frameBufStride, int sourceBufStride,
 				   PhysicalAddress subSampBaseA, PhysicalAddress subSampBaseB,
-				   ExtBufCfg *scratchBuf);
+				   EncExtBufInfo * pBufInfo);
 RetCode vpu_EncGetBitstreamBuffer(EncHandle handle, PhysicalAddress * prdPrt,
 				  PhysicalAddress * pwrPtr, Uint32 * size);
 RetCode vpu_EncUpdateBitstreamBuffer(EncHandle handle, Uint32 size);
