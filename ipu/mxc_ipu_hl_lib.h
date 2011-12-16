@@ -318,14 +318,15 @@ typedef struct {
         void * ovbuf_start[2];
         void * ovbuf_alpha_start[2];
 	void * outbuf_start[3];
-	void * rotbuf_phy_start[2];
 	int ifr_size;
 	int ovfr_size;
 	int ovfr_alpha_size;
 	int ofr_size;
-	int rotfr_size;
 
 	void * priv;
+
+	void * rotbuf_phy_start[2];
+	int rotfr_size;
 } ipu_lib_handle_t;
 
 /*!
