@@ -23,6 +23,7 @@
 #include "vpu_reg.h"
 #include "vpu_lib.h"
 #include "vpu_io.h"
+#include "vpu_gdi.h"
 #include "sw_gbu.h"
 
 #define MAX_FW_BINARY_LEN		200 * 1024
@@ -317,11 +318,14 @@ typedef struct {
 	int dynamicAllocEnable;
 	int ringBufferEnable;
 	int mp4_dataPartitionEnable;
+	int linear2TiledEnable;
+	int mapType;
 
 	SecAxiUse secAxiUse;
 	MaverickCacheConfig cacheConfig;
 	EncSubFrameSyncConfig subFrameSyncConfig;
 	JpgEncInfo jpgInfo;
+	GdiTiledMap sTiledInfo;
 
 	EncReportInfo encReportMBInfo;
 	EncReportInfo encReportMVInfo;
@@ -427,6 +431,7 @@ typedef struct {
 	vpu_mem_desc userDataBufMem;
 
 	WriteMemProtectCfg writeMemProtectCfg;
+	GdiTiledMap sTiledInfo;
 
 	DecReportInfo decReportFrameBufStat; /* Frame Buffer Status */
 	DecReportInfo decReportMBInfo;      /* Mb Param for Error Concealment */
