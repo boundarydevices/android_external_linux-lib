@@ -577,6 +577,8 @@ RetCode vpu_EncOpen(EncHandle * pHandle, EncOpenParam * pop)
 	pEncInfo->ringBufferEnable = pop->ringBufferEnable;
 	pEncInfo->cacheConfig.Bypass = 1;		    /* By default, turn off MC cache */
 	pEncInfo->subFrameSyncConfig.subFrameSyncOn = 0;    /* By default, turn off SubFrameSync */
+	pEncInfo->linear2TiledEnable = pop->linear2TiledEnable;
+	pEncInfo->mapType = pop->mapType;
 
 	/* MB Aligned source resolution */
 	pEncInfo->srcFrameWidth = (pop->picWidth + 15) & ~15;
@@ -647,6 +649,9 @@ RetCode vpu_EncOpen(EncHandle * pHandle, EncOpenParam * pop)
 
 	val = VpuReadReg(BIT_FRAME_MEM_CTRL);
 	val &= ~(1 << 2 | 0x7 << 9);  /* clear the bit firstly */
+	if (pEncInfo->mapType)
+		val |= pEncInfo->linear2TiledEnable << 11 | 0x03 << 9;
+
 	pCodecInst->ctxRegs[CTX_BIT_FRAME_MEM_CTRL] =
 	    val | (pEncInfo->openParam.chromaInterleave << 2);
 
@@ -1037,10 +1042,12 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 	pEncInfo->initialInfo = *info;
 	pEncInfo->initialInfoObtained = 1;
 
-        /* Enable 2-D cache */
-	if (cpu_is_mx6q())
+	if (cpu_is_mx6q()) {
+		SetTiledMapTypeInfo(pEncInfo->mapType, &pEncInfo->sTiledInfo);
+		/* Enable 2-D cache */
 		SetMaverickCache(&pEncInfo->cacheConfig, 0,
 				 pEncInfo->openParam.chromaInterleave);
+	}
 
 	return RETCODE_SUCCESS;
 }
@@ -1469,6 +1476,10 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 		}
 	}
 
+	/* Set GDI related registers per tiled map info for mx6q */
+	if (cpu_is_mx6q())
+		SetGDIRegs(&pEncInfo->sTiledInfo);
+
 	if (is_mx6q_mjpg_codec(pCodecInst->codecMode)) {
 		VpuWriteReg(MJPEG_BBC_BAS_ADDR_REG, pEncInfo->streamBufStartAddr);
 		VpuWriteReg(MJPEG_BBC_END_ADDR_REG, pEncInfo->streamBufEndAddr);
@@ -1551,9 +1562,13 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 		VpuWriteReg(GDI_CONTROL, 1);
 		while(!val)
 			val = VpuReadReg(GDI_STATUS);
+		if (pEncInfo->mapType)
+			val = 3 << 20;
+		else
+			val = 0;
 		VpuWriteReg(GDI_INFO_CONTROL, ((pEncInfo->jpgInfo.format & 0x07) << 17) |
 					       (pEncInfo->openParam.chromaInterleave << 16) |
-					       pSrcFrame->strideY);
+					       val | pSrcFrame->strideY);
 		VpuWriteReg(GDI_INFO_PIC_SIZE, (pEncInfo->jpgInfo.alignedWidth << 16) |
 						pEncInfo->jpgInfo.alignedHeight);
 		VpuWriteReg(GDI_INFO_BASE_Y,  pSrcFrame->bufY);
@@ -2531,8 +2546,6 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 		pDecInfo->cacheConfig.Bypass = 1;
 		for (i = 0; i < 6; i++)
 			pDecInfo->writeMemProtectCfg.region[i].enable = 0;
-
-		SetTiledMapType(pDecInfo->mapType);
 	}
 
 	if (!LockVpu(vpu_semap))
@@ -3002,10 +3015,12 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		SetDecSecondAXIIRAM(&pDecInfo->secAxiUse, &iramParam);
 	}
 
-	/* Enable 2-D cache */
-	if (cpu_is_mx6q())
+	if (cpu_is_mx6q()) {
+		SetTiledMapTypeInfo(pDecInfo->mapType, &pDecInfo->sTiledInfo);
+		/* Enable 2-D cache */
 		SetMaverickCache(&pDecInfo->cacheConfig, pDecInfo->mapType,
 			    pDecInfo->openParam.chromaInterleave);
+	}
 
 	return RETCODE_SUCCESS;
 }
@@ -3476,6 +3491,10 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 	if (!LockVpu(vpu_semap))
 		return RETCODE_FAILURE_TIMEOUT;
 
+	/* Set GDI related registers per tiled map info for mx6q */
+	if (cpu_is_mx6q())
+		SetGDIRegs(&pDecInfo->sTiledInfo);
+
 	if (is_mx6q_mjpg_codec(pCodecInst->codecMode)) {
 		if (pDecInfo->jpgInfo.lineBufferMode) {
 			if (param->chunkSize <= 0) {
@@ -3607,9 +3626,13 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		while (!val)
 			val = VpuReadReg(GDI_STATUS);
 
+		if (pDecInfo->mapType)
+			val = 3 << 20;
+		else
+			val = 0;
 		VpuWriteReg(GDI_INFO_CONTROL, ((pDecInfo->jpgInfo.format & 0x07) << 17) |
 					       (pDecInfo->openParam.chromaInterleave << 16) |
-						pDecInfo->rotatorStride);
+					       val | pDecInfo->rotatorStride);
 		VpuWriteReg(GDI_INFO_PIC_SIZE, (pDecInfo->jpgInfo.alignedWidth << 16) |
 						pDecInfo->jpgInfo.alignedHeight);
 		VpuWriteReg(GDI_INFO_BASE_Y,  pDecInfo->rotatorOutput.bufY);
