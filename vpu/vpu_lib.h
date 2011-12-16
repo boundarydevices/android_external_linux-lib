@@ -732,7 +732,7 @@ int vpu_IsBusy(void);
 int jpu_IsBusy(void);
 int vpu_WaitForInt(int timeout_in_ms);
 RetCode vpu_SWReset(DecHandle handle, int index);
-int vpu_GetXY2AXIAddr(int ycbcr, int posY, int posX, int stride,
+int vpu_GetXY2AXIAddr(DecHandle handle, int ycbcr, int posY, int posX, int stride,
                    unsigned int addrY, unsigned int addrCb, unsigned int addrCr);
 
 void SaveGetEncodeHeader(EncHandle handle, int encHeaderType, char *filename);
