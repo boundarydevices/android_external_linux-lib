@@ -3509,16 +3509,29 @@ int mxc_ipu_lib_task_control(int ctl_cmd, void * arg, ipu_lib_handle_t * ipu_han
 	{
 		ipu_lib_ctl_mem_t * ctl_mem_info =
 				(ipu_lib_ctl_mem_t *) arg;
+#ifdef BUILD_FOR_ANDROID
+		ret = __pmem_alloc(&ctl_mem_info->minfo,
+				   &ctl_mem_info->mmap_vaddr);
+		if (ret == 0)
+			memset(ctl_mem_info->mmap_vaddr, 0,
+			       ctl_mem_info->minfo.size);
+#else
 		ret = __ipu_mem_alloc(&ctl_mem_info->minfo,
 				&ctl_mem_info->mmap_vaddr);
+#endif
 		break;
 	}
 	case IPU_CTL_FREE_MEM:
 	{
 		ipu_lib_ctl_mem_t * ctl_mem_info =
 				(ipu_lib_ctl_mem_t *) arg;
+#ifdef BUILD_FOR_ANDROID
+		 __pmem_free(&ctl_mem_info->minfo,
+			     &ctl_mem_info->mmap_vaddr);
+#else
 		 __ipu_mem_free(&ctl_mem_info->minfo,
 				&ctl_mem_info->mmap_vaddr);
+#endif
 		break;
 	}
 	case IPU_CTL_TASK_QUERY:
