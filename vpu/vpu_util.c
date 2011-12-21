@@ -2007,13 +2007,15 @@ int decode_sof_header(JpgDecInfo *jpg)
 	}
 
 	numComp = get_bits(&jpg->gbc, 8);
-	if (numComp > 3)
-		info_msg("Picture Horizontal Size limits Maximum size\n");
+	if (numComp > 3) {
+		info_msg("Components number limits Maximum size: numComp %d\n", numComp);
+		return 0;
+	}
 
 	if (get_bits_left(&jpg->gbc) < (numComp * ( 8 + 4 + 4 + 8) + 24))
 		return 0;
 
-	for (i=0; i<numComp; i++) {
+	for (i = 0; i < numComp; i++) {
 		compID = get_bits(&jpg->gbc, 8);
 		hSampFact[i] = get_bits(&jpg->gbc, 4);
 		vSampFact[i] = get_bits(&jpg->gbc, 4);
@@ -2027,8 +2029,10 @@ int decode_sof_header(JpgDecInfo *jpg)
 
 	if ((hSampFact[0] > 2) || (vSampFact[0] > 2) || ((numComp == 3) &&
 	    ((hSampFact[1] != 1) || (hSampFact[2] != 1) ||
-	     (vSampFact[1] != 1) || (vSampFact[2] != 1))))
+	     (vSampFact[1] != 1) || (vSampFact[2] != 1)))) {
 		info_msg("Not Supported Sampling Factor\n");
+		return 0;
+	}
 
 	if (numComp == 1)
 		sampleFactor = SAMPLE_400;
