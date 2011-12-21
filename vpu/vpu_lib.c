@@ -2729,8 +2729,12 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	pDecInfo = &pCodecInst->CodecInfo.decInfo;
 
 	if (is_mx6q_mjpg_codec(pCodecInst->codecMode)) {
+
 		if (!LockVpu(vpu_semap))
 			return RETCODE_FAILURE_TIMEOUT;
+
+		/* set tiled map type info */
+		SetTiledMapTypeInfo(pDecInfo->mapType, &pDecInfo->sTiledInfo);
 
 		if (pDecInfo->jpgInfo.lineBufferMode) {
 			pDecInfo->jpgInfo.pVirtJpgChunkBase = pDecInfo->jpgInfo.pVirtBitStream;
