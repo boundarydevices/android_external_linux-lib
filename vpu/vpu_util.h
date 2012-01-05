@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2011 Freescale Semiconductor, Inc.
+ * Copyright 2004-2012 Freescale Semiconductor, Inc.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -533,6 +533,7 @@ static inline void UnlockVpuReg(semaphore_t *semap)
 }
 
 int vpu_mx6q_swreset(int forcedReset);
+int vpu_mx6q_hwreset();
 int JpgEncLoadHuffTab(EncInfo *pEncInfo);
 int JpgEncLoadQMatTab(EncInfo *pEncInfo);
 int JpgEncEncodeHeader(EncHandle handle, EncParamSet *para);
