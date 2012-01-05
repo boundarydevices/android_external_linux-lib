@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2011 Freescale Semiconductor, Inc.
+ * Copyright 2004-2012 Freescale Semiconductor, Inc.
  *
  * Copyright (c) 2006, Chips & Media. All rights reserved.
  */
@@ -1228,6 +1228,20 @@ int vpu_mx6q_swreset(int forcedReset)
 	while(VpuReadReg(BIT_SW_RESET_STATUS) != 0);
 
 	VpuWriteReg(BIT_SW_RESET, 0);
+	return RETCODE_SUCCESS;
+}
+
+int vpu_mx6q_hwreset()
+{
+	VpuWriteReg(GDI_BUS_CTRL, 0x11);
+	while (VpuReadReg(GDI_BUS_STATUS) != 0x77);
+	VpuWriteReg(GDI_BUS_CTRL, 0x00);
+	IOSysSWReset();
+
+	VpuWriteReg(BIT_BUSY_FLAG, 1);
+	VpuWriteReg(BIT_CODE_RUN, 1);
+	while (VpuReadReg(BIT_BUSY_FLAG));
+
 	return RETCODE_SUCCESS;
 }
 
