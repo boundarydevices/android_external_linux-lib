@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2011 Freescale Semiconductor, Inc.
+ * Copyright 2004-2012 Freescale Semiconductor, Inc.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -146,10 +146,7 @@ int vpu_WaitForInt(int timeout_in_ms)
 							VpuWriteReg(MJPEG_BBC_END_ADDR_REG,
 									wrPtr & 0xFFFFFE00);
 					} else if (rdPtr == bbcEnd && !(status & 0x3)) {
-						VpuWriteReg(GDI_BUS_CTRL, 0x11);
-						while (VpuReadReg(GDI_BUS_STATUS) != 0x77);
-						VpuWriteReg(GDI_BUS_CTRL, 0x00);
-						IOSysSWReset(); /* reset JPU */
+						vpu_mx6q_hwreset(); /* reset JPU */
 
 						VpuWriteReg(MJPEG_PIC_STATUS_REG,
 								1 << INT_JPU_BIT_BUF_EMPTY);
@@ -169,10 +166,7 @@ int vpu_WaitForInt(int timeout_in_ms)
 					else
 						ret = -1;
 				} else if (pDecInfo->streamEndflag && !status && (rdPtr >= bbcEnd)) {
-					VpuWriteReg(GDI_BUS_CTRL, 0x11);
-					while (VpuReadReg(GDI_BUS_STATUS) != 0x77);
-					VpuWriteReg(GDI_BUS_CTRL, 0x00);
-					IOSysSWReset(); /* reset JPU */
+					vpu_mx6q_hwreset(); /* reset JPU */
 
 					pDecInfo->jpgInfo.quitCodec = 1;
 					ret = 0;
@@ -356,14 +350,7 @@ RetCode vpu_SWReset(DecHandle handle, int index)
 		return RETCODE_FAILURE_TIMEOUT;
 
 	if (cpu_is_mx6q()) {
-		VpuWriteReg(GDI_BUS_CTRL, 0x11);
-		while (VpuReadReg(GDI_BUS_STATUS) != 0x77);
-		VpuWriteReg(GDI_BUS_CTRL, 0x00);
-		IOSysSWReset();
-
-		VpuWriteReg(BIT_BUSY_FLAG, 1);
-		VpuWriteReg(BIT_CODE_RUN, 1);
-		while (vpu_IsBusy());
+		vpu_mx6q_hwreset();
 
 		UnlockVpu(vpu_semap);
 		return RETCODE_SUCCESS;
@@ -1768,10 +1755,7 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 
 		/* Workaround to reset JPU after each encoder: decoder may be blocked
 		 * after encoder randomly if not do reset. Fixme later */
-		VpuWriteReg(GDI_BUS_CTRL, 0x11);
-		while (VpuReadReg(GDI_BUS_STATUS) != 0x77);
-		VpuWriteReg(GDI_BUS_CTRL, 0x00);
-		IOSysSWReset();
+		vpu_mx6q_hwreset();
 
 		UnlockVpu(vpu_semap);
 		return RETCODE_SUCCESS;
@@ -3932,10 +3916,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 
 		/* Workaround to reset JPU after each decoder: encoder may be blocked
 		 * after decoder randomly if not do reset. Fixme later */
-		VpuWriteReg(GDI_BUS_CTRL, 0x11);
-		while (VpuReadReg(GDI_BUS_STATUS) != 0x77);
-		VpuWriteReg(GDI_BUS_CTRL, 0x00);
-		IOSysSWReset();
+		vpu_mx6q_hwreset();
 
 		*ppendingInst = 0;
 		UnlockVpu(vpu_semap);
