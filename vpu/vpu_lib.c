@@ -4308,9 +4308,6 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	*ppendingInst = 0;
 	UnlockVpu(vpu_semap);
 
-	/* Workaround for multi-instances competition */
-	usleep(10);
-
 	return RETCODE_SUCCESS;
 }
 
