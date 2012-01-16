@@ -1424,6 +1424,8 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 		vpu_mx6q_swreset(0);
 
 	if (pEncInfo->rotationEnable) {
+		if (pCodecInst->codecMode == MJPG_ENC)
+			rotMirEnable = 0x10;    /* Enable rotator */
 		switch (pEncInfo->rotationAngle) {
 		case 0:
 			rotMirMode |= 0x0;
@@ -1443,6 +1445,8 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 		}
 	}
 	if (pEncInfo->mirrorEnable) {
+		if (pCodecInst->codecMode == MJPG_ENC)
+			rotMirEnable = 0x10;    /* Enable mirror */
 		switch (pEncInfo->mirrorDirection) {
 		case MIRDIR_NONE:
 			rotMirMode |= 0x0;
