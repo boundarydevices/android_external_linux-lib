@@ -39,6 +39,7 @@
 
 /* If a frame is started, pendingInst is set to the proper instance. */
 static CodecInst **ppendingInst;
+int vpu_lib_dbg_level = 0;
 
 Uint32 virt_codeBuf;
 unsigned long *virt_paraBuf;
@@ -193,6 +194,13 @@ RetCode vpu_Init(void *cb)
 	volatile Uint32 data;
 	Uint16 *bit_code = NULL;
 	PhysicalAddress tempBuffer, codeBuffer, paraBuffer;
+	char *dbg_env;
+
+	dbg_env = getenv("VPU_LIB_DBG");
+        if (dbg_env)
+                vpu_lib_dbg_level = atoi(dbg_env);
+	else
+		vpu_lib_dbg_level = 0;
 
 	ENTER_FUNC();
 
