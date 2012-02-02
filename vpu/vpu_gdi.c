@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2011-2012 Freescale Semiconductor, Inc.
  *
  * Copyright (c) 2011, Chips & Media.  All rights reserved.
  */
@@ -28,7 +28,7 @@ int SetTiledMapTypeInfo(GDI_TILED_MAP_TYPE TiledMapType, GdiTiledMap *pTiledInfo
 {
 	int luma_map, chro_map, i;
 
-	if (!cpu_is_mx6q())
+	if (!cpu_is_mx6x())
 		return 0;
 
 	memset(pTiledInfo, 0, sizeof(GdiTiledMap));
