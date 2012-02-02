@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2011 Freescale Semiconductor, Inc.
+ * Copyright 2004-2012 Freescale Semiconductor, Inc.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -667,7 +667,7 @@ typedef struct vpu_versioninfo {
  * v4.2.2 [2008.09.03] support encoder on MX51
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 3, 7)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 0)
 
 extern unsigned int system_rev;
 
@@ -691,6 +691,8 @@ static inline int type## _rev (int rev)         \
 #define cpu_is_mx53()		mxc_is_cpu(0x53)
 #define cpu_is_mx5x()		(mxc_is_cpu(0x51) || mxc_is_cpu(0x53))
 #define cpu_is_mx6q()		mxc_is_cpu(0x63)
+#define cpu_is_mx6dl()		mxc_is_cpu(0x61)
+#define cpu_is_mx6x()		(mxc_is_cpu(0x63) || mxc_is_cpu(0x61))
 
 MXC_REV(cpu_is_mx27);
 
