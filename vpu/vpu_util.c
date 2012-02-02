@@ -83,6 +83,8 @@ RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 		strcat(fw_name, "vpu_fw_imx27_TO1.bin");
 	else if cpu_is_mx6q()
 		strcat(fw_name, "vpu_fw_imx6q.bin");
+	else if cpu_is_mx6dl()
+		strcat(fw_name, "vpu_fw_imx6d.bin");
 	else {
 		memset(temp_str, 0, 64);
 		sprintf(temp_str, "vpu_fw_imx%2x.bin", mxc_cpu());
@@ -113,9 +115,10 @@ RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 
 	memset(temp_str, 0, 64);
 	sprintf(temp_str, "%2x", mxc_cpu());
-	if (strcmp(temp_str, "63") == 0) {
+	if (strcmp(temp_str, "63") == 0)
 		strcpy(temp_str, "6Q");
-	}
+	else if (strcmp(temp_str, "61") == 0)
+		strcpy(temp_str, "6D");
 
 	if (strstr((char *)info.platform, temp_str) == NULL) {
 		err_msg("VPU firmware platform version isn't matched\n");
@@ -257,7 +260,7 @@ RetCode CheckDecInstanceValidity(DecHandle handle)
 		if (pCodecInst->codecMode != MP4_DEC &&
 		    pCodecInst->codecMode != AVC_DEC)
 			return RETCODE_INVALID_HANDLE;
-	} else if (cpu_is_mx6q()) {
+	} else if (cpu_is_mx6x()) {
 		if (pCodecInst->codecMode != MP4_DEC &&
 		    pCodecInst->codecMode != AVC_DEC &&
 		    pCodecInst->codecMode != VC1_DEC &&
@@ -524,15 +527,15 @@ void EncodeHeader(EncHandle handle, EncHeaderParam * encHeaderParam)
 	pEncInfo = &pCodecInst->CodecInfo.encInfo;
 
 	IOClkGateSet(true);
-	if (cpu_is_mx6q() && (pEncInfo->ringBufferEnable == 0)) {
+	if (cpu_is_mx6x() && (pEncInfo->ringBufferEnable == 0)) {
 		VpuWriteReg(CMD_ENC_HEADER_BB_START, pEncInfo->streamBufStartAddr);
 		VpuWriteReg(CMD_ENC_HEADER_BB_SIZE, pEncInfo->streamBufSize / 1024);
-	} else if (!cpu_is_mx6q() && (pEncInfo->dynamicAllocEnable == 1)) {
+	} else if (!cpu_is_mx6x() && (pEncInfo->dynamicAllocEnable == 1)) {
 		VpuWriteReg(CMD_ENC_HEADER_BB_START, encHeaderParam->buf);
 		VpuWriteReg(CMD_ENC_HEADER_BB_SIZE, encHeaderParam->size);
 	}
 
-	if (cpu_is_mx6q() && (encHeaderParam->headerType == 0) &&
+	if (cpu_is_mx6x() && (encHeaderParam->headerType == 0) &&
 	    (pEncInfo->openParam.bitstreamFormat == STD_AVC)) {
 		EncOpenParam *encOP;
 		Uint32 CropV, CropH;
@@ -549,7 +552,7 @@ void EncodeHeader(EncHandle handle, EncHeaderParam * encHeaderParam)
 		}
 	}
 
-	if (cpu_is_mx6q()) {
+	if (cpu_is_mx6x()) {
 		VpuWriteReg(CMD_ENC_HEADER_CODE, encHeaderParam->headerType |
 			frameCroppingFlag << 3);
 	} else {
@@ -570,8 +573,8 @@ void EncodeHeader(EncHandle handle, EncHeaderParam * encHeaderParam)
 	IOClkGateSet(false);
 
 	LockVpuReg(vpu_semap);
-	if ((cpu_is_mx6q() && (pEncInfo->ringBufferEnable == 0)) ||
-	    (!cpu_is_mx6q() && (pEncInfo->dynamicAllocEnable == 1))) {
+	if ((cpu_is_mx6x() && (pEncInfo->ringBufferEnable == 0)) ||
+	    (!cpu_is_mx6x() && (pEncInfo->dynamicAllocEnable == 1))) {
 		rdPtr = VpuReadReg(CMD_ENC_HEADER_BB_START);
 		wrPtr = VpuReadReg(BIT_WR_PTR);
 		pCodecInst->ctxRegs[CTX_BIT_WR_PTR] = wrPtr;
@@ -595,7 +598,7 @@ RetCode CheckDecOpenParam(DecOpenParam * pop)
 		return RETCODE_INVALID_PARAM;
 	}
 
-	if (cpu_is_mx6q() & (pop->bitstreamFormat == STD_MJPG)) {
+	if (cpu_is_mx6x() & (pop->bitstreamFormat == STD_MJPG)) {
 		if (!pop->jpgLineBufferMode) {
 			if (pop->bitstreamBufferSize % 1024 ||
 			    pop->bitstreamBufferSize < 1024)
@@ -616,7 +619,7 @@ RetCode CheckDecOpenParam(DecOpenParam * pop)
 		if (pop->bitstreamFormat != STD_MPEG4 &&
 		    pop->bitstreamFormat != STD_AVC)
 			return RETCODE_INVALID_PARAM;
-	} else if (cpu_is_mx6q()) {
+	} else if (cpu_is_mx6x()) {
 		if (pop->bitstreamFormat != STD_MPEG4 &&
 		    pop->bitstreamFormat != STD_AVC &&
 		    pop->bitstreamFormat != STD_VC1 &&
@@ -716,7 +719,7 @@ void GetParaSet(EncHandle handle, int paraSetType, EncParamSet * para)
 
 	IOClkGateSet(true);
 
-	if (cpu_is_mx6q() && (paraSetType == 0) &&
+	if (cpu_is_mx6x() && (paraSetType == 0) &&
 	    (pEncInfo->openParam.bitstreamFormat == STD_AVC)) {
 		EncOpenParam *encOP;
 		Uint32 CropV, CropH;
@@ -965,7 +968,7 @@ void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 			psecAxiIramInfo->bufOvlUse = psecAxiIramInfo->bufIpAcDcUse + ipacdc_size;
 			size -= ovl_size;
 		}
-		if (cpu_is_mx6q()) {
+		if (cpu_is_mx6x()) {
 			btp_size = ((((mbNumX + 15) / 16) * mbNumY + 1) * 6 + 255) & ~255;
 			if (size >= btp_size) {
 				psecAxiIramInfo->useHostBtpEnable = 1;
@@ -980,8 +983,8 @@ out:
 	   Set the useXXXX as 0 at the same time to use IRAM,
 	   i.MX53 uses secondary AXI for IRAM access, also needs to
 	   set the useXXXX. */
-	if (cpu_is_mx53() || cpu_is_mx6q()) {
-		/* i.MX53/i.MX6Q uses secondary AXI for IRAM access */
+	if (cpu_is_mx53() || cpu_is_mx6x()) {
+		/* i.MX53/i.MX6 uses secondary AXI for IRAM access */
 		psecAxiIramInfo->useBitEnable = psecAxiIramInfo->useHostBitEnable;
 		psecAxiIramInfo->useIpEnable = psecAxiIramInfo->useHostIpEnable;
 		psecAxiIramInfo->useDbkEnable = psecAxiIramInfo->useHostDbkEnable;
@@ -1011,7 +1014,7 @@ void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 
 	mbNumX = (parm->width + 15 ) / 16;
 
-	if (cpu_is_mx6q()) {
+	if (cpu_is_mx6x()) {
 		psecAxiIramInfo->searchRamSize = 0;
 		psecAxiIramInfo->searchRamAddr = 0;
 		goto set_dbk;
@@ -1061,9 +1064,9 @@ out:
 	/* i.MX51 has no secondary AXI memory, but use on chip RAM
 	   Set the useHoseXXX as 1 to enable corresponding IRAM
 	   Set the useXXXX as 0 at the same time to use IRAM,
-	   i.MX53/i.MX6Q uses secondary AXI for IRAM access, also needs to set
+	   i.MX53/i.MX6 uses secondary AXI for IRAM access, also needs to set
 	   useXXXX. */
-	if (cpu_is_mx53() || cpu_is_mx6q()) {
+	if (cpu_is_mx53() || cpu_is_mx6x()) {
 		/* i.MX53 uses secondary AXI for IRAM access */
 		psecAxiIramInfo->useBitEnable = psecAxiIramInfo->useHostBitEnable;
 		psecAxiIramInfo->useIpEnable = psecAxiIramInfo->useHostIpEnable;
@@ -1204,12 +1207,12 @@ void vpu_semaphore_close(semaphore_t * semap)
 	return;
 }
 
-/* Following is MX6Q Jpg related */
+/* Following is MX6 Jpg related */
 #define PUT_BYTE(_p, _b) \
 	    if (tot++ > len) return 0; \
 		    *_p++ = (unsigned char)(_b);
 
-int vpu_mx6q_swreset(int forcedReset)
+int vpu_mx6_swreset(int forcedReset)
 {
 	volatile int i;
 	Uint32 cmd;
@@ -1231,7 +1234,7 @@ int vpu_mx6q_swreset(int forcedReset)
 	return RETCODE_SUCCESS;
 }
 
-int vpu_mx6q_hwreset()
+int vpu_mx6_hwreset()
 {
 	VpuWriteReg(GDI_BUS_CTRL, 0x11);
 	while (VpuReadReg(GDI_BUS_STATUS) != 0x77);
