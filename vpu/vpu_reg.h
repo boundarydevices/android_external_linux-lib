@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2011 Freescale Semiconductor, Inc.
+ * Copyright 2004-2012 Freescale Semiconductor, Inc.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -110,8 +110,8 @@
 #define CMD_DEC_SEQ_OPTION		0x188
 #define CMD_DEC_SEQ_SRC_SIZE		0x18C
 #define CMD_DEC_SEQ_START_BYTE		0x190
-#define CMD_DEC_SEQ_PS_BB_START     	0x194  /* dummy for mx6q */
-#define CMD_DEC_SEQ_PS_BB_SIZE      	0x198  /* dummy for mx6q */
+#define CMD_DEC_SEQ_PS_BB_START     	0x194  /* dummy for mx6 */
+#define CMD_DEC_SEQ_PS_BB_SIZE      	0x198  /* dummy for mx6 */
 #define CMD_DEC_SEQ_JPG_THUMB_EN        0x19C
 #define CMD_DEC_SEQ_MP4_ASP_CLASS	0x19C
 #define CMD_DEC_SEQ_VC1_STREAM_FMT	0x19C
@@ -120,14 +120,14 @@
 
 #define CMD_DEC_SEQ_INIT_ESCAPE		0x114
 
-#define RET_DEC_SEQ_BIT_RATE            0x1B4 /* MX6Q platform */
+#define RET_DEC_SEQ_BIT_RATE            0x1B4 /* MX6 platform */
 
 #if defined(IMX6Q)
 #define RET_DEC_SEQ_ASPECT              0x1C8
 #else
 #define RET_DEC_SEQ_ASPECT              0x1B0
 #endif
-/* dummy for mx6q */
+/* dummy for mx6 */
 #define RET_DEC_SEQ_SRC_F_RATE          0x1C8
 /* end to here */
 #define RET_DEC_SEQ_SUCCESS		0x1C0
@@ -213,7 +213,7 @@
 /*---------------------------------------------------------------------------
  * [DEC PIC RUN] COMMAND
  *-------------------------------------------------------------------------*/
-#define CMD_DEC_PIC_ROT_INDEX           0x184   /* MX6Q */
+#define CMD_DEC_PIC_ROT_INDEX           0x184   /* MX6 */
 #if defined(IMX6Q)
 #define CMD_DEC_PIC_ROT_MODE            0x180
 #define CMD_DEC_PIC_ROT_ADDR_Y          0x188
@@ -232,8 +232,8 @@
 #define CMD_DEC_PIC_SKIP_NUM		0x198
 #define CMD_DEC_PIC_CHUNK_SIZE		0x19C
 #define CMD_DEC_PIC_BB_START		0x1A0
-#define CMD_DEC_PIC_START_BYTE		0x1A4 /* dummy for mx6q */
-#define CMD_DEC_PIC_PARA_BASE_ADDR      0x1A8 /* dummy for mx6q */
+#define CMD_DEC_PIC_START_BYTE		0x1A4 /* dummy for mx6 */
+#define CMD_DEC_PIC_PARA_BASE_ADDR      0x1A8 /* dummy for mx6 */
 #define CMD_DEC_SEQ_USER_DATA_OPTION	0x194
 #define CMD_DEC_PIC_USER_DATA_BASE_ADDR 0x1AC
 #define CMD_DEC_PIC_USER_DATA_BUF_SIZE  0x1B0
@@ -284,9 +284,9 @@
  * [ENC PIC RUN] COMMAND
  *--------------------------------------------------------------------------*/
 
-#define CMD_ENC_PIC_SRC_INDEX           0x180  /* MX6Q */
-#define CMD_ENC_PIC_SRC_STRIDE          0x184  /* MX6Q */
-#define CMD_ENC_PIC_SUB_FRAME_SYNC      0x1A4  /* MX6Q */
+#define CMD_ENC_PIC_SRC_INDEX           0x180  /* MX6 */
+#define CMD_ENC_PIC_SRC_STRIDE          0x184  /* MX6 */
+#define CMD_ENC_PIC_SUB_FRAME_SYNC      0x1A4  /* MX6 */
 #if defined(IMX6Q)
 #define CMD_ENC_PIC_SRC_ADDR_Y          0x1A8
 #define CMD_ENC_PIC_SRC_ADDR_CB         0x1AC
@@ -323,7 +323,7 @@
 #define CMD_SET_FRAME_AXI_DBKC_ADDR     0x19C
 #define CMD_SET_FRAME_AXI_OVL_ADDR      0x1A0
 
-/* MX6Q used, others dummy */
+/* MX6 used, others dummy */
 #define CMD_SET_FRAME_AXI_BTP_ADDR	0x1A4
 #define CMD_SET_FRAME_CACHE_SIZE	0x1A8
 #define CMD_SET_FRAME_CACHE_CONFIG	0x1AC
