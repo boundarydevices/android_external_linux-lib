@@ -532,8 +532,8 @@ static inline void UnlockVpuReg(semaphore_t *semap)
 	IOClkGateSet(0);
 }
 
-int vpu_mx6q_swreset(int forcedReset);
-int vpu_mx6q_hwreset();
+int vpu_mx6_swreset(int forcedReset);
+int vpu_mx6_hwreset();
 int JpgEncLoadHuffTab(EncInfo *pEncInfo);
 int JpgEncLoadQMatTab(EncInfo *pEncInfo);
 int JpgEncEncodeHeader(EncHandle handle, EncParamSet *para);
