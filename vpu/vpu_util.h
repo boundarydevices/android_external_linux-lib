@@ -385,6 +385,7 @@ typedef struct {
 	int quitCodec;
 	int rollBack;
 	int wrappedHeader;
+	int header_status;
 } JpgDecInfo;
 
 typedef struct {
