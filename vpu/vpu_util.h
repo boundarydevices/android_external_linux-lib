@@ -44,11 +44,12 @@ typedef enum {
 
 
 #if defined(IMX6Q)
-#define BIT_WORK_SIZE			47 * 1024
+#define BIT_WORK_SIZE			48 * 1024
 #else
 #define BIT_WORK_SIZE			128 * 1024
 #endif
 #define SIZE_CONTEXT_BUF		BIT_WORK_SIZE
+#define PS_SAVE_SIZE			0x080000
 
 #define SIZE_PIC_PARA_BASE_BUF          0x100
 #define SIZE_MV_DATA                    0x20000
