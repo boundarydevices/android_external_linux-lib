@@ -237,7 +237,7 @@
 #define CMD_DEC_SEQ_USER_DATA_OPTION	0x194
 #define CMD_DEC_PIC_USER_DATA_BASE_ADDR 0x1AC
 #define CMD_DEC_PIC_USER_DATA_BUF_SIZE  0x1B0
-#define CMD_DEC_PIC_DBK_OFFSET		0x1B4
+#define CMD_DEC_PIC_NUM_ROWS		0x1B4
 
 #define CMD_DEC_PIC_THO_PIC_PARA	0x198
 #define CMD_DEC_PIC_THO_QMAT_ADDR	0x1A0
@@ -269,6 +269,7 @@
 
 #define RET_DEC_PIC_CROP_LEFT_RIGHT	0x1E0
 #define RET_DEC_PIC_CROP_TOP_BOTTOM	0x1E4
+#define RET_DEC_PIC_RV_TR		0x1E8
 #define RET_DEC_PIC_VP8_PIC_REPORT	0x1E8
 #define RET_DEC_PIC_ASPECT		0x1F0
 #define RET_DEC_PIC_VP8_SCALE_INFO	0x1F0
@@ -396,9 +397,9 @@
         #define PARA_BUF2_SIZE			(2 * 1024)
         #define PARA_BUF_SIZE			(10 * 1024)
 #elif defined(IMX6Q)
-	#define CODE_BUF_SIZE                   (240 * 1024) /* define max is 240k byte currently */
+	#define CODE_BUF_SIZE                   (280 * 1024) /* define max is 280k byte currently */
 	#define FMO_SLICE_SAVE_BUF_SIZE         (32)
-	#define TEMP_BUF_SIZE                   (200 * 1024)
+	#define TEMP_BUF_SIZE                   (204 * 1024)
 	#define PARA_BUF2_SIZE                  (2 * 1024)
 	#define PARA_BUF_SIZE                   (10 * 1024)
 #else
@@ -482,6 +483,20 @@
 #define GDI_BUS_STATUS              (GDMA_BASE + 0x0F4)
 
 #define GDI_SIZE_ERR_FLAG           (GDMA_BASE + 0x0E0)
+#define GDI_ADR_RQ_SIZE_ERR_PRI0    (GDMA_BASE + 0x100)
+#define GDI_ADR_RQ_SIZE_ERR_PRI1    (GDMA_BASE + 0x104)
+#define GDI_ADR_RQ_SIZE_ERR_PRI1    (GDMA_BASE + 0x104)
+#define GDI_ADR_RQ_SIZE_ERR_PRI2    (GDMA_BASE + 0x108)
+#define GDI_ADR_WQ_SIZE_ERR_PRI0    (GDMA_BASE + 0x10c)
+#define GDI_ADR_WQ_SIZE_ERR_PRI1    (GDMA_BASE + 0x110)
+#define GDI_ADR_WQ_SIZE_ERR_PRI2    (GDMA_BASE + 0x114)
+#define GDI_ADR_RQ_SIZE_ERR_SEC0    (GDMA_BASE + 0x118)
+#define GDI_ADR_RQ_SIZE_ERR_SEC1    (GDMA_BASE + 0x11c)
+#define GDI_ADR_RQ_SIZE_ERR_SEC2    (GDMA_BASE + 0x120)
+#define GDI_ADR_WQ_SIZE_ERR_SEC0    (GDMA_BASE + 0x124)
+#define GDI_ADR_WQ_SIZE_ERR_SEC1    (GDMA_BASE + 0x128)
+#define GDI_ADR_WQ_SIZE_ERR_SEC2    (GDMA_BASE + 0x12c)
+
 #define GDI_INFO_CONTROL            (GDMA_BASE + 0x400)
 #define GDI_INFO_PIC_SIZE           (GDMA_BASE + 0x404)
 #define GDI_INFO_BASE_Y             (GDMA_BASE + 0x408)
