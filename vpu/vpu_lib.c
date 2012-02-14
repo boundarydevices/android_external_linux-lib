@@ -2430,12 +2430,6 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 	if (!LockVpu(vpu_semap))
 		return RETCODE_FAILURE_TIMEOUT;
 
-	/* Workaround to make vpu clock always on when vpu is in decoding to fix unstable
-	 * issue of mult-instances decoding on mx6 , the clock gated-on here will be
-	 * gated-off in vpuDecClose function */
-	if (cpu_is_mx6x())
-		IOClkGateSet(true);
-
 	ret = GetCodecInstance(&pCodecInst);
 	if (ret == RETCODE_FAILURE) {
 		*pHandle = 0;
@@ -2648,12 +2642,6 @@ dec_out:
 	IOFreePhyMem(&pCodecInst->contextBufMem);
 
 	FreeCodecInstance(pCodecInst);
-
-	/* Gate-off the clock that is enabled in vpuDecOpen for workaround the issue
-	 * of mult-instances decoding on mx6 */
-	if (cpu_is_mx6x())
-		IOClkGateSet(false);
-
 	UnlockVpu(vpu_semap);
 
 	return RETCODE_SUCCESS;
