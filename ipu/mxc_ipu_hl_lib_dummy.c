@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2011 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2009-2012 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  */
 
@@ -37,7 +37,7 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <linux/videodev.h>
+#include <linux/videodev2.h>
 #include "mxc_ipu_hl_lib.h"
 
 int mxc_ipu_lib_task_init(ipu_lib_input_param_t * input,
