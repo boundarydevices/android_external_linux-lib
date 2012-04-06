@@ -396,7 +396,7 @@
         #define TEMP_BUF_SIZE			(304 * 1024)
         #define PARA_BUF2_SIZE			(2 * 1024)
         #define PARA_BUF_SIZE			(10 * 1024)
-#elif defined(IMX6Q)
+#elif defined(IMX6Q) || defined(IMX6DL)
 	#define CODE_BUF_SIZE                   (280 * 1024) /* define max is 280k byte currently */
 	#define FMO_SLICE_SAVE_BUF_SIZE         (32)
 	#define TEMP_BUF_SIZE                   (204 * 1024)
