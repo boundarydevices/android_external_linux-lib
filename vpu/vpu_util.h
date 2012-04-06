@@ -100,7 +100,8 @@ enum {
 	AVS_DEC = 0x81,
 	VPX_DEC = 0x82
 } ;
-#elif defined(IMX6Q)
+#elif defined(IMX6Q) || defined(IMX6DL)
+
 enum {
 	AVC_DEC = 0,
 	VC1_DEC = 1,
