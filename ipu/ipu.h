@@ -1,5 +1,5 @@
 /*
- * Copyright 2005-2011 Freescale Semiconductor, Inc.
+ * Copyright 2005-2012 Freescale Semiconductor, Inc.
  */
 
 /*
@@ -129,6 +129,10 @@ typedef enum {
 #define IPU_PIX_FMT_VYU444  fourcc('V', '4', '4', '4')	/*!< 24 VYU 4:4:4 */
 /* two planes -- one Y, one Cb + Cr interleaved  */
 #define IPU_PIX_FMT_NV12    fourcc('N', 'V', '1', '2') /* 12  Y/CbCr 4:2:0  */
+/* two planes -- 12  tiled Y/CbCr 4:2:0  */
+#define IPU_PIX_FMT_TILED_NV12    fourcc('T', 'N', 'V', 'P')
+#define IPU_PIX_FMT_TILED_NV12F   fourcc('T', 'N', 'V', 'F')
+
 /*! @} */
 /*! @name YUV Planar Formats */
 /*! @{ */
