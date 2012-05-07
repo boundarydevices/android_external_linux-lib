@@ -58,6 +58,19 @@ extern unsigned long *virt_paraBuf;
 extern semaphore_t *vpu_semap;
 static int mutex_timeout;
 
+// thumbnail
+typedef enum {
+    JPG_LITTLE_ENDIAN = 0,
+    JPG_BIG_ENDIAN,
+} JpgEndianMode;
+
+const char lendian[4] = {0x49, 0x49, 0x2A, 0x00};
+const char bendian[4] = {0x4D, 0x4D, 0x00, 0x2A};
+
+const char *jfif = "JFIF";
+const char *jfxx = "JFXX";
+const char *exif = "Exif";
+
 RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 {
 	FILE *fp;
@@ -2212,6 +2225,387 @@ void genDecHuffTab(JpgDecInfo *jpg, int tabNum)
 	}
 }
 
+// thumbnail: User should make sure it's one picture and fits in the bs buffer. SW doesn't handle wrap around case.
+static Uint32 tGetBits(DecInfo *pDecInfo, int endian, int byteCnt)
+{
+	int i;
+	Uint8 byte;
+	Uint32 retData = 0;
+
+	for (i=0; i<byteCnt; i++) {
+
+		byte = (Uint8)get_bits(&pDecInfo->jpgInfo.gbc, 8);
+
+		if (endian)
+			retData = (retData<<8) | byte;
+		else
+			retData = retData | (byte<<((i&3)*8));
+	}
+
+	return retData;
+}
+
+static void thumbRaw(DecInfo *pDecInfo, Uint8 pal[][3])
+{
+	int i;
+    int pixelCnt;
+
+    dprintf(4, "checking raw thumbnail\n");
+
+    if (pDecInfo->jpgInfo.ThumbInfo.ThumbType == JFXX_PAL) {
+        for (i = 0; i < 256; i++) {
+            pal[i][0] = get_bits(&pDecInfo->jpgInfo.gbc, 8);
+            pal[i][1] = get_bits(&pDecInfo->jpgInfo.gbc, 8);
+            pal[i][2] = get_bits(&pDecInfo->jpgInfo.gbc, 8);
+        }
+    }
+
+    pixelCnt = pDecInfo->jpgInfo.picWidth
+        * pDecInfo->jpgInfo.picHeight
+        * (pDecInfo->jpgInfo.thumbInfo.MbSize/64);
+
+    for (i=0; i<pixelCnt; i++) {
+        get_bits(&pDecInfo->jpgInfo.gbc, 8);
+    }
+}
+
+int ParseJFIF(DecInfo *pDecInfo, int jfif, int length)
+{
+	int exCode;
+	int pal = false;
+	int picX, picY;
+	THUMB_INFO *pThumbInfo;
+	pThumbInfo = &(pDecInfo->jpgInfo.ThumbInfo);
+
+    // if EXIF thumbnail contains JFIF APP0
+	if (pThumbInfo->ThumbType == EXIF_JPG)
+	{
+		if(jfif)
+		{
+			get_bits(&pDecInfo->jpgInfo.gbc, 16);
+			get_bits(&pDecInfo->jpgInfo.gbc, 8);
+			get_bits(&pDecInfo->jpgInfo.gbc, 16);
+			get_bits(&pDecInfo->jpgInfo.gbc, 16);
+			get_bits(&pDecInfo->jpgInfo.gbc, 8);
+			get_bits(&pDecInfo->jpgInfo.gbc, 8);
+
+			length -= 9;
+		}
+		else
+		{
+			get_bits(&pDecInfo->jpgInfo.gbc, 8);
+			get_bits(&pDecInfo->jpgInfo.gbc, 8);
+			get_bits(&pDecInfo->jpgInfo.gbc, 8);
+			length -= 3;
+		}
+
+		return length;
+
+	}
+	if (jfif)						//JFIF
+	{
+		pThumbInfo->ThumbType = JFIF;
+		pThumbInfo->Version = get_bits(&pDecInfo->jpgInfo.gbc, 16);
+		get_bits(&pDecInfo->jpgInfo.gbc, 8);
+		get_bits(&pDecInfo->jpgInfo.gbc, 16);
+		get_bits(&pDecInfo->jpgInfo.gbc, 16);
+
+		picX = pDecInfo->jpgInfo.picWidth = get_bits(&pDecInfo->jpgInfo.gbc, 8);
+		picY = pDecInfo->jpgInfo.picHeight = get_bits(&pDecInfo->jpgInfo.gbc, 8);
+
+		if (pDecInfo->jpgInfo.picWidth != 0 && pDecInfo->jpgInfo.picHeight != 0)
+		{
+			pDecInfo->jpgInfo.thumbInfo.MbNumX = (picX + 7)/8;
+			pDecInfo->jpgInfo.thumbInfo.MbNumY = (picY + 7)/8;
+			pDecInfo->jpgInfo.thumbInfo.MbSize = 192;
+			pDecInfo->jpgInfo.thumbInfo.DecFormat = FORMAT_444;
+		}
+
+		length -= 9;
+
+	}
+	else							//JFXX
+	{
+		exCode = get_bits(&pDecInfo->jpgInfo.gbc, 8);
+		length -= 1;
+		if (exCode == 0x10)
+		{
+			pThumbInfo->ThumbType = JFXX_JPG;
+		}
+		else if (exCode == 0x11)
+		{
+			picX = pDecInfo->jpgInfo.picWidth = get_bits(&pDecInfo->jpgInfo.gbc, 8);
+			picY = pDecInfo->jpgInfo.picHeight = get_bits(&pDecInfo->jpgInfo.gbc, 8);
+
+			pDecInfo->jpgInfo.thumbInfo.MbNumX = (picX + 7)/8;
+			pDecInfo->jpgInfo.thumbInfo.MbNumY = (picY + 7)/8;
+			pDecInfo->jpgInfo.thumbInfo.MbSize = 64;
+			pThumbInfo->ThumbType = JFXX_PAL;
+			pDecInfo->jpgInfo.thumbInfo.DecFormat = FORMAT_444;
+			length -= 2;
+
+		}
+		else if (exCode == 0x13)
+		{
+			picX = pDecInfo->jpgInfo.picWidth = get_bits(&pDecInfo->jpgInfo.gbc, 8);
+			picY = pDecInfo->jpgInfo.picHeight = get_bits(&pDecInfo->jpgInfo.gbc, 8);
+
+			pDecInfo->jpgInfo.thumbInfo.MbNumX = (picX + 7)/8;
+			pDecInfo->jpgInfo.thumbInfo.MbNumY = (picY + 7)/8;
+			pDecInfo->jpgInfo.thumbInfo.MbSize = 192;
+			pThumbInfo->ThumbType = JFXX_RAW;
+			pDecInfo->jpgInfo.thumbInfo.DecFormat = FORMAT_444;
+			length -= 2;
+		}
+		else
+			return length;
+
+	}
+
+
+	return length;
+}
+
+int ParseEXIF(DecInfo *pDecInfo, int length)
+{
+	int i;
+	Uint32 iFDValOffset = 0;
+	Uint32 runIdx = 0;
+	Uint32 j;
+	Uint32 ifdSize;
+	Uint32 nextIFDOffset;
+	Uint32 size;
+	TAG tags;
+	Uint8 id;
+	int endian;
+	Uint8 big_e = true;
+	Uint8 little_e = true;
+	THUMB_INFO *pThumbInfo;
+	pThumbInfo = &(pDecInfo->jpgInfo.ThumbInfo);
+
+	//------------------------------------------------------------------------------
+	// TIFF HEADER, {endian[1:0],0x002A,offset(4bytes)}
+	//------------------------------------------------------------------------------
+
+	for (i = 0; i < 2; i++)
+	{
+		id = (Uint8) get_bits(&pDecInfo->jpgInfo.gbc, 8);
+
+		if (id != lendian[i])
+			little_e = false;
+		if (id != bendian[i])
+			big_e = false;
+	}
+	length -= 2;
+
+	if (little_e == false && big_e == false)
+		dprintf(4,"ERROR\n");
+
+	endian = (little_e) ? JPG_LITTLE_ENDIAN : JPG_BIG_ENDIAN;
+
+	tGetBits(pDecInfo, endian, 2);
+	length -= 2;
+
+	size = tGetBits(pDecInfo, endian, 4) -8;
+	length -= 4;
+
+	for (j = 0; j < size; j++)
+	{
+		get_bits(&pDecInfo->jpgInfo.gbc, 8);
+		length -= 1;
+	}
+
+	//------------------------------------------------------------------------------
+	// 0TH IFD
+	//------------------------------------------------------------------------------
+
+	ifdSize = tGetBits(pDecInfo, endian, 2);
+	length -= 2;
+
+	for (j = 0; j < ifdSize; j++)
+	{
+		tGetBits(pDecInfo, endian, 2); //Tag
+		tGetBits(pDecInfo, endian, 2); //Type
+		tGetBits(pDecInfo, endian, 4); //count
+		tGetBits(pDecInfo, endian, 4); //offset
+		length -= 12;
+	}
+
+	nextIFDOffset = tGetBits(pDecInfo, endian, 4);
+	length -= 4;
+
+	if(nextIFDOffset == 0x00)
+	{
+		while (length--)
+			get_bits(&pDecInfo->jpgInfo.gbc, 8);
+		return length;
+	}
+	else if ((int) nextIFDOffset > length)
+	{
+		while (length--)
+			get_bits(&pDecInfo->jpgInfo.gbc, 8);
+		return length;
+	}
+	nextIFDOffset -= (ifdSize *12 + 10 + size + 4);
+
+	for (j = 0; j < nextIFDOffset; j++)
+	{
+		get_bits(&pDecInfo->jpgInfo.gbc, 8);
+		length -= 1;
+	}
+	runIdx += (8 + size + 2 + ifdSize*12 + 4 + nextIFDOffset);
+
+	//------------------------------------------------------------------------------
+	// 1TH IFD, thumbnail
+	//------------------------------------------------------------------------------
+
+	ifdSize = tGetBits(pDecInfo, endian, 2);
+	length -= 2;
+	for (j=0; j<ifdSize; j++) {
+		tags.tag    = tGetBits(pDecInfo,endian,2); // Tag
+		tags.type   = tGetBits(pDecInfo, endian,2); // Type
+		tags.count  = tGetBits(pDecInfo, endian,4); // count
+		tags.offset = tGetBits(pDecInfo, endian,4); // offset
+		length -= 12;
+
+		if (endian != JPG_LITTLE_ENDIAN) {
+			if (tags.type == 1 && tags.count < 4)
+				tags.offset >>= (4 - tags.count) * 8;
+			if (tags.type == 3 && tags.count < 2)
+				tags.offset >>= (2 - tags.count) * 16;
+		}
+
+		switch(tags.tag&0xFFFF) {
+			case IMAGE_WIDTH :
+				pThumbInfo->ExifInfo.PicX = tags.offset;
+				break;
+			case IMAGE_HEIGHT :
+				pThumbInfo->ExifInfo.PicY = tags.offset;
+				break;
+			case BITS_PER_SAMPLE :
+				pThumbInfo->ExifInfo.BitPerSample[0] = tags.offset;
+				break;
+			case COMPRESSION_SCHEME :
+				pThumbInfo->ThumbType = EXIF_JPG;
+				pThumbInfo->ExifInfo.Compression = tags.offset & 0xffff;
+				break;
+			case PIXEL_COMPOSITION :
+				pThumbInfo->ExifInfo.PixelComposition = tags.offset;
+				break;
+			case SAMPLE_PER_PIXEL :
+				pThumbInfo->ExifInfo.SamplePerPixel = tags.offset;
+				break;
+			case YCBCR_SUBSAMPLING : // 2, 1 4:2:2 / 2, 2 4:2:0
+				pThumbInfo->ExifInfo.YCbCrSubSample = tags.offset;
+				break;
+			case JPEG_IC_FORMAT :
+				pThumbInfo->ExifInfo.JpegOffset = tags.offset;
+				break;
+			case PLANAR_CONFIG :
+				pThumbInfo->ExifInfo.PlanrConfig = tags.offset;
+				break;
+			default :
+				break;
+		}
+
+		if (tags.type == 2)
+			iFDValOffset += tags.count;
+		else if (tags.type == 3 && tags.count > 2)
+			iFDValOffset += (tags.count*2);
+		else if (tags.type == 5 || tags.type == 0xA)
+			iFDValOffset += (tags.count*8);
+	}
+
+	if (pThumbInfo->ExifInfo.Compression == 6) { // jpeg
+		runIdx += (2 + ifdSize*12);
+		iFDValOffset = pThumbInfo->ExifInfo.JpegOffset - runIdx;
+	}
+
+	for (j=0; j<iFDValOffset; j++)
+	{
+		get_bits(&pDecInfo->jpgInfo.gbc, 8);
+		length -= 1;
+	}
+
+	return length;
+
+
+}
+
+
+int CheckThumbNail(DecInfo *pDecInfo)
+{
+	Uint8 id;
+	Uint8 jfifFlag = true;
+	Uint8 jfxxFlag = true;
+	Uint8 exifFlag = true;
+	int i;
+	int length;
+	int initLength;
+
+	THUMB_INFO *pThumbInfo;
+	pThumbInfo = &(pDecInfo->jpgInfo.ThumbInfo);
+
+
+	length = get_bits(&pDecInfo->jpgInfo.gbc, 16);
+	length -= 2;
+
+	initLength = length;
+
+	if (initLength < 5)
+	{
+		while(length--)
+			get_bits(&pDecInfo->jpgInfo.gbc, 8);
+	}
+	else
+	{
+        for (i = 0; i < 4; i++)
+        {
+            id = (Uint8) get_bits(&pDecInfo->jpgInfo.gbc, 8);
+
+            if (id != jfif[i])
+                jfifFlag = false;
+            if (id != jfxx[i])
+                jfxxFlag = false;
+            if (id != exif[i])
+                exifFlag = false;
+
+        }
+        get_bits(&pDecInfo->jpgInfo.gbc, 8);
+        length -= 5;
+
+        if (exifFlag)
+        {
+            get_bits(&pDecInfo->jpgInfo.gbc, 8);
+            length -= 1;
+        }
+        if (jfifFlag | jfxxFlag)	//JFIF
+        {
+            length = ParseJFIF(pDecInfo, jfifFlag, length);
+
+            if (pThumbInfo->ThumbType != EXIF_JPG)
+            {
+                if(pThumbInfo->ThumbType != JFXX_JPG)
+                {
+                    //RAW data
+                    thumbRaw(pDecInfo, pThumbInfo->Pallette);
+
+                }
+            }
+
+        }
+        else if (exifFlag)			//EXIF
+        {
+            length = ParseEXIF(pDecInfo, length);
+            if (length == -1)
+                return 0;
+        }
+    }
+
+    return 1;
+
+}
+
 int JpegDecodeHeader(DecInfo *pDecInfo)
 {
 	unsigned int code;
@@ -2330,11 +2724,17 @@ int JpegDecodeHeader(DecInfo *pDecInfo)
 			break;
 		case JFIF_CODE:
 		case EXIF_CODE:
-			if (!decode_app_header(jpg)) {
-				dprintf(4, "err in JFIF_CODE or EXIF_CODE\n");
-				ret = -1;
-				goto DONE_DEC_HEADER;
+			if (pDecInfo->openParam.mjpg_thumbNailDecEnable == 1) {
+				CheckThumbNail(pDecInfo);
+                dprintf(4, "ThumbType = %d\n", pDecInfo->jpgInfo.ThumbInfo.ThumbType);
 			}
+			else {
+                if (!decode_app_header(jpg)) {
+                    dprintf(4, "err in JFIF_CODE or EXIF_CODE\n");
+                    ret = -1;
+                    goto DONE_DEC_HEADER;
+                }
+            }
 			break;
 		case DRI_Marker:
 			if (!decode_dri_header(jpg)) {
