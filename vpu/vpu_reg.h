@@ -332,7 +332,11 @@
 /* End */
 
 /* MX5X used, others dummy */
+#if defined(IMX6Q)
+#define CMD_SET_FRAME_MAX_DEC_SIZE      0x1B8
+#else
 #define CMD_SET_FRAME_MAX_DEC_SIZE      0x1A4
+#endif
 #define CMD_SET_FRAME_SOURCE_BUF_STRIDE 0x1A8
 /* End */
 
