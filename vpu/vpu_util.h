@@ -191,6 +191,56 @@ enum {
 	SOS_Marker      = 0xFFDA,           // Start of scan
 };
 
+// JPEG thumbnail
+static enum{ //Exif
+	IMAGE_WIDTH			= 0x0100,
+	IMAGE_HEIGHT		= 0x0101,
+	BITS_PER_SAMPLE		= 0x0102,
+	COMPRESSION_SCHEME	= 0x0103,
+	PIXEL_COMPOSITION	= 0x0106,
+	SAMPLE_PER_PIXEL	= 0x0115,
+	YCBCR_SUBSAMPLING	= 0x0212,
+	JPEG_IC_FORMAT		= 0x0201,
+	PLANAR_CONFIG		= 0x011c
+}EXIF_TAG;
+
+typedef struct{
+	Uint32	tag;
+	Uint32	type;
+	int		count;
+	int		offset;
+}TAG;
+
+enum {
+    JFIF    	= 0,
+    JFXX_JPG	= 1,
+    JFXX_PAL  	= 2,
+    JFXX_RAW 	= 3,
+    EXIF_JPG	= 4
+};
+
+typedef struct {
+	int			PicX;
+	int			PicY;
+	int			BitPerSample[3];
+	int			Compression; // 1 for uncompressed / 6 for compressed(jpeg)
+	int			PixelComposition; // 2 for RGB / 6 for YCbCr
+	int			SamplePerPixel;
+	int  		PlanrConfig; // 1 for chunky / 2 for planar
+	int			YCbCrSubSample; // 00020002 for YCbCr 4:2:0 / 00020001 for YCbCr 4:2:2
+	Uint32		JpegOffset;
+	Uint32		JpegThumbSize;
+} EXIF_INFO;
+
+typedef struct {
+	//JpgDecInfo 	JpegInfo;
+	EXIF_INFO	ExifInfo;
+	int  		ThumbType;
+
+    int  		Version;
+	Uint8 		Pallette[256][3];
+} THUMB_INFO;
+
 typedef struct {
 	int useBitEnable;
 	int useIpEnable;
@@ -381,6 +431,23 @@ typedef struct {
 	int lineBufferMode;
 	Uint8 *pVirtJpgChunkBase;
 	int chunkSize;
+
+    // thumbnail
+
+	THUMB_INFO	ThumbInfo;
+
+	struct{
+		int MbSize;
+		int DecFormat;
+		int LumaMbHeight;
+		int LumaMbWidth;
+		int PicX;
+		int PicY;
+		int CPicX;
+		int CPicY;
+		int MbNumX;
+		int MbNumY;
+	} thumbInfo;
 
 	Uint32 bbcEndAddr;
 	Uint32 bbcStreamCtl;
