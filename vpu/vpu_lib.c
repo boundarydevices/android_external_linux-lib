@@ -37,6 +37,12 @@
 #define IMAGE_ENDIAN			0
 #define STREAM_ENDIAN			0
 
+#define MAX_PIC_WIDTH           1920
+#define MAX_PIC_HEIGHT          1088
+// Alloc buffers of MAX resolution in seqinit,
+// in the case of dynamic resolution change
+#define ALLOC_MAX_RESOLUTION
+
 /* If a frame is started, pendingInst is set to the proper instance. */
 static CodecInst **ppendingInst;
 int vpu_lib_dbg_level = 0;
@@ -2741,6 +2747,18 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		pDecInfo->initialInfoObtained = 1;
 		pDecInfo->jpgInfo.frameOffset = 0;
 
+        if (pDecInfo->openParam.mjpg_thumbNailDecEnable == 1) {
+            if((pDecInfo->jpgInfo.ThumbInfo.ThumbType != JFXX_JPG)
+                    && (pDecInfo->jpgInfo.ThumbInfo.ThumbType != EXIF_JPG)) {
+                info->mjpg_thumbNailEnable = 0;
+                UnlockVpu(vpu_semap);
+                return RETCODE_FAILURE;
+            }
+            else {
+                info->mjpg_thumbNailEnable = 1;
+            }
+        }
+
 		UnlockVpu(vpu_semap);
 		return RETCODE_SUCCESS;
 	}
@@ -2817,7 +2835,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 
 	if (pCodecInst->codecMode == AVC_DEC) {
 		if (cpu_is_mx6x())
-			VpuWriteReg(CMD_DEC_SEQ_X264_MV_EN, 1);
+			VpuWriteReg(CMD_DEC_SEQ_X264_MV_EN, 0);
 		else {
 			VpuWriteReg(CMD_DEC_SEQ_PS_BB_START,
 				    pDecInfo->openParam.psSaveBuffer);
@@ -2940,7 +2958,11 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 			}
 		}
 
+#ifdef ALLOC_MAX_RESOLUTION
+        val = MAX_PIC_WIDTH * MAX_PIC_HEIGHT;
+#else
 		val = info->picWidth * info->picHeight;
+#endif
 		info->normalSliceSize = (val * 3 / 2) / 1024 / 4;
 		info->worstSliceSize = ((val / 256) * 3200 / 8  + 512)/ 1024;
 	} else {
@@ -2998,8 +3020,13 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 
 	/* Set secondAXI IRAM */
 	if (!cpu_is_mx27()) {
+#ifdef ALLOC_MAX_RESOLUTION
+		iramParam.width = (MAX_PIC_WIDTH + 15) & ~15;
+		iramParam.height = (MAX_PIC_HEIGHT + 15) & ~15;
+#else
 		iramParam.width = (info->picWidth + 15) & ~15;
 		iramParam.height = (info->picHeight + 15) & ~15;
+#endif
 		iramParam.profile = info->profile;
 		iramParam.codecMode = pCodecInst->codecMode;
 		SetDecSecondAXIIRAM(&pDecInfo->secAxiUse, &iramParam);
@@ -3169,11 +3196,19 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 			     1024));
 	}
 
-	if (!cpu_is_mx6x())
-		VpuWriteReg(CMD_SET_FRAME_MAX_DEC_SIZE,
-		     (pBufInfo->maxDecFrmInfo.maxMbNum << 16 |
-		      pBufInfo->maxDecFrmInfo.maxMbX << 8 |
-		      pBufInfo->maxDecFrmInfo.maxMbY));
+    if (cpu_is_mx6x()) {
+        // To align with mx5x
+        if (pBufInfo->maxDecFrmInfo.maxMbNum == 0) {
+            pBufInfo->maxDecFrmInfo.maxMbX = MAX_PIC_WIDTH/16;
+            pBufInfo->maxDecFrmInfo.maxMbY = MAX_PIC_HEIGHT/16;
+            pBufInfo->maxDecFrmInfo.maxMbNum = pBufInfo->maxDecFrmInfo.maxMbX * pBufInfo->maxDecFrmInfo.maxMbY;
+        }
+    }
+
+    VpuWriteReg(CMD_SET_FRAME_MAX_DEC_SIZE,
+            (pBufInfo->maxDecFrmInfo.maxMbNum << 16 |
+             pBufInfo->maxDecFrmInfo.maxMbX << 8 |
+             pBufInfo->maxDecFrmInfo.maxMbY));
 
 	BitIssueCommand(pCodecInst, SET_FRAME_BUF);
 
@@ -3958,7 +3993,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	if (cpu_is_mx6x()) {
 		info->frameStartPos = VpuReadReg(BIT_BYTE_POS_FRAME_START);
 		info->frameEndPos = VpuReadReg(BIT_BYTE_POS_FRAME_END);
-		if (info->frameEndPos > (int)pDecInfo->streamBufEndAddr) {
+        if (info->frameEndPos < info->frameStartPos) {
 			info->consumedByte =
 				    pDecInfo->streamBufEndAddr - info->frameStartPos;
 			info->consumedByte +=
