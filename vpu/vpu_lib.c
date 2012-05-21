@@ -4374,8 +4374,10 @@ RetCode vpu_DecBitBufferFlush(DecHandle handle)
 	if (cpu_is_mx6x())
 		pCodecInst->ctxRegs[CTX_BIT_RD_PTR] = pDecInfo->streamBufStartAddr;
 
-	BitIssueCommand(pCodecInst, DEC_BUF_FLUSH);
-	while (VpuReadReg(BIT_BUSY_FLAG)) ;
+	if (!is_mx6x_mjpg_codec(pCodecInst->codecMode)) {
+        BitIssueCommand(pCodecInst, DEC_BUF_FLUSH);
+        while (VpuReadReg(BIT_BUSY_FLAG)) ;
+    }
 
 	pDecInfo->streamWrPtr = pDecInfo->streamBufStartAddr;
 
