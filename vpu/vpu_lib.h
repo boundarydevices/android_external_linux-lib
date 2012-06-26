@@ -667,7 +667,7 @@ typedef struct vpu_versioninfo {
  * v4.2.2 [2008.09.03] support encoder on MX51
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 2)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 3)
 
 extern unsigned int system_rev;
 
@@ -676,10 +676,10 @@ extern unsigned int system_rev;
 #define CHIP_REV_2_1            	0x21
 
 #define mxc_cpu()               (system_rev >> 12)
-#define mxc_is_cpu(part)        ((mxc_cpu() == part) ? 1 : 0)
+#define mxc_is_cpu(part)        ((mxc_cpu() == (unsigned int)part) ? 1 : 0)
 #define mxc_cpu_rev()           (system_rev & 0xFF)
 #define mxc_cpu_is_rev(rev)     \
-        ((mxc_cpu_rev() == rev) ? 1 : ((mxc_cpu_rev() < rev) ? -1 : 2))
+        ((mxc_cpu_rev() == (unsigned int)rev) ? 1 : ((mxc_cpu_rev() < (unsigned int)rev) ? -1 : 2))
 #define MXC_REV(type)                           \
 static inline int type## _rev (int rev)         \
 {                                               \
