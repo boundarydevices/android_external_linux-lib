@@ -3295,10 +3295,10 @@ RetCode vpu_DecGetBitstreamBuffer(DecHandle handle,
 	UnlockVpuReg(vpu_semap);
 
 	if (wrPtr < rdPtr) {
-		room = rdPtr - wrPtr - 1;
+		room = rdPtr - wrPtr - VPU_GBU_SIZE*2 - 1;
 	} else {
 		room = (pDecInfo->streamBufEndAddr - wrPtr) +
-		    (rdPtr - pDecInfo->streamBufStartAddr) - 1;
+		    (rdPtr - pDecInfo->streamBufStartAddr) - VPU_GBU_SIZE*2 - 1;
 	}
 
 	*paRdPtr = rdPtr;
@@ -3991,8 +3991,13 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	info->decPicWidth = (val >> 16) & 0xFFFF;
 
 	if (cpu_is_mx6x()) {
-		info->frameStartPos = VpuReadReg(BIT_BYTE_POS_FRAME_START);
-		info->frameEndPos = VpuReadReg(BIT_BYTE_POS_FRAME_END);
+        if(pCodecInst->codecMode == VC1_DEC || pCodecInst->codecMode == AVS_DEC || pCodecInst->codecMode == MP4_DEC) {
+            info->frameStartPos = VpuReadReg(BIT_BYTE_POS_FRAME_START);
+            info->frameEndPos = VpuReadReg(BIT_BYTE_POS_FRAME_END);
+        } else {
+            info->frameStartPos = pCodecInst->ctxRegs[CTX_BIT_RD_PTR];
+            info->frameEndPos = VpuReadReg(BIT_RD_PTR);
+        }
         if (info->frameEndPos < info->frameStartPos) {
 			info->consumedByte =
 				    pDecInfo->streamBufEndAddr - info->frameStartPos;
