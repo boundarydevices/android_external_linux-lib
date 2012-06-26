@@ -57,6 +57,7 @@ typedef enum {
 #define SIZE_FRAME_BUF_STAT             0x100
 #define SIZE_SLICE_INFO                 0x4000
 #define USER_DATA_INFO_OFFSET           8*17
+#define VPU_GBU_SIZE			1024
 #define JPU_GBU_SIZE			512
 
 #define ADDR_PIC_PARA_BASE_OFFSET       0
