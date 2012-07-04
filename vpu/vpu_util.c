@@ -302,6 +302,31 @@ void FreeCodecInstance(CodecInst * pCodecInst)
 	pCodecInst->inUse = 0;
 }
 
+#ifdef MEM_PROTECT
+int SetDecWriteProtectRegions(CodecInst *inst)
+{
+	int i;
+	WriteMemProtectCfg *pCfg = NULL;
+	Uint32 regionEnable = 0;
+
+	pCfg = &inst->CodecInfo.decInfo.writeMemProtectCfg;
+
+	for (i=0; i < sizeof(pCfg->region) / sizeof(pCfg->region[0]); i++)
+	{
+		WriteMemProtectRegion *p = &pCfg->region[i];
+		int enable               = p->enable != 0;
+		int isSecondary          = p->is_secondary != 0;
+
+		regionEnable |= (enable << i);
+		regionEnable |= (isSecondary << (i + 6));
+		VpuWriteReg(GDI_WPROT_RGN0_STA + 8*i, p->start_address         >> 12);	// round down
+		VpuWriteReg(GDI_WPROT_RGN0_END + 8*i, (p->end_address + 0xFFF) >> 12);	// round up
+	}
+    VpuWriteReg(GDI_WPROT_RGN_EN, regionEnable);
+	return 1;
+}
+#endif
+
 void BitIssueCommand(CodecInst *pCodecInst, int cmd)
 {
 	int instIdx = 0, cdcMode = 0, auxMode = 0;
@@ -324,6 +349,14 @@ void BitIssueCommand(CodecInst *pCodecInst, int cmd)
 		instIdx = pCodecInst->instIndex;
 		cdcMode = pCodecInst->codecMode;
 		auxMode = pCodecInst->codecModeAux;
+
+        if (cpu_is_mx6x()) {
+            VpuWriteReg(GDI_WPROT_ERR_CLR, 1);
+            VpuWriteReg(GDI_WPROT_RGN_EN, 0);
+#ifdef MEM_PROTECT
+            SetDecWriteProtectRegions(pCodecInst);
+#endif
+        }
 	}
 
 	VpuWriteReg(BIT_BUSY_FLAG, 0x1);
