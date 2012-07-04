@@ -299,6 +299,7 @@ typedef struct {
     int size;
 } DecParamSet;
 
+#ifdef MEM_PROTECT
 typedef struct {
     int enable;
     int is_secondary;
@@ -309,6 +310,7 @@ typedef struct {
 typedef struct {
     WriteMemProtectRegion region[6];
 } WriteMemProtectCfg;
+#endif
 
 typedef struct {
 	int width;
@@ -501,7 +503,9 @@ typedef struct {
 	vpu_mem_desc picParaBaseMem;
 	vpu_mem_desc userDataBufMem;
 
+#ifdef MEM_PROTECT
 	WriteMemProtectCfg writeMemProtectCfg;
+#endif
 	GdiTiledMap sTiledInfo;
 
 	DecReportInfo decReportFrameBufStat; /* Frame Buffer Status */
