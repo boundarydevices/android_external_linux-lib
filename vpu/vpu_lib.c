@@ -2542,8 +2542,10 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 		pDecInfo->mapType = pop->mapType;
 		pDecInfo->tiledLinearEnable = pop->tiled2LinearEnable;
 		pDecInfo->cacheConfig.Bypass = 1;
+#ifdef MEM_PROTECT
 		for (i = 0; i < 6; i++)
 			pDecInfo->writeMemProtectCfg.region[i].enable = 0;
+#endif
 	}
 
 	if (!LockVpu(vpu_semap))
@@ -2554,8 +2556,29 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 	pCodecInst->ctxRegs[CTX_BIT_FRM_DIS_FLG] = 0;
 	pCodecInst->ctxRegs[CTX_BIT_STREAM_PARAM] = 0;
 
+#ifdef MEM_PROTECT
 	if (cpu_is_mx6x())
-		VpuWriteReg(GDI_WPROT_RGN_EN, 0);
+    {
+        WriteMemProtectCfg *pCfg = NULL;
+        pCfg = &pCodecInst->CodecInfo.decInfo.writeMemProtectCfg;
+        // Temp buf
+        pCfg->region[0].enable = 1;
+        pCfg->region[0].is_secondary = 0;
+        pCfg->region[0].start_address = bit_work_addr.phy_addr+CODE_BUF_SIZE;
+        pCfg->region[0].end_address = bit_work_addr.phy_addr+CODE_BUF_SIZE+TEMP_BUF_SIZE;
+        info_msg("Protection Region 0: Temp buf, start 0x%x, end 0x%x\n",
+                pCfg->region[0].start_address,
+                pCfg->region[0].end_address);
+        // Context buf
+        pCfg->region[1].enable = 1;
+        pCfg->region[1].is_secondary = 0;
+        pCfg->region[1].start_address = pCodecInst->contextBufMem.phy_addr;
+        pCfg->region[1].end_address = pCodecInst->contextBufMem.phy_addr + pCodecInst->contextBufMem.size;
+        info_msg("Protection Region 1: Context buf, start 0x%x, end 0x%x\n",
+                pCfg->region[1].start_address,
+                pCfg->region[1].end_address);
+    }
+#endif
 
 	LockVpuReg(vpu_semap);
 	if (instIdx == VpuReadReg(BIT_RUN_INDEX)) {
@@ -2860,10 +2883,19 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	val = VpuReadReg(RET_DEC_SEQ_SUCCESS);
 
 	if (cpu_is_mx6x()) {
+#ifdef MEM_PROTECT
 		if (val & (1 << 31)) {
+            err_msg("access violation in vpu_DecGetInitialInfo\n");
+            err_msg("PC: 0x%x, ERR_CLR: 0x%x, ERR_RSN: 0x%x, ERR_ADR: 0x%x\n",
+                    VpuReadReg(BIT_CUR_PC),
+                    VpuReadReg(GDI_WPROT_ERR_CLR),
+                    VpuReadReg(GDI_WPROT_ERR_RSN),
+                    VpuReadReg(GDI_WPROT_ERR_ADR));
+            vpu_mx6_swreset(0);
 			UnlockVpu(vpu_semap);
 			return RETCODE_MEMORY_ACCESS_VIOLATION;
 		}
+#endif
 		if (pDecInfo->openParam.bitstreamMode && (val & (1 << 4))) {
 			UnlockVpu(vpu_semap);
 			return RETCODE_FAILURE;
@@ -3029,7 +3061,9 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 #endif
 		iramParam.profile = info->profile;
 		iramParam.codecMode = pCodecInst->codecMode;
+#ifndef MEM_PROTECT /* use temp buf via pri AXI to save a protection region */
 		SetDecSecondAXIIRAM(&pDecInfo->secAxiUse, &iramParam);
+#endif
 	}
 
 	if (cpu_is_mx6x()) {
@@ -3108,6 +3142,66 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 
 	if (!LockVpu(vpu_semap))
 		return RETCODE_FAILURE_TIMEOUT;
+
+#ifdef MEM_PROTECT
+	if (cpu_is_mx6x())
+    {
+        WriteMemProtectCfg *pCfg = NULL;
+        Uint32 minFB = 0xFFFFFFFF, maxFB = 0;
+        Uint32 minMV = 0xFFFFFFFF, maxMV = 0;
+        int align;
+        int picheight;
+        pCfg = &pCodecInst->CodecInfo.decInfo.writeMemProtectCfg;
+        // Frame buf
+        if ((pDecInfo->openParam.bitstreamFormat == STD_MPEG2 ||
+             pDecInfo->openParam.bitstreamFormat == STD_VC1 ||
+             pDecInfo->openParam.bitstreamFormat == STD_AVC ||
+             pDecInfo->openParam.bitstreamFormat == STD_VP8) && pDecInfo->initialInfo.interlace == 1) {
+            align = 32;
+        }
+        else {
+            align = 16;
+        }
+
+        picheight = ((pDecInfo->initialInfo.picHeight + align - 1) & ~(align - 1));
+        for (i = 0; i < num; i++) {
+            info_msg("[%d] bufY 0x%x, bufCb 0x%x, bufCr 0x%x, bufMvCol 0x%x\n", i, bufArray[i].bufY, bufArray[i].bufCb, bufArray[i].bufCr, bufArray[i].bufMvCol);
+            // Caution: Y/Cb/Cr is assumed to be contiguous
+            // not for Tiled format
+            if (minFB > bufArray[i].bufY) minFB = bufArray[i].bufY;
+            if (maxFB < bufArray[i].bufY) maxFB = bufArray[i].bufY;
+            if (minMV > bufArray[i].bufMvCol) minMV = bufArray[i].bufMvCol;
+            if (maxMV < bufArray[i].bufMvCol) maxMV = bufArray[i].bufMvCol;
+        }
+        pCfg->region[2].enable = 1;
+        pCfg->region[2].is_secondary = 0;
+        pCfg->region[2].start_address = minFB;
+        pCfg->region[2].end_address = maxFB+stride*picheight*3/2;
+        info_msg("Protection Region 2: Frame buf, start 0x%x, end 0x%x\n",
+                pCfg->region[2].start_address,
+                pCfg->region[2].end_address);
+        pCfg->region[3].enable = 1;
+        pCfg->region[3].is_secondary = 0;
+        pCfg->region[3].start_address = minMV;
+        pCfg->region[3].end_address = maxMV+stride*picheight/4;
+        info_msg("Protection Region 3: MvCol buf, start 0x%x, end 0x%x\n",
+                pCfg->region[3].start_address,
+                pCfg->region[3].end_address);
+
+        // AVC Slice save buf
+        if (pCodecInst->codecMode == AVC_DEC) {
+            pCfg->region[4].enable = 1;
+            pCfg->region[4].is_secondary = 0;
+            pCfg->region[4].start_address = pBufInfo->avcSliceBufInfo.bufferBase;
+            pCfg->region[4].end_address = pBufInfo->avcSliceBufInfo.bufferBase + pBufInfo->avcSliceBufInfo.bufferSize;
+            info_msg("Protection Region 4: AVC Slice save buf, start 0x%x, end 0x%x\n",
+                    pCfg->region[4].start_address,
+                    pCfg->region[4].end_address);
+        }
+
+        // AVC Ps save buf (moved to temp buf by FW)
+    }
+#endif
 
 	if (cpu_is_mx27()) {
 		/* Let the codec know the addresses of the frame buffers. */
@@ -3214,10 +3308,19 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 
+#ifdef MEM_PROTECT
 	if (cpu_is_mx6x() && VpuReadReg(RET_SET_FRAME_SUCCESS) & (1 << 31)) {
+        err_msg("access violation in vpu_DecRegisterFrameBuffer\n");
+        err_msg("PC: 0x%x, ERR_CLR: 0x%x, ERR_RSN: 0x%x, ERR_ADR: 0x%x\n",
+                VpuReadReg(BIT_CUR_PC),
+                VpuReadReg(GDI_WPROT_ERR_CLR),
+                VpuReadReg(GDI_WPROT_ERR_RSN),
+                VpuReadReg(GDI_WPROT_ERR_ADR));
+		vpu_mx6_swreset(0);
 		UnlockVpu(vpu_semap);
 		return RETCODE_MEMORY_ACCESS_VIOLATION;
 	}
+#endif
 
 	UnlockVpu(vpu_semap);
 
@@ -3967,11 +4070,20 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	info->decodingSuccess = (val & 0x01);
 
 	if (cpu_is_mx6x()) {
+#ifdef MEM_PROTECT
 		if (val & (1 << 31)) {
 			*ppendingInst = 0;
+            err_msg("access violation in vpu_DecGetOutputInfo\n");
+            err_msg("PC: 0x%x, ERR_CLR: 0x%x, ERR_RSN: 0x%x, ERR_ADR: 0x%x\n",
+                    VpuReadReg(BIT_CUR_PC),
+                    VpuReadReg(GDI_WPROT_ERR_CLR),
+                    VpuReadReg(GDI_WPROT_ERR_RSN),
+                    VpuReadReg(GDI_WPROT_ERR_ADR));
+            vpu_mx6_swreset(0);
 			UnlockVpu(vpu_semap);
 			return RETCODE_MEMORY_ACCESS_VIOLATION;
 		}
+#endif
 		if (pDecInfo->openParam.bitstreamMode && (val & (1 << 4)))
 			info->decodingSuccess |= 0x10;
 	}
