@@ -541,6 +541,43 @@ int IOFreePhyMem(vpu_mem_desc * buff)
 }
 
 /*!
+ * @brief check phy memory prepare to pass to vpu is valid or not, we
+ * already address some issue that if pass a wrong address to vpu
+ * (like virtual address), system will hang.
+ *
+ * @return true return is a valid phy memory address, false return not.
+ */
+int IOPhyMemCheck(unsigned long phyaddr, const char *name)
+{
+	unsigned long va_addr;
+	vpu_mem_desc buff;
+	int result;
+
+	memset(&buff, 0, sizeof(buff));
+	buff.phy_addr = phyaddr;
+	if (ioctl(vpu_fd, VPU_IOC_PHYMEM_CHECK, &buff)) {
+#ifdef BUILD_FOR_ANDROID
+		LOGE("phy memory check failed!:%s\n", strerror(errno));
+#endif
+		err_msg("phy memory check failed!:%s\n", strerror(errno));
+		/* if driver don't support this feature, just ignore
+		 * it by return turn to bypass the check. */
+		return true;
+	}
+	/* borrow .size to pass back result. */
+	result = buff.size;
+	dprintf(3, "memory phy: %s: %p va:%p %s phy memory",
+	     name, buff.phy_addr, buff.virt_uaddr, result ? "is" : "isn't");
+#ifdef BUILD_FOR_ANDROID
+	if (result == false)
+		LOGE("memory phy: %s: %p va:%p %s phy memory",
+		     name, buff.phy_addr, buff.virt_uaddr, result ? "is" : "isn't");
+#endif
+
+	return result;
+}
+
+/*!
  * @brief Map physical memory to user space.
  *
  * @param	buff	the structure containing memory information to be mapped.
