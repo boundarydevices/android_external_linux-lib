@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2011 Freescale Semiconductor, Inc.
+ * Copyright 2004-2012 Freescale Semiconductor, Inc.
  *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  */
@@ -61,6 +61,7 @@ typedef struct iram_t {
 #define VPU_IOC_GET_SHARE_MEM   _IO(VPU_IOC_MAGIC, 12)
 #define VPU_IOC_QUERY_BITWORK_MEM  _IO(VPU_IOC_MAGIC, 13)
 #define VPU_IOC_SET_BITWORK_MEM    _IO(VPU_IOC_MAGIC, 14)
+#define VPU_IOC_PHYMEM_CHECK	_IO(VPU_IOC_MAGIC, 15)
 
 typedef void (*vpu_callback) (int status);
 
@@ -72,6 +73,7 @@ int IOGetVirtMem(vpu_mem_desc * buff);
 int IOFreeVirtMem(vpu_mem_desc * buff);
 int IOGetVShareMem(int size);
 int IOWaitForInt(int timeout_in_ms);
+int IOPhyMemCheck(unsigned long phyaddr, const char *name);
 int IOGetIramBase(iram_t * iram);
 int IOClkGateSet(int on);
 int IOGetPhyShareMem(vpu_mem_desc * buff);
