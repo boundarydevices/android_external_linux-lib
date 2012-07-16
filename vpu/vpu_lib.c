@@ -2433,6 +2433,9 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 		return ret;
 	}
 
+	info_msg("bitstreamMode %d, chromaInterleave %d, mapType %d, tiled2LinearEnable %d\n",
+			pop->bitstreamMode, pop->chromaInterleave, pop->mapType, pop->tiled2LinearEnable);
+
 	if (!LockVpu(vpu_semap))
 		return RETCODE_FAILURE_TIMEOUT;
 
@@ -3213,12 +3216,19 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 	} else {
 		/* none mx27 platform case need to swap word */
 		for (i = 0; i < num; i += 2) {
-			if (!IOPhyMemCheck(bufArray[i].bufY, "bufY"))
-				return RETCODE_INVALID_FRAME_BUFFER;
-			if (!IOPhyMemCheck(bufArray[i].bufCb, "bufCb"))
-				return RETCODE_INVALID_FRAME_BUFFER;
-			if (!IOPhyMemCheck(bufArray[i].bufCr, "bufCr"))
-				return RETCODE_INVALID_FRAME_BUFFER;
+			if (pDecInfo->mapType == LINEAR_FRAME_MAP) {
+				if (!(IOPhyMemCheck(bufArray[i].bufY, "bufY")
+				   && IOPhyMemCheck(bufArray[i].bufCb, "bufCb"))) {
+					UnlockVpu(vpu_semap);
+					return RETCODE_INVALID_FRAME_BUFFER;
+				}
+				if (pDecInfo->openParam.chromaInterleave == 0) {
+					if (!IOPhyMemCheck(bufArray[i].bufCr, "bufCr")) {
+						UnlockVpu(vpu_semap);
+						return RETCODE_INVALID_FRAME_BUFFER;
+					}
+				}
+			}
 			virt_paraBuf[i * 3] = bufArray[i].bufCb;
 			virt_paraBuf[i * 3 + 1] = bufArray[i].bufY;
 			virt_paraBuf[i * 3 + 3] = bufArray[i].bufCr;
@@ -3232,8 +3242,6 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 				    STD_AVC)
 					virt_paraBuf[96 + i] =
 					    bufArray[i + 1].bufMvCol;
-				if (!IOPhyMemCheck(bufArray[i + 1].bufMvCol, "bufMvCol"))
-					return RETCODE_INVALID_FRAME_BUFFER;
 			}
 		}
 		if (pDecInfo->openParam.bitstreamFormat == STD_VC1 ||
