@@ -120,7 +120,7 @@ RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 	}
 
 	ret = fread(pBitCode, sizeof(Uint16), info.size, fp);
-	if (ret < info.size) {
+	if (ret < (int)info.size) {
 		err_msg("VPU firmware binary file is wrong or corrupted.\n");
 		goto err;
 	}
@@ -2880,7 +2880,7 @@ proc_wrap:
 			src_size = pDecInfo->streamBufSize - jpg->frameOffset;
 			memcpy((void *)jpg->pVirtBitStream,
 				    (void *)(jpg->pVirtBitStream + jpg->frameOffset), src_size);
-			memcpy((void *)jpg->pVirtBitStream + src_size, temp_buf, temp_size);
+			memcpy((void *)(jpg->pVirtBitStream + src_size), temp_buf, temp_size);
 			free(temp_buf);
 			pDecInfo->streamWrPtr += src_size;
 			jpg->frameOffset = 0;
