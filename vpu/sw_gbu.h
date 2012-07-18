@@ -1,6 +1,6 @@
 /*
  * copyright (c) 2004 Michael Niedermayer <michaelni@gmx.at>
- * Copyright (C) 2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2011-2012 Freescale Semiconductor, Inc.
  *
  * This file is part of FFmpeg.
  *
@@ -51,7 +51,7 @@
 #endif
 
 #ifndef sign_extend
-static inline const int sign_extend(int val, unsigned bits)
+static inline int sign_extend(int val, unsigned bits)
 {
 	return (val << ((8 * sizeof(int)) - bits)) >> ((8 * sizeof(int)) -
 						       bits);
