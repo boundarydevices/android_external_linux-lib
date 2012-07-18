@@ -566,11 +566,11 @@ int IOPhyMemCheck(unsigned long phyaddr, const char *name)
 	}
 	/* borrow .size to pass back result. */
 	result = buff.size;
-	dprintf(3, "memory phy: %s: %p va:%p %s phy memory",
+	dprintf(3, "memory phy: %s: %lx va:%lx %s phy memory",
 	     name, buff.phy_addr, buff.virt_uaddr, result ? "is" : "isn't");
 #ifdef BUILD_FOR_ANDROID
 	if (result == false)
-		LOGE("memory phy: %s: %p va:%p %s phy memory",
+		LOGE("memory phy: %s: %lx va:%lx %s phy memory",
 		     name, buff.phy_addr, buff.virt_uaddr, result ? "is" : "isn't");
 #endif
 
@@ -636,7 +636,7 @@ int IOFreeVirtMem(vpu_mem_desc * buff)
 int IOGetVShareMem(int size)
 {
 	unsigned long va_addr;
-	vpu_mem_desc buff = { 0 };
+	vpu_mem_desc buff = { 0, 0, 0, 0 };
 
 	buff.size = size;
 	if (ioctl(vpu_fd, VPU_IOC_REQ_VSHARE_MEM, &buff)) {
