@@ -461,9 +461,22 @@ if [ "$FIRMWARE_TO" != "none" ]; then
 	fi
 
 	cd $root
-	firmware_list="external/linux-firmware-imx/firmware/vpu/vpu_fw_imx51.bin
-		       external/linux-firmware-imx/firmware/vpu/vpu_fw_imx53.bin
-		       external/linux-firmware-imx/firmware/vpu/Android.mk"
+	firmware_list=""
+	ls external/linux-firmware-imx/firmware/vpu/vpu_fw_imx5*.bin;
+	if [ $? = 0 ];then
+		file=`ls external/linux-firmware-imx/firmware/vpu/vpu_fw_imx5*.bin`
+		firmware_list="$firmware_list $file"
+	fi
+	ls external/linux-firmware-imx/firmware/vpu/vpu_fw_imx6*.bin;
+	if [ $? = 0 ];then
+		file=`ls external/linux-firmware-imx/firmware/vpu/vpu_fw_imx6*.bin`
+		firmware_list="$firmware_list $file"
+	fi
+	ls external/linux-firmware-imx/firmware/vpu/Android.mk;
+	if [ $? = 0 ];then
+		file=`ls external/linux-firmware-imx/firmware/vpu/Android`
+		firmware_list="$firmware_list $file"
+	fi
 
 	tar czvf firmware.tar.gz $firmware_list;                                         checkResult
 fi
