@@ -41,11 +41,28 @@
 #include "vpu_util.h"
 
 #ifdef BUILD_FOR_ANDROID
-#define LOG_TAG "vpu-ion"
 #include <utils/Log.h>
 #ifdef USE_ION
+#define LOG_TAG "vpu-ion"
 #include <linux/ion.h>
 #include <ion.h>
+#elif USE_GPU
+#undef LOG_TAG
+#define LOG_TAG "gpu-vid"
+int
+gcoOS_AllocateVideoMemory(
+    void* Os,
+    int InUserSpace,
+    int InCacheable,
+    int* Bytes,
+    int* Physical,
+    void** Logical,
+    void** Handle);
+int
+gcoOS_FreeVideoMemory(
+    void* Os,
+    void* Handle
+    );
 #else
 #include <linux/android_pmem.h>
 #endif
@@ -329,6 +346,9 @@ int _IOGetPhyMem(int which, vpu_mem_desc *buff)
 	struct ion_handle *handle;
 	int share_fd, ret = -1;
 	unsigned char *ptr;
+#elif USE_GPU
+        void *handle, *virt_addr;
+        int bytes, phy_addr, ret = -1;
 #else
 	/* Get memory from pmem space for android */
 	struct pmem_region region;
@@ -399,6 +419,22 @@ error:
 	close(share_fd);
 	ion_close(fd);
 	return ret;
+#elif USE_GPU
+        bytes = buff->size;
+        phy_addr = 0; virt_addr = NULL;
+        ret = gcoOS_AllocateVideoMemory(NULL, 1, 0, &bytes, &phy_addr,&virt_addr,&handle);
+        if(ret != 0) {
+            LOGE("%d, gpu allocator failed to alloc buffer with size %d", ret, buff->size);
+            return ret;
+        }
+
+        buff->virt_uaddr = (unsigned long)virt_addr;
+        buff->phy_addr = (unsigned long)phy_addr;
+        buff->cpu_addr = (unsigned long)handle;
+        LOGD("<gpu> alloc handle: 0x%x, paddr: 0x%x, vaddr: 0x%x",
+			(unsigned int)handle, (unsigned int)buff->phy_addr,
+			(unsigned int)buff->virt_uaddr);
+        return 0;
 #else
 	fd = (unsigned long)open("/dev/pmem_adsp", O_RDWR | O_SYNC);
 	if (fd < 0) {
@@ -502,6 +538,18 @@ int _IOFreePhyMem(int which, vpu_mem_desc * buff)
 
 	munmap((void *)buff->virt_uaddr, buff->size);
 	memset((void*)buff, 0, sizeof(*buff));
+#elif USE_GPU
+        int ret = -1;
+        void *handle = (void *)buff->cpu_addr;
+        if(!handle) {
+           LOGW("%s: Invalid handle 0x%x", __FUNCTION__, (unsigned int)handle);
+           return ret;
+        }
+        ret = gcoOS_FreeVideoMemory(NULL, handle);
+        if(ret != 0) {
+           LOGE("%d, gpu allocator failed to free handle 0x%x", ret, (unsigned int)handle);
+           return ret;
+        }
 #else
 	int fd_pmem;
 
