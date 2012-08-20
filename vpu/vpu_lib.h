@@ -667,7 +667,7 @@ typedef struct vpu_versioninfo {
  * v4.2.2 [2008.09.03] support encoder on MX51
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 4)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 5)
 
 extern unsigned int system_rev;
 
