@@ -355,13 +355,11 @@ RetCode vpu_SWReset(DecHandle handle, int index)
 	if (*ppendingInst && (pCodecInst != *ppendingInst))
 		return RETCODE_FAILURE;
 	else if (*ppendingInst) {
-		/* Need to unlock VPU since mutex is locked when StartOneFrame */
-		UnlockVpu(vpu_semap);
 		*ppendingInst = 0;
+	} else {
+		if (!LockVpu(vpu_semap))
+			return RETCODE_FAILURE_TIMEOUT;
 	}
-
-	if (!LockVpu(vpu_semap))
-		return RETCODE_FAILURE_TIMEOUT;
 
 	if (cpu_is_mx6x()) {
 		vpu_mx6_hwreset();
@@ -710,8 +708,10 @@ RetCode vpu_EncClose(EncHandle handle)
 
 enc_out:
 	/* Free memory allocated for data report functions */
-	IOFreeVirtMem(&pEncInfo->picParaBaseMem);
-	IOFreePhyMem(&pEncInfo->picParaBaseMem);
+	if (pEncInfo->picParaBaseMem.phy_addr) {
+		IOFreeVirtMem(&pEncInfo->picParaBaseMem);
+		IOFreePhyMem(&pEncInfo->picParaBaseMem);
+	}
 
 	/* Free searchRam if searchRam doesn't use IRAM */
 	if ((pEncInfo->secAxiUse.useHostMeEnable == 0) &&
@@ -1751,9 +1751,6 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 		return RETCODE_INVALID_HANDLE;
 	}
 
-	/* Clock is gated off when received interrupt in driver, so need to gate on here. */
-	IOClkGateSet(true);
-
 	if (is_mx6x_mjpg_codec(pCodecInst->codecMode)) {
 		val = VpuReadReg(MJPEG_PIC_STATUS_REG);
 		if ((val & 0x4) >> 2) {
@@ -2666,10 +2663,14 @@ RetCode vpu_DecClose(DecHandle handle)
 
 dec_out:
 	/* Free memory allocated for data report functions */
-	IOFreeVirtMem(&pDecInfo->picParaBaseMem);
-	IOFreePhyMem(&pDecInfo->picParaBaseMem);
-	IOFreeVirtMem(&pDecInfo->userDataBufMem);
-	IOFreePhyMem(&pDecInfo->userDataBufMem);
+	if (pDecInfo->picParaBaseMem.phy_addr) {
+		IOFreeVirtMem(&pDecInfo->picParaBaseMem);
+		IOFreePhyMem(&pDecInfo->picParaBaseMem);
+	}
+	if (pDecInfo->userDataBufMem.phy_addr) {
+		IOFreeVirtMem(&pDecInfo->userDataBufMem);
+		IOFreePhyMem(&pDecInfo->userDataBufMem);
+	}
 	/* Free context buf Mem */
 	IOFreePhyMem(&pCodecInst->contextBufMem);
 
@@ -4043,9 +4044,6 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 			return RETCODE_SUCCESS;
 		}
 
-		/* Clock is gated off when received interrupt in driver, so need to gate on here. */
-		IOClkGateSet(true);
-
 		info->decPicWidth = pDecInfo->jpgInfo.alignedWidth;
 		info->decPicHeight = pDecInfo->jpgInfo.alignedHeight;
 		info->indexFrameDecoded = 0;
@@ -4077,9 +4075,6 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		UnlockVpu(vpu_semap);
 		return RETCODE_SUCCESS;
 	}
-
-	/* Clock is gated off when received interrupt in driver, so need to gate on here. */
-	IOClkGateSet(true);
 
 	val = VpuReadReg(RET_DEC_PIC_SUCCESS);
 	info->decodingSuccess = (val & 0x01);
