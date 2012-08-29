@@ -1,3 +1,5 @@
+ifeq ($(BOARD_SOC_CLASS),IMX5X)
+ifeq ($(HAVE_FSL_IMX_IPU),true)
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
@@ -16,4 +18,5 @@ LOCAL_LD_FLAGS += -nostartfiles
 LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE_TAGS := eng
 include $(BUILD_SHARED_LIBRARY)
-
+endif
+endif
