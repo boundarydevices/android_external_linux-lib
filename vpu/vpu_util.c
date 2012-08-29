@@ -28,8 +28,6 @@
 #include "vpu_debug.h"
 
 #ifdef BUILD_FOR_ANDROID
-#define LOG_TAG "vpulib"
-#include <utils/Log.h>
 #include <cutils/properties.h>
 #endif
 
@@ -1221,9 +1219,9 @@ unsigned char semaphore_wait(semaphore_t *semap, int mutex)
 	else if (mutex == REG_MUTEX)
 		ret = pthread_mutex_lock_timeout_np(&semap->reg_lock, msec);
 	else
-		LOGE("Not supported mutex\n");
+		err_msg("Not supported mutex\n");
 	if (ret) {
-		LOGE("VPU mutex couldn't be locked,ret = %d\n", ret);
+		err_msg("VPU mutex couldn't be locked,ret = %d\n", ret);
 		return false;
 	}
 	return true;
