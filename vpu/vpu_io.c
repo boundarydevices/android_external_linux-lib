@@ -417,7 +417,7 @@ error:
 	ion_close(fd);
 	return ret;
 #elif USE_GPU
-        bytes = buff->size;
+        bytes = buff->size + PAGE_SIZE;
         phy_addr = 0; virt_addr = NULL;
         ret = gcoOS_AllocateVideoMemory(NULL, 1, 0, &bytes, &phy_addr,&virt_addr,&handle);
         if(ret != 0) {
@@ -428,6 +428,11 @@ error:
         buff->virt_uaddr = (unsigned long)virt_addr;
         buff->phy_addr = (unsigned long)phy_addr;
         buff->cpu_addr = (unsigned long)handle;
+
+        //vpu requires page alignment for the address implicitly, round it to page edge
+        buff->virt_uaddr = (buff->virt_uaddr + PAGE_SIZE -1) & ~(PAGE_SIZE -1);
+        buff->phy_addr = (buff->phy_addr + PAGE_SIZE -1) & ~(PAGE_SIZE -1);
+
         info_msg("<gpu> alloc handle: 0x%x, paddr: 0x%x, vaddr: 0x%x",
 			(unsigned int)handle, (unsigned int)buff->phy_addr,
 			(unsigned int)buff->virt_uaddr);
@@ -547,6 +552,10 @@ int _IOFreePhyMem(int which, vpu_mem_desc * buff)
            err_msg("%d, gpu allocator failed to free handle 0x%x", ret, (unsigned int)handle);
            return ret;
         }
+
+        info_msg("<gpu> free handle: 0x%x, paddr: 0x%x, vaddr: 0x%x",
+			(unsigned int)handle, (unsigned int)buff->phy_addr,
+			(unsigned int)buff->virt_uaddr);
 #else
 	int fd_pmem;
 
