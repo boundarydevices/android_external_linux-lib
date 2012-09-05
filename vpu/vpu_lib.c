@@ -430,12 +430,13 @@ RetCode vpu_GetVersionInfo(vpu_versioninfo * verinfo)
 
 	ENTER_FUNC();
 
-	if (!isVpuInitialized()) {
-		return RETCODE_NOT_INITIALIZED;
-	}
-
 	if (!LockVpu(vpu_semap))
 		return RETCODE_FAILURE_TIMEOUT;
+
+	if (!isVpuInitialized()) {
+		UnlockVpu(vpu_semap);
+		return RETCODE_NOT_INITIALIZED;
+	}
 
 	VpuWriteReg(RET_VER_NUM, 0);
 
@@ -516,10 +517,6 @@ RetCode vpu_EncOpen(EncHandle * pHandle, EncOpenParam * pop)
 
 	ENTER_FUNC();
 
-	if (!(cpu_is_mx6x() && pop->bitstreamFormat == STD_MJPG) && !isVpuInitialized()) {
-		return RETCODE_NOT_INITIALIZED;
-	}
-
 	ret = CheckEncOpenParam(pop);
 	if (ret != RETCODE_SUCCESS) {
 		return ret;
@@ -527,6 +524,11 @@ RetCode vpu_EncOpen(EncHandle * pHandle, EncOpenParam * pop)
 
 	if (!LockVpu(vpu_semap))
 		return RETCODE_FAILURE_TIMEOUT;
+
+	if (!(cpu_is_mx6x() && pop->bitstreamFormat == STD_MJPG) && !isVpuInitialized()) {
+		UnlockVpu(vpu_semap);
+		return RETCODE_NOT_INITIALIZED;
+	}
 
 	ret = GetCodecInstance(&pCodecInst);
 	if (ret == RETCODE_FAILURE) {
@@ -658,6 +660,9 @@ RetCode vpu_EncOpen(EncHandle * pHandle, EncOpenParam * pop)
 
 	if (cpu_is_mx6x())
 		VpuWriteReg(GDI_WPROT_RGN_EN, 0);
+
+	info_msg("chromaInterleave %d, mapType %d, linear2TiledEnable %d\n",
+			pop->chromaInterleave, pop->mapType, pop->linear2TiledEnable);
 
 	UnlockVpu(vpu_semap);
 
@@ -2422,19 +2427,18 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 
 	ENTER_FUNC();
 
-	if (!(cpu_is_mx6x() && pop->bitstreamFormat == STD_MJPG) && !isVpuInitialized())
-		return RETCODE_NOT_INITIALIZED;
-
 	ret = CheckDecOpenParam(pop);
 	if (ret != RETCODE_SUCCESS) {
 		return ret;
 	}
 
-	info_msg("bitstreamMode %d, chromaInterleave %d, mapType %d, tiled2LinearEnable %d\n",
-			pop->bitstreamMode, pop->chromaInterleave, pop->mapType, pop->tiled2LinearEnable);
-
 	if (!LockVpu(vpu_semap))
 		return RETCODE_FAILURE_TIMEOUT;
+
+	if (!(cpu_is_mx6x() && pop->bitstreamFormat == STD_MJPG) && !isVpuInitialized()) {
+		UnlockVpu(vpu_semap);
+		return RETCODE_NOT_INITIALIZED;
+	}
 
 	ret = GetCodecInstance(&pCodecInst);
 	if (ret == RETCODE_FAILURE) {
@@ -2615,6 +2619,9 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 	}
 	pCodecInst->ctxRegs[CTX_BIT_FRAME_MEM_CTRL] =
 		    val | (pDecInfo->openParam.chromaInterleave << 2);
+
+	info_msg("bitstreamMode %d, chromaInterleave %d, mapType %d, tiled2LinearEnable %d\n",
+			pop->bitstreamMode, pop->chromaInterleave, pop->mapType, pop->tiled2LinearEnable);
 
 	UnlockVpu(vpu_semap);
 
