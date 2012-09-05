@@ -327,7 +327,7 @@ int SetDecWriteProtectRegions(CodecInst *inst)
 
 void BitIssueCommand(CodecInst *pCodecInst, int cmd)
 {
-	int instIdx = 0, cdcMode = 0, auxMode = 0;
+	int instIdx = MAX_NUM_INSTANCE, cdcMode = 0, auxMode = 0;
 
 	LockVpuReg(vpu_semap);
 
