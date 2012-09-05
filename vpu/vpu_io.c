@@ -72,8 +72,6 @@ static int vpu_active_num = 0;
 unsigned int system_rev;
 semaphore_t *vpu_semap;
 vpu_mem_desc bit_work_addr;
-vpu_mem_desc pic_para_addr;
-vpu_mem_desc user_data_addr;
 
 int _IOGetPhyMem(int which, vpu_mem_desc *buff);
 
@@ -286,8 +284,6 @@ int IOSystemShutdown(void)
 #else
 	IOFreeVirtMem(&bit_work_addr);
 #endif
-	IOFreeVirtMem(&pic_para_addr);
-	IOFreeVirtMem(&user_data_addr);
 
 	if (munmap((void *)vpu_reg_base, BIT_REG_MARGIN) != 0)
 		err_msg("munmap failed\n");
@@ -620,7 +616,7 @@ int IOPhyMemCheck(unsigned long phyaddr, const char *name)
 	}
 	/* borrow .size to pass back result. */
 	result = buff.size;
-	dprintf(3, "memory phy: %s: %lx va:%lx %s phy memory",
+	dprintf(3, "memory phy: %s: %lx va:%lx %s phy memory\n",
 	     name, buff.phy_addr, buff.virt_uaddr, result ? "is" : "isn't");
 #ifdef BUILD_FOR_ANDROID
 	if (result == false)
