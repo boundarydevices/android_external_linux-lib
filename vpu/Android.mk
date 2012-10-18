@@ -21,7 +21,6 @@ else
 ifeq ($(USE_ION_ALLOCATOR), true)
 LOCAL_CFLAGS += -DUSE_ION
 LOCAL_SHARED_LIBRARIES := libutils libc liblog libion
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../../hardware/imx/ion/
 else
 LOCAL_SHARED_LIBRARIES := libutils libc liblog
 endif
