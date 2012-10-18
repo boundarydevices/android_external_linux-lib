@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2011 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2009-2012 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  */
 
@@ -60,6 +60,9 @@ static int debug_level = DBG_ERR;
 #define FBDEV1	"/dev/graphics/fb1"
 #define FBDEV2	"/dev/graphics/fb2"
 #define SHMDEV	"/mnt/shm/"
+#ifndef LOGI
+#define LOGI ALOGI
+#endif
 #define dbg(flag, fmt, args...)	{ if(flag <= debug_level)  LOGI("%s:%d "fmt, __FILE__, __LINE__,##args); }
 static int pshare = 0;
 #else
@@ -138,8 +141,8 @@ typedef struct {
 
 	int ic_iw;
 	int ic_ih;
-	int ic_ow;
-	int ic_oh;
+	unsigned int ic_ow;
+	unsigned int ic_oh;
 
 	ipu_motion_sel motion_sel;
 	dma_addr_t last_inbuf_paddr;
@@ -708,9 +711,9 @@ static task_mode_t __ipu_task_check(ipu_lib_priv_handle_t * ipu_priv_handle,
 		ipu_priv_handle->ic_oh = ipu_priv_handle->output.oheight;
 
 		/* whether output size is too big, if so, enable split mode */
-		if (ipu_priv_handle->ic_ow > _ipu_get_arch_ic_out_max_width())
+		if ((unsigned int)ipu_priv_handle->ic_ow > _ipu_get_arch_ic_out_max_width())
 			ipu_priv_handle->split_mode |= SPLIT_MODE_RL;
-		if (ipu_priv_handle->ic_oh > _ipu_get_arch_ic_out_max_height())
+		if ((unsigned int)ipu_priv_handle->ic_oh > _ipu_get_arch_ic_out_max_height())
 			ipu_priv_handle->split_mode |= SPLIT_MODE_UD;
 	}
 
@@ -3456,14 +3459,14 @@ int mxc_ipu_lib_task_buf_update(ipu_lib_handle_t * ipu_handle,
 		}
 
 		if (ipu_priv_handle->mode & OP_STREAM_MODE || ipu_priv_handle->output.show_to_fb)
-			ipu_priv_handle->tri_output_bufnum = (++ipu_priv_handle->tri_output_bufnum) % 3;
+			ipu_priv_handle->tri_output_bufnum = (ipu_priv_handle->tri_output_bufnum+1) % 3;
 
 		ipu_priv_handle->input_fr_cnt++;
 		ipu_priv_handle->output_fr_cnt++;
 	}
 
 	if (ipu_priv_handle->mode & OP_STREAM_MODE)
-		ipu_priv_handle->output_bufnum = (++ipu_priv_handle->output_bufnum) % 3;
+		ipu_priv_handle->output_bufnum = (ipu_priv_handle->output_bufnum+1) % 3;
 
 	if ((ipu_priv_handle->mode & TASK_VDI_VF_MODE) && (ipu_priv_handle->motion_sel != HIGH_MOTION)) {
 		if (ipu_priv_handle->mode & OP_STREAM_MODE)
