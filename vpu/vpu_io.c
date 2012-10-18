@@ -44,7 +44,7 @@
 #include <utils/Log.h>
 #ifdef USE_ION
 #include <linux/ion.h>
-#include <ion.h>
+#include <ion/ion.h>
 #elif USE_GPU
 int
 gcoOS_AllocateVideoMemory(
