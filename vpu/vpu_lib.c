@@ -2616,6 +2616,10 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 		if (pDecInfo->mapType)
 			val |= (pDecInfo->tiledLinearEnable << 11 | 0x03 << 9);
 		val |= 1 << 12;
+
+		// workaround for BWB blocking issue (ENGR00231107)
+		if (pDecInfo->openParam.bitstreamFormat == STD_VC1)
+			val &= ~(1 << 12);
 	}
 	pCodecInst->ctxRegs[CTX_BIT_FRAME_MEM_CTRL] =
 		    val | (pDecInfo->openParam.chromaInterleave << 2);
