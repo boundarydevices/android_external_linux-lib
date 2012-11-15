@@ -51,7 +51,11 @@
 #define CMD_DEC_DISPLAY_REORDER		0x114
 #define BIT_BIT_STREAM_PARAM		0x114
 #define BIT_TEMP_BUF_ADDR		0x118
+#if defined(IMX6Q)
+#define	BIT_RESET_CTRL			0x128
+#else
 #define	BIT_RESET_CTRL			0x11C
+#endif
 
 #define BIT_RD_PTR			0x120
 #define BIT_WR_PTR			0x124
