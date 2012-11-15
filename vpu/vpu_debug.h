@@ -30,8 +30,13 @@
 
 extern int vpu_lib_dbg_level;
 
+#ifdef BUILD_FOR_ANDROID
+#define dprintf(level, fmt, arg...)     if (vpu_lib_dbg_level >= level) \
+        LOGD(fmt, ## arg)
+#else
 #define dprintf(level, fmt, arg...)     if (vpu_lib_dbg_level >= level) \
         printf("[DEBUG]\t%s:%d " fmt, __FILE__, __LINE__, ## arg)
+#endif
 
 #ifdef BUILD_FOR_ANDROID
 #ifndef ALOGE
