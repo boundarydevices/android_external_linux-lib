@@ -2454,6 +2454,8 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 
 	/* Allocate context buffer */
 	pCodecInst->contextBufMem.size = SIZE_CONTEXT_BUF;
+	if (cpu_is_mx6x() && pop->bitstreamFormat == STD_AVC)
+		pCodecInst->contextBufMem.size += PS_SAVE_SIZE;
 	ret = IOGetPhyMem(&pCodecInst->contextBufMem);
 	if (ret) {
 		err_msg("Unable to obtain physical mem\n");
