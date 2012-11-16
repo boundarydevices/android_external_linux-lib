@@ -31,14 +31,6 @@
 extern int vpu_lib_dbg_level;
 
 #ifdef BUILD_FOR_ANDROID
-#define dprintf(level, fmt, arg...)     if (vpu_lib_dbg_level >= level) \
-        LOGD(fmt, ## arg)
-#else
-#define dprintf(level, fmt, arg...)     if (vpu_lib_dbg_level >= level) \
-        printf("[DEBUG]\t%s:%d " fmt, __FILE__, __LINE__, ## arg)
-#endif
-
-#ifdef BUILD_FOR_ANDROID
 #ifndef ALOGE
 #define ALOGE LOGE
 #endif
@@ -47,6 +39,9 @@ extern int vpu_lib_dbg_level;
 #endif
 #ifndef ALOGI
 #define ALOGI LOGI
+#endif
+#ifndef ALOGD
+#define ALOGD LOGD
 #endif
 #define err_msg		ALOGE
 #define info_msg	ALOGI
@@ -64,6 +59,14 @@ extern int vpu_lib_dbg_level;
 	printf("[WARN]\t%s:%d " fmt,  __FILE__, __LINE__, ## arg); else \
 	printf("[WARN]\t" fmt, ## arg);	\
 	} while (0)
+#endif
+
+#ifdef BUILD_FOR_ANDROID
+#define dprintf(level, fmt, arg...)     if (vpu_lib_dbg_level >= level) \
+        ALOGD(fmt, ## arg)
+#else
+#define dprintf(level, fmt, arg...)     if (vpu_lib_dbg_level >= level) \
+        printf("[DEBUG]\t%s:%d " fmt, __FILE__, __LINE__, ## arg)
 #endif
 
 #define ENTER_FUNC() dprintf(4, "enter %s()\n", __func__)
