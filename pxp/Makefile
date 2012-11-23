@@ -2,7 +2,7 @@ CC=$(CROSS_COMPILE)gcc
 AR=$(CROSS_COMPILE)ar
 
 # list of platforms which want this test case
-INCLUDE_LIST:=IMX50 IMX51 IMX5 IMX6Q
+INCLUDE_LIST:=IMX50 IMX51 IMX5 IMX6Q IMX6S
 
 OBJ = pxp_lib.o
 
