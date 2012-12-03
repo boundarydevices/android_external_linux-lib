@@ -36,7 +36,7 @@ endif
 	$(CC) -D$(PLATFORM) -Wall -O2 -fPIC -c $^ -o $@
 
 $(LIBNAME).so.$(SONAMEVERSION): $(OBJ)
-	$(CC) -shared -nostartfiles -Wl,-soname,$@ $^ -o $@
+	$(CC) -shared -nostartfiles -Wl,-soname,$@ $^ -o $@ -lpthread
 
 $(LIBNAME).so: $(LIBNAME).so.$(SONAMEVERSION)
 	ln -s $< $@
