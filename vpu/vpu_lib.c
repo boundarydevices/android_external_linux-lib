@@ -58,6 +58,20 @@ extern void vpu_setting_iram();
 
 static int decoded_pictype[32];
 
+static volatile int bInit=0;
+static __inline void EnterInit()
+{
+	while(bInit==1){
+		usleep(1000);
+	}
+	bInit=1;
+}
+
+static __inline void LeaveInit()
+{
+	bInit=0;
+}
+
 static __inline int is_mx6x_mjpg_codec(int codecMode)
 {
 	if (cpu_is_mx6x() && (codecMode == MJPG_DEC ||
@@ -209,15 +223,18 @@ RetCode vpu_Init(void *cb)
 		vpu_lib_dbg_level = 0;
 
 	ENTER_FUNC();
-
+	EnterInit();
 	err = IOSystemInit(cb);
+	LeaveInit();
 	if (err) {
 		err_msg("IOSystemInit() failure.\n");
 		return RETCODE_FAILURE;
 	}
 
 	if (!LockVpu(vpu_semap)) {
+		EnterInit();
 		err = IOSystemShutdown();
+		LeaveInit();
 		return RETCODE_FAILURE_TIMEOUT;
 	}
 	codeBuffer = bit_work_addr.phy_addr;
@@ -307,7 +324,9 @@ RetCode vpu_Init(void *cb)
 
 void vpu_UnInit(void)
 {
+	EnterInit();
 	IOSystemShutdown();
+	LeaveInit();
 }
 
 /*
@@ -325,7 +344,7 @@ RetCode vpu_SWReset(DecHandle handle, int index)
 
 	ENTER_FUNC();
 
-	info_msg("vpu_SWReset");
+	info_msg("vpu_SWReset\n");
 	if (handle == NULL) {
 		if (index < 0 || index >= MAX_NUM_INSTANCE)
 			return RETCODE_FAILURE;
