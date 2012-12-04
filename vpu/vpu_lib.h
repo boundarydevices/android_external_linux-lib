@@ -1,17 +1,11 @@
 /*
- * Copyright 2004-2012 Freescale Semiconductor, Inc.
- *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
+ *
+ * Copyright (C) 2004-2012 Freescale Semiconductor, Inc.
  */
 
-/*
- * The code contained herein is licensed under the GNU Lesser General
- * Public License.  You may obtain a copy of the GNU Lesser General
- * Public License Version 2.1 or later at the following locations:
- *
- * http://www.opensource.org/licenses/lgpl-license.html
- * http://www.gnu.org/copyleft/lgpl.html
- */
+/* The following programs are the sole property of Freescale Semiconductor Inc.,
+ * and contain its proprietary and confidential information. */
 
 /*!
  * @file vpu_lib.h
@@ -667,7 +661,7 @@ typedef struct vpu_versioninfo {
  * v4.2.2 [2008.09.03] support encoder on MX51
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 9)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 10)
 
 extern unsigned int system_rev;
 
