@@ -1,17 +1,11 @@
 /*
- * Copyright 2004-2012 Freescale Semiconductor, Inc.
- *
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
+ *
+ * Copyright (C) 2004-2012 Freescale Semiconductor, Inc.
  */
 
-/*
- * The code contained herein is licensed under the GNU Lesser General
- * Public License.  You may obtain a copy of the GNU Lesser General
- * Public License Version 2.1 or later at the following locations:
- *
- * http://www.opensource.org/licenses/lgpl-license.html
- * http://www.gnu.org/copyleft/lgpl.html
- */
+/* The following programs are the sole property of Freescale Semiconductor Inc.,
+ * and contain its proprietary and confidential information. */
 
 #ifndef _VPU_UTIL_H_
 #define _VPU_UTIL_H_
@@ -24,7 +18,6 @@
 #include "vpu_lib.h"
 #include "vpu_io.h"
 #include "vpu_gdi.h"
-#include "sw_gbu.h"
 
 #define MAX_FW_BINARY_LEN		200 * 1024
 
@@ -219,6 +212,18 @@ enum {
     JFXX_RAW 	= 3,
     EXIF_JPG	= 4
 };
+
+typedef struct {
+	Uint8 *buffer;
+	int index;
+	int size;
+} vpu_getbit_context_t;
+
+#define init_get_bits(CTX, BUFFER, SIZE) JpuGbuInit(CTX, BUFFER, SIZE)
+#define show_bits(CTX, NUM) JpuGbuShowBit(CTX, NUM)
+#define get_bits(CTX, NUM) JpuGbuGetBit(CTX, NUM)
+#define get_bits_left(CTX) JpuGbuGetLeftBitCount(CTX)
+#define get_bits_count(CTX) JpuGbuGetUsedBitCount(CTX)
 
 typedef struct {
 	int			PicX;
@@ -430,7 +435,7 @@ typedef struct {
 	int seqInited;
 
 	Uint8 *pVirtBitStream;
-	GetBitContext gbc;
+	vpu_getbit_context_t gbc;
 	int lineBufferMode;
 	Uint8 *pVirtJpgChunkBase;
 	int chunkSize;
@@ -616,6 +621,11 @@ void JpgDecGramSetup(DecInfo *pDecInfo);
 RetCode JpgDecHuffTabSetUp(DecInfo *pDecInfo);
 RetCode JpgDecQMatTabSetUp(DecInfo *pDecInfo);
 int JpegDecodeHeader(DecInfo *pDecInfo);
+int JpuGbuInit(vpu_getbit_context_t *ctx, Uint8 *buffer, int size);
+int JpuGbuGetUsedBitCount(vpu_getbit_context_t *ctx);
+int JpuGbuGetLeftBitCount(vpu_getbit_context_t *ctx);
+unsigned int JpuGbuGetBit(vpu_getbit_context_t *ctx, int bit_num);
+unsigned int JpuGbuShowBit(vpu_getbit_context_t *ctx, int bit_num);
 
 #define swab32(x) \
 	((Uint32)( \
