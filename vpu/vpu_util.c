@@ -1,17 +1,11 @@
 /*
- * Copyright 2004-2012 Freescale Semiconductor, Inc.
+ * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (c) 2006, Chips & Media. All rights reserved.
+ * Copyright (C) 2004-2012 Freescale Semiconductor, Inc.
  */
 
-/*
- * The code contained herein is licensed under the GNU Lesser General
- * Public License.  You may obtain a copy of the GNU Lesser General
- * Public License Version 2.1 or later at the following locations:
- *
- * http://www.opensource.org/licenses/lgpl-license.html
- * http://www.gnu.org/copyleft/lgpl.html
- */
+/* The following programs are the sole property of Freescale Semiconductor Inc.,
+ * and contain its proprietary and confidential information. */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1981,7 +1975,7 @@ int decode_dri_header(JpgDecInfo *jpg)
 
 int decode_dqt_header(JpgDecInfo *jpg)
 {
-	int Pq, Tq, i;
+	int Pq, Tq, i, tmp;
 
 	if (get_bits_left(&jpg->gbc) < 16 + 24)
 		return 0;
@@ -1992,8 +1986,10 @@ int decode_dqt_header(JpgDecInfo *jpg)
 		if (get_bits_left(&jpg->gbc) < (4 + 4 + 8 * 64 + 24))
 			return 0;
 
-		Pq = get_bits(&jpg->gbc, 4);
-		Tq = get_bits(&jpg->gbc, 4);
+		tmp = get_bits(&jpg->gbc, 8);
+		Pq = (tmp>>4) & 0xf;
+		Tq = tmp&0xf;
+
 		if (Tq > 3) {
 			info_msg("Tq is more than 3\n");
 			jpg->header_status = 1;
@@ -2014,7 +2010,7 @@ int decode_dqt_header(JpgDecInfo *jpg)
 
 int decode_dth_header(JpgDecInfo *jpg)
 {
-	int Tc, Th, ThTc, bitCnt, i;
+	int Tc, Th, ThTc, bitCnt, i, tmp;
 
 	if (get_bits_left(&jpg->gbc) < 16 + 24)
 		return 0;
@@ -2025,8 +2021,10 @@ int decode_dth_header(JpgDecInfo *jpg)
 		if (get_bits_left(&jpg->gbc) < 8 + 8 * 16 + 24)
 			return 0;
 
-		Tc = get_bits(&jpg->gbc, 4);
-		Th = get_bits(&jpg->gbc, 4);
+		tmp = get_bits(&jpg->gbc, 8);
+		Tc = (tmp>>4) & 0xf;
+		Th = tmp&0xf;
+
 		ThTc = ((Th & 1) << 1) | (Tc & 1);
 		if (ThTc > 3) {
 			info_msg("ThTc is more than 3\n");
@@ -2062,7 +2060,7 @@ int decode_dth_header(JpgDecInfo *jpg)
 int decode_sof_header(JpgDecInfo *jpg)
 {
 	int samplePrecision, sampleFactor, i, Tqi, compID;
-	int hSampFact[3], vSampFact[3], picX, picY, numComp;
+	int hSampFact[3], vSampFact[3], picX, picY, numComp, tmp;
 
 	if (get_bits_left(&jpg->gbc) < 16 + 8 + 16 + 16 + 8 + 24)
 		return 0;
@@ -2102,8 +2100,10 @@ int decode_sof_header(JpgDecInfo *jpg)
 
 	for (i = 0; i < numComp; i++) {
 		compID = get_bits(&jpg->gbc, 8);
-		hSampFact[i] = get_bits(&jpg->gbc, 4);
-		vSampFact[i] = get_bits(&jpg->gbc, 4);
+		tmp = get_bits(&jpg->gbc, 8);
+		hSampFact[i] = (tmp>>4) & 0xf;
+		vSampFact[i] = tmp&0xf;
+
 		Tqi = get_bits(&jpg->gbc, 8);
 
 		jpg->cInfoTab[i][0] = compID;
@@ -2152,7 +2152,7 @@ int decode_sos_header(JpgDecInfo *jpg)
 {
 	int i, j, len, numComp, compID;
 	int ss, se, ah, al, ecsPtr;
-	int dcHufTblIdx[3], acHufTblIdx[3];
+	int dcHufTblIdx[3], acHufTblIdx[3], tmp;
 
 	if (get_bits_left(&jpg->gbc) < 8 + 24)
 		return 0;
@@ -2190,8 +2190,9 @@ int decode_sos_header(JpgDecInfo *jpg)
 
 	for (i = 0; i < numComp; i++) {
 		compID = get_bits(&jpg->gbc, 8);
-		dcHufTblIdx[i] = get_bits(&jpg->gbc, 4);
-		acHufTblIdx[i] = get_bits(&jpg->gbc, 4);
+		tmp = get_bits(&jpg->gbc, 8);
+		dcHufTblIdx[i] = (tmp>>4) & 0xf;
+		acHufTblIdx[i] = tmp&0xf;
 
 		for (j = 0; j < numComp; j++) {
 			if (compID == jpg->cInfoTab[j][0]) {
@@ -2206,8 +2207,9 @@ int decode_sos_header(JpgDecInfo *jpg)
 
 	ss = get_bits(&jpg->gbc, 8);
 	se = get_bits(&jpg->gbc, 8);
-	ah = get_bits(&jpg->gbc, 4);
-	al = get_bits(&jpg->gbc, 4);
+	tmp = get_bits(&jpg->gbc, 8);
+	ah = (i>>4) & 0xf;
+	al = tmp&0xf;
 
 	if ((ss != 0) || (se != 0x3F) || (ah != 0) || (al != 0)) {
 		jpg->ecsPtr = 0;
@@ -2254,6 +2256,98 @@ void genDecHuffTab(JpgDecInfo *jpg, int tabNum)
 				huffCode = (huffMax[i] + 1) << 1;
 		}
 	}
+}
+
+int JpuGbuInit(vpu_getbit_context_t *ctx, Uint8 *buffer, int size)
+{
+
+	ctx->buffer = buffer;
+	ctx->index = 0;
+	ctx->size = size/8;
+
+	return 1;
+}
+
+int JpuGbuGetUsedBitCount(vpu_getbit_context_t *ctx)
+{
+	return ctx->index*8;
+}
+
+int JpuGbuGetLeftBitCount(vpu_getbit_context_t *ctx)
+{
+	return (ctx->size*8) - JpuGbuGetUsedBitCount(ctx);
+}
+
+unsigned int JpuGbuGetBit(vpu_getbit_context_t *ctx, int bit_num)
+{
+	Uint8 *p;
+	unsigned int b = 0x0;
+
+	if (bit_num > JpuGbuGetLeftBitCount(ctx))
+		return -1;
+
+	p = ctx->buffer + ctx->index;
+
+	if (bit_num == 8)
+	{
+		b = *p;
+		ctx->index++;
+	}
+	else if(bit_num == 16)
+	{
+		b = *p++<<8;
+		b |= *p++;
+		ctx->index += 2;
+	}
+	else if(bit_num == 32)
+	{
+		b = *p++<<24;
+		b |= (*p++<<16);
+		b |= (*p++<<8);
+		b |= (*p++<<0);
+		ctx->index += 4;
+	}
+	else
+	{
+		err_msg("Get bit_num is not 8,16,32\n");
+	}
+
+
+	return b;
+}
+
+unsigned int JpuGbuShowBit(vpu_getbit_context_t *ctx, int bit_num)
+{
+	Uint8 *p;
+	unsigned int b = 0x0;
+
+	if (bit_num > JpuGbuGetLeftBitCount(ctx))
+		return -1;
+
+	p = ctx->buffer + ctx->index;
+
+	if (bit_num == 8)
+	{
+		b = *p;
+	}
+	else if(bit_num == 16)
+	{
+		b = *p++<<8;
+		b |= *p++;
+	}
+	else if(bit_num == 32)
+	{
+		b = *p++<<24;
+		b |= (*p++<<16);
+		b |= (*p++<<8);
+		b |= (*p++<<0);
+	}
+	else
+	{
+		err_msg("Show bit_num is not 8,16,32\n");
+	}
+
+	return b;
 }
 
 // thumbnail: User should make sure it's one picture and fits in the bs buffer. SW doesn't handle wrap around case.
