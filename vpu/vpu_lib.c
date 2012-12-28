@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2012 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2013 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -130,6 +130,7 @@ int vpu_WaitForInt(int timeout_in_ms)
 	ENTER_FUNC();
 
 	ret = IOWaitForInt(timeout_in_ms);
+	dprintf(4, "ret of IOWaitForInt %d\n", ret);
 
 	if (cpu_is_mx6x()) {
 		pCodecInst = *ppendingInst;
@@ -139,16 +140,28 @@ int vpu_WaitForInt(int timeout_in_ms)
 			IOClkGateSet(true);
 			status = VpuReadReg(MJPEG_PIC_STATUS_REG);
 			if (pDecInfo->jpgInfo.lineBufferMode) {
-				/* Need to clear bit buffer empty interrupt since the interrupt
-				 * has higher priority than PIC DONE */
-				if (status & 1 << INT_JPU_BIT_BUF_EMPTY) {
-					VpuWriteReg(MJPEG_PIC_STATUS_REG, 1 << INT_JPU_BIT_BUF_EMPTY);
+
+				rdPtr = VpuReadReg(MJPEG_BBC_RD_PTR_REG);
+				bbcEnd = VpuReadReg(MJPEG_BBC_END_ADDR_REG);
+
+				dprintf(4, "status 0x%lx, rdPtr 0x%lx, bbcEnd 0x%lx\n", status, rdPtr, bbcEnd);
+				if (status & 0x3) {
+					dprintf(4, "pic done\n");
+					ret = 0;
+				} else if (rdPtr > bbcEnd-256-256) {
+					warn_msg("pic was forced to be done\n");
+					vpu_mx6_hwreset(); /* reset JPU */
+					pDecInfo->jpgInfo.quitCodec = 1;
+					ret = 0;
+				} else {
+					dprintf(4, "pic not done, wait\n");
 					ret = -1;
 				}
 			} else {
 				rdPtr = VpuReadReg(MJPEG_BBC_RD_PTR_REG);
 				bbcEnd = VpuReadReg(MJPEG_BBC_END_ADDR_REG);
 
+				dprintf(4, "status 0x%lx, rdPtr 0x%lx, bbcEnd 0x%lx\n", status, rdPtr, bbcEnd);
 				if (status & 1 << INT_JPU_BIT_BUF_EMPTY) {
 					/* JPU_EMPTY interrupt is received */
 					if (rdPtr == pDecInfo->streamBufEndAddr) {
@@ -156,11 +169,13 @@ int vpu_WaitForInt(int timeout_in_ms)
 						VpuWriteReg(MJPEG_BBC_CUR_POS_REG, 0);
 						wrPtr = pDecInfo->streamWrPtr;
 						if (pDecInfo->streamEndflag)
-							VpuWriteReg(MJPEG_BBC_END_ADDR_REG, wrPtr);
+							/* set to unreachable position to disable BBC interrupt */
+							VpuWriteReg(MJPEG_BBC_END_ADDR_REG, wrPtr+256);
 						else
 							VpuWriteReg(MJPEG_BBC_END_ADDR_REG,
 									wrPtr & 0xFFFFFE00);
 					} else if (rdPtr == bbcEnd && !(status & 0x3)) {
+						dprintf(4, "need bs, streamEndflag %d\n", pDecInfo->streamEndflag);
 						vpu_mx6_hwreset(); /* reset JPU */
 
 						VpuWriteReg(MJPEG_PIC_STATUS_REG,
@@ -180,11 +195,18 @@ int vpu_WaitForInt(int timeout_in_ms)
 						ret = 0;
 					else
 						ret = -1;
-				} else if (pDecInfo->streamEndflag && !status && (rdPtr >= bbcEnd)) {
+				} else if (pDecInfo->streamEndflag && !status && (rdPtr >= bbcEnd-256)) {
+					warn_msg("forced to quit\n");
 					vpu_mx6_hwreset(); /* reset JPU */
 
 					pDecInfo->jpgInfo.quitCodec = 1;
 					ret = 0;
+				} else if (status & 0x3) {
+					ret = 0;
+					dprintf(4, "pic done\n");
+				} else {
+					ret = -1;
+					dprintf(4, "pic not done, wait\n");
 				}
 			}
 			IOClkGateSet(false);
@@ -2952,13 +2974,13 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	if (pCodecInst->codecMode  == MJPG_DEC) {
 		if (info->picWidth < 16 || info->picHeight < 16) {
 			UnlockVpu(vpu_semap);
-			return RETCODE_FAILURE;
+			return RETCODE_NOT_SUPPORTED;
 		}
 	}
 	else {
 		if (info->picWidth < 64 || info->picHeight < 64) {
 			UnlockVpu(vpu_semap);
-			return RETCODE_FAILURE;
+			return RETCODE_NOT_SUPPORTED;
 		}
 	}
 
@@ -3476,7 +3498,7 @@ RetCode vpu_DecUpdateBitstreamBuffer(DecHandle handle, Uint32 size)
 	Uint32 val = 0;
 
 	ENTER_FUNC();
-	dprintf(4, "Update bitstream buffer size %d\n", size);
+	dprintf(4, "Update bitstream buffer size %ld\n", size);
 
 	ret = CheckDecInstanceValidity(handle);
 	if (ret != RETCODE_SUCCESS)
@@ -3522,7 +3544,7 @@ RetCode vpu_DecUpdateBitstreamBuffer(DecHandle handle, Uint32 size)
 		if (wrOffset < pDecInfo->jpgInfo.frameOffset)
 			pDecInfo->jpgInfo.bbcEndAddr = pDecInfo->streamBufEndAddr;
 		else if (pDecInfo->streamEndflag)
-			pDecInfo->jpgInfo.bbcEndAddr = wrPtr;
+			pDecInfo->jpgInfo.bbcEndAddr = wrPtr+256;
 		else
 			pDecInfo->jpgInfo.bbcEndAddr = wrPtr & 0xFFFFFE00;
 
@@ -3688,11 +3710,14 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 			pDecInfo->streamBufStartAddr = param->phyJpgChunkBase;
 			VpuWriteReg(MJPEG_BBC_WR_PTR_REG, pDecInfo->streamBufStartAddr + param->chunkSize);
 			VpuWriteReg(MJPEG_BBC_BAS_ADDR_REG, pDecInfo->streamBufStartAddr);
-			VpuWriteReg(MJPEG_BBC_END_ADDR_REG, pDecInfo->streamBufStartAddr + param->chunkSize);
+			// never issue BBC interrupt in line buffer mode
+			VpuWriteReg(MJPEG_BBC_END_ADDR_REG, pDecInfo->streamBufStartAddr + param->chunkSize+256*3+256);
 
-			val = (pDecInfo->streamBufStartAddr + param->chunkSize) / 256;
-			if ((pDecInfo->streamBufStartAddr + param->chunkSize) % 256)
+			val = (param->chunkSize) / 256;
+			if ((param->chunkSize) % 256)
 				val = val + 1;
+			// reserve 256*3B margin for error clip stop condition
+			val += 3;
 			VpuWriteReg(MJPEG_BBC_STRM_CTRL_REG, (1 << 31 | val));
 		} else {
 			if (pDecInfo->jpgInfo.frameOffset < 0) {
@@ -3814,6 +3839,7 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 
 		VpuWriteReg(GDI_CONTROL, 0);
 		VpuWriteReg(GDI_PIC_INIT_HOST, 1);
+		dump_regs(NPT_BASE, 256);
 		VpuWriteReg(MJPEG_PIC_START_REG, 1);
 
 		*ppendingInst = pCodecInst;
