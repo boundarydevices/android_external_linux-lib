@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2012 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2013 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -1258,7 +1258,6 @@ int vpu_mx6_swreset(int forcedReset)
 	if (forcedReset == 0) {
 		VpuWriteReg(GDI_BUS_CTRL, 0x11);
 		while (VpuReadReg(GDI_BUS_STATUS) != 0x77);
-		VpuWriteReg(GDI_BUS_CTRL, 0x00);
 	}
 
 	cmd =  VPU_SW_RESET_BPU_CORE | VPU_SW_RESET_BPU_BUS;
@@ -1269,6 +1268,8 @@ int vpu_mx6_swreset(int forcedReset)
 	while(VpuReadReg(BIT_SW_RESET_STATUS) != 0);
 
 	VpuWriteReg(BIT_SW_RESET, 0);
+	if (forcedReset == 0)
+		VpuWriteReg(GDI_BUS_CTRL, 0x00);
 	return RETCODE_SUCCESS;
 }
 
@@ -1276,9 +1277,9 @@ int vpu_mx6_hwreset()
 {
 	VpuWriteReg(GDI_BUS_CTRL, 0x11);
 	while (VpuReadReg(GDI_BUS_STATUS) != 0x77);
-	VpuWriteReg(GDI_BUS_CTRL, 0x00);
 	IOSysSWReset();
 
+	VpuWriteReg(GDI_BUS_CTRL, 0x00);
 	VpuWriteReg(BIT_BUSY_FLAG, 1);
 	VpuWriteReg(BIT_CODE_RUN, 1);
 	while (VpuReadReg(BIT_BUSY_FLAG));
@@ -2990,7 +2991,7 @@ proc_wrap:
 				val += 1;
 			val = (1 << 31 | val);
 			pDecInfo->jpgInfo.bbcStreamCtl = val;
-			pDecInfo->jpgInfo.bbcEndAddr = pDecInfo->streamWrPtr;
+			pDecInfo->jpgInfo.bbcEndAddr = pDecInfo->streamWrPtr+256;
 		}
 		else
 			pDecInfo->jpgInfo.bbcEndAddr = pDecInfo->streamWrPtr & 0xFFFFFE00;
