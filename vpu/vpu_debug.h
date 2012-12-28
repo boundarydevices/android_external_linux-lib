@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2012 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2013 Freescale Semiconductor, Inc.
  *
  */
 
@@ -16,6 +16,8 @@
 
 #ifndef __VPU_DEBUG_H
 #define __VPU_DEBUG_H
+
+#include "vpu_lib.h"
 
 #ifdef BUILD_FOR_ANDROID
 #define LOG_TAG "vpu-lib"
@@ -66,4 +68,5 @@ extern int vpu_lib_dbg_level;
 #define ENTER_FUNC() dprintf(4, "enter %s()\n", __func__)
 #define EXIT_FUNC() dprintf(4, "exit %s()\n", __func__)
 
+void dump_regs(Uint32 base, int cnt);
 #endif
