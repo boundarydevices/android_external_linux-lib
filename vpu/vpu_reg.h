@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2012 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2013 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -332,6 +332,7 @@
 /* MX5X used, others dummy */
 #if defined(IMX6Q)
 #define CMD_SET_FRAME_MAX_DEC_SIZE      0x1B8
+#define CMD_SET_FRAME_DELAY		0x1BC
 #else
 #define CMD_SET_FRAME_MAX_DEC_SIZE      0x1A4
 #endif
