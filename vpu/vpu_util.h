@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2012 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2013 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -37,14 +37,14 @@ typedef enum {
 
 
 #if defined(IMX6Q)
-#define BIT_WORK_SIZE			48 * 1024
+#define BIT_WORK_SIZE			80 * 1024
 #else
 #define BIT_WORK_SIZE			128 * 1024
 #endif
 #define SIZE_CONTEXT_BUF		BIT_WORK_SIZE
 #define PS_SAVE_SIZE			0x080000
 
-#define SIZE_PIC_PARA_BASE_BUF          0x100
+#define SIZE_PIC_PARA_BASE_BUF          0x10000
 #define SIZE_MV_DATA                    0x20000
 #define SIZE_MB_DATA                    0x4000
 #define SIZE_FRAME_BUF_STAT             0x100
@@ -517,6 +517,7 @@ typedef struct {
 	DecReportInfo decReportMBInfo;      /* Mb Param for Error Concealment */
 	DecReportInfo decReportMVInfo;     /* Motion vector */
 	DecReportInfo decReportUserData;
+	int frame_delay;
 } DecInfo;
 
 typedef struct CodecInst {

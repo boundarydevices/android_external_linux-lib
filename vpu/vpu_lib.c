@@ -324,6 +324,7 @@ RetCode vpu_Init(void *cb)
 		}
 
 		VpuWriteReg(BIT_BUSY_FLAG, 1);
+		dump_regs(0, 128);
 		VpuWriteReg(BIT_CODE_RUN, 1);
 		while (VpuReadReg(BIT_BUSY_FLAG));
 
@@ -2579,6 +2580,8 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 	pDecInfo->decReportUserData.enable = 0;
 	pDecInfo->decReportUserData.size = 0;
 
+	pDecInfo->frame_delay = -1;
+
 	if (cpu_is_mx6x()) {
 		pDecInfo->mapType = pop->mapType;
 		pDecInfo->tiledLinearEnable = pop->tiled2LinearEnable;
@@ -2931,6 +2934,11 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 
 	BitIssueCommand(pCodecInst, SEQ_INIT);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
+	if (cpu_is_mx6x() && pDecInfo->openParam.bitstreamMode) {
+		/* check once more in roll back mode, in case
+		 * BIT_BUSY_FLAG=0 is caused by reset */
+		while (VpuReadReg(BIT_BUSY_FLAG)) ;
+	}
 
 	val = VpuReadReg(RET_DEC_SEQ_SUCCESS);
 
@@ -3314,6 +3322,9 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 			VpuWriteReg(CMD_SET_FRAME_AXI_BTP_ADDR, pDecInfo->secAxiUse.bufBtpUse);
 	} else
 		VpuWriteReg(BIT_AXI_SRAM_USE, 0);       /* not use SRAM */
+
+	if (cpu_is_mx6x())
+		VpuWriteReg(CMD_SET_FRAME_DELAY, pDecInfo->frame_delay);
 
 	if (cpu_is_mx6x()) {
 		/* Maverick Cache Configuration */
@@ -4865,6 +4876,12 @@ RetCode vpu_DecGiveCommand(DecHandle handle, CodecCommand cmd, void *param)
 			pDecInfo->decReportUserData = *(DecReportInfo *)param;
 			if ((pDecInfo->decReportUserData.enable) && (!pDecInfo->decReportUserData.addr))
 				return RETCODE_REPORT_BUF_NOT_SET;
+			break;
+		}
+
+	case DEC_SET_FRAME_DELAY:
+		{
+			pDecInfo->frame_delay = *(int *)param;
 			break;
 		}
 
