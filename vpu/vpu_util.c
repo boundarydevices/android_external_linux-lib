@@ -325,6 +325,8 @@ void BitIssueCommand(CodecInst *pCodecInst, int cmd)
 
 	LockVpuReg(vpu_semap);
 
+	dprintf(4, "BitIssueCommand %d\n", cmd);
+
 	if (pCodecInst != NULL) {
 		/* Save context related registers to vpu */
 		VpuWriteReg(BIT_BIT_STREAM_PARAM,
@@ -355,6 +357,7 @@ void BitIssueCommand(CodecInst *pCodecInst, int cmd)
 	VpuWriteReg(BIT_RUN_INDEX, instIdx);
 	VpuWriteReg(BIT_RUN_COD_STD, cdcMode);
 	VpuWriteReg(BIT_RUN_AUX_STD, auxMode);
+	dump_regs(0, 128);
 	VpuWriteReg(BIT_RUN_COMMAND, cmd);
 	UnlockVpuReg(vpu_semap);
 }
