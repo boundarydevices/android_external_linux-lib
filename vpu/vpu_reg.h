@@ -335,6 +335,7 @@
 #define CMD_SET_FRAME_DELAY		0x1BC
 #else
 #define CMD_SET_FRAME_MAX_DEC_SIZE      0x1A4
+#define CMD_SET_FRAME_DELAY		0x1BC
 #endif
 #define CMD_SET_FRAME_SOURCE_BUF_STRIDE 0x1A8
 /* End */
