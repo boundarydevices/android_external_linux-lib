@@ -1,6 +1,7 @@
 /*
- * Copyright (C) 2012-2013 Freescale Semiconductor, Inc.
+ * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
+ * Copyright (C) 2012-2013 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
