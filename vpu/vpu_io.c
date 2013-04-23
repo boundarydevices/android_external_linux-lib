@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2012 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2013 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -40,20 +40,7 @@
 #include <linux/ion.h>
 #include <ion/ion.h>
 #elif USE_GPU
-int
-gcoOS_AllocateVideoMemory(
-    void* Os,
-    int InUserSpace,
-    int InCacheable,
-    int* Bytes,
-    int* Physical,
-    void** Logical,
-    void** Handle);
-int
-gcoOS_FreeVideoMemory(
-    void* Os,
-    void* Handle
-    );
+#include "g2d.h"
 #else
 #include <linux/android_pmem.h>
 #endif
@@ -334,8 +321,8 @@ int _IOGetPhyMem(int which, vpu_mem_desc *buff)
 	int share_fd, ret = -1;
 	unsigned char *ptr;
 #elif USE_GPU
-        void *handle, *virt_addr;
-        int bytes, phy_addr, ret = -1;
+        struct g2d_buf *gbuf;
+        int bytes;
 #else
 	/* Get memory from pmem space for android */
 	struct pmem_region region;
@@ -408,23 +395,23 @@ error:
 	return ret;
 #elif USE_GPU
         bytes = buff->size + PAGE_SIZE;
-        phy_addr = 0; virt_addr = NULL;
-        ret = gcoOS_AllocateVideoMemory(NULL, 1, 0, &bytes, &phy_addr,&virt_addr,&handle);
-        if(ret != 0) {
-            err_msg("%d, gpu allocator failed to alloc buffer with size %d", ret, buff->size);
-            return ret;
+        gbuf = g2d_alloc(bytes, 0);
+        if(!gbuf) {
+            err_msg("%s: gpu allocator failed to alloc buffer with size %d", __FUNCTION__, buff->size);
+            return -1;
         }
 
-        buff->virt_uaddr = (unsigned long)virt_addr;
-        buff->phy_addr = (unsigned long)phy_addr;
-        buff->cpu_addr = (unsigned long)handle;
+        buff->virt_uaddr = (unsigned long)gbuf->buf_vaddr;
+        buff->phy_addr = (unsigned long)gbuf->buf_paddr;
+        buff->cpu_addr = (unsigned long)gbuf;
 
         //vpu requires page alignment for the address implicitly, round it to page edge
         buff->virt_uaddr = (buff->virt_uaddr + PAGE_SIZE -1) & ~(PAGE_SIZE -1);
         buff->phy_addr = (buff->phy_addr + PAGE_SIZE -1) & ~(PAGE_SIZE -1);
+        memset((void*)buff->virt_uaddr, 0, buff->size);
 
         info_msg("<gpu> alloc handle: 0x%x, paddr: 0x%x, vaddr: 0x%x",
-			(unsigned int)handle, (unsigned int)buff->phy_addr,
+			(unsigned int)gbuf, (unsigned int)buff->phy_addr,
 			(unsigned int)buff->virt_uaddr);
         return 0;
 #else
@@ -531,21 +518,18 @@ int _IOFreePhyMem(int which, vpu_mem_desc * buff)
 	munmap((void *)buff->virt_uaddr, buff->size);
 	memset((void*)buff, 0, sizeof(*buff));
 #elif USE_GPU
-        int ret = -1;
-        void *handle = (void *)buff->cpu_addr;
-        if(!handle) {
-           warn_msg("%s: Invalid handle 0x%x", __FUNCTION__, (unsigned int)handle);
-           return ret;
-        }
-        ret = gcoOS_FreeVideoMemory(NULL, handle);
-        if(ret != 0) {
-           err_msg("%d, gpu allocator failed to free handle 0x%x", ret, (unsigned int)handle);
-           return ret;
-        }
+        struct g2d_buf *gbuf = (struct g2d_buf *)buff->cpu_addr;
+        if(gbuf) {
+            if(g2d_free(gbuf) != 0) {
+               err_msg("%s: gpu allocator failed to free buffer 0x%x", __FUNCTION__, (unsigned int)gbuf);
+               return -1;
+            }
 
-        info_msg("<gpu> free handle: 0x%x, paddr: 0x%x, vaddr: 0x%x",
-			(unsigned int)handle, (unsigned int)buff->phy_addr,
+            info_msg("<gpu> free handle: 0x%x, paddr: 0x%x, vaddr: 0x%x",
+			(unsigned int)gbuf, (unsigned int)buff->phy_addr,
 			(unsigned int)buff->virt_uaddr);
+        }
+        memset((void*)buff, 0, sizeof(*buff));
 #else
 	int fd_pmem;
 
