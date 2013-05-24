@@ -577,7 +577,6 @@ int IOFreePhyMem(vpu_mem_desc * buff)
  */
 int IOPhyMemCheck(unsigned long phyaddr, const char *name)
 {
-	unsigned long va_addr;
 	vpu_mem_desc buff;
 	int result;
 
