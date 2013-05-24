@@ -635,8 +635,15 @@ RetCode CheckDecOpenParam(DecOpenParam * pop)
 	if (pop == 0) {
 		return RETCODE_INVALID_PARAM;
 	}
-	if (pop->bitstreamBuffer % 4) {	/* not 4-bit aligned */
-		return RETCODE_INVALID_PARAM;
+
+	if (cpu_is_mx6x()) {
+		if (pop->bitstreamBuffer % 512) { /* not 512-byte aligned */
+			return RETCODE_INVALID_PARAM;
+		}
+	} else {
+		if (pop->bitstreamBuffer % 8) {	/* not 8-byte aligned */
+			return RETCODE_INVALID_PARAM;
+		}
 	}
 
 	if (cpu_is_mx6x() & (pop->bitstreamFormat == STD_MJPG)) {
@@ -791,13 +798,11 @@ void GetParaSet(EncHandle handle, int paraSetType, EncParamSet * para)
 void SetParaSet(DecHandle handle, int paraSetType, DecParamSet * para)
 {
 	CodecInst *pCodecInst;
-	DecInfo *pDecInfo;
 	int i;
 	Uint32 *src;
 	int byteSize;
 
 	pCodecInst = handle;
-	pDecInfo = &pCodecInst->CodecInfo.decInfo;
 
 	src = para->paraSet;
 	byteSize = para->size / 4;
@@ -1008,7 +1013,8 @@ void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 			psecAxiIramInfo->useHostOvlEnable = 1;
 			psecAxiIramInfo->bufOvlUse = psecAxiIramInfo->bufIpAcDcUse + ipacdc_size;
 			size -= ovl_size;
-		}
+		} else
+			goto out;
 		if (cpu_is_mx6x()) {
 			btp_size = ((((mbNumX + 15) / 16) * mbNumY + 1) * 6 + 255) & ~255;
 			if (size >= btp_size) {
@@ -2401,7 +2407,6 @@ static void thumbRaw(DecInfo *pDecInfo, Uint8 pal[][3])
 int ParseJFIF(DecInfo *pDecInfo, int jfif, int length)
 {
 	int exCode;
-	int pal = false;
 	int picX, picY;
 	THUMB_INFO *pThumbInfo;
 	pThumbInfo = &(pDecInfo->jpgInfo.ThumbInfo);
