@@ -1263,7 +1263,9 @@ int vpu_mx6_swreset(int forcedReset)
 {
 	volatile int i;
 	Uint32 cmd;
+	unsigned long instIndexSave;
 
+	instIndexSave = VpuReadReg(BIT_RUN_INDEX);
 	if (forcedReset == 0) {
 		VpuWriteReg(GDI_BUS_CTRL, 0x11);
 		while (VpuReadReg(GDI_BUS_STATUS) != 0x77);
@@ -1279,11 +1281,15 @@ int vpu_mx6_swreset(int forcedReset)
 	VpuWriteReg(BIT_SW_RESET, 0);
 	if (forcedReset == 0)
 		VpuWriteReg(GDI_BUS_CTRL, 0x00);
+	VpuWriteReg(BIT_RUN_INDEX, instIndexSave);
 	return RETCODE_SUCCESS;
 }
 
 int vpu_mx6_hwreset()
 {
+	unsigned long instIndexSave;
+
+	instIndexSave = VpuReadReg(BIT_RUN_INDEX);
 	VpuWriteReg(GDI_BUS_CTRL, 0x11);
 	while (VpuReadReg(GDI_BUS_STATUS) != 0x77);
 	IOSysSWReset();
@@ -1292,6 +1298,7 @@ int vpu_mx6_hwreset()
 	VpuWriteReg(BIT_BUSY_FLAG, 1);
 	VpuWriteReg(BIT_CODE_RUN, 1);
 	while (VpuReadReg(BIT_BUSY_FLAG));
+	VpuWriteReg(BIT_RUN_INDEX, instIndexSave);
 
 	return RETCODE_SUCCESS;
 }
