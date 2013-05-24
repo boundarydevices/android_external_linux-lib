@@ -366,6 +366,7 @@ RetCode vpu_SWReset(DecHandle handle, int index)
 	int i = 0;
 	CodecInst *pCodecInst;
 	RetCode ret;
+	unsigned long instIndexSave;
 
 	ENTER_FUNC();
 
@@ -413,6 +414,7 @@ RetCode vpu_SWReset(DecHandle handle, int index)
 	}
 
 	/* Following is for mx5x platforms */
+	instIndexSave = VpuReadReg(BIT_RUN_INDEX);
 	for (i = 0 ; i < 64 ; i++)
 		regBk[i] = VpuReadReg(BIT_CODE_BUF_ADDR + (i * 4));
 	IOSysSWReset();
@@ -452,6 +454,7 @@ RetCode vpu_SWReset(DecHandle handle, int index)
 	VpuWriteReg(BIT_BUSY_FLAG, 1);
 	VpuWriteReg(BIT_CODE_RUN, 1);
 	while (vpu_IsBusy());
+	VpuWriteReg(BIT_RUN_INDEX, instIndexSave);
 
 	BitIssueCommand(NULL, VPU_WAKE);
 	while (vpu_IsBusy());
@@ -2967,6 +2970,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		}
 #endif
 		if (pDecInfo->openParam.bitstreamMode && (val & (1 << 4))) {
+			VpuWriteReg(BIT_RUN_INDEX, pCodecInst->instIndex);
 			UnlockVpu(vpu_semap);
 			return RETCODE_FAILURE;
 		}
@@ -4176,8 +4180,10 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 			return RETCODE_MEMORY_ACCESS_VIOLATION;
 		}
 #endif
-		if (pDecInfo->openParam.bitstreamMode && (val & (1 << 4)))
+		if (pDecInfo->openParam.bitstreamMode && (val & (1 << 4))) {
 			info->decodingSuccess |= 0x10;
+			VpuWriteReg(BIT_RUN_INDEX, pCodecInst->instIndex);
+		}
 	}
 
 	if (pCodecInst->codecMode == AVC_DEC) {
