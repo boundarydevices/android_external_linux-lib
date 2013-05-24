@@ -95,8 +95,15 @@
 #define BIT_INT_REASON			0x174
 #define BIT_RUN_AUX_STD                 0x178
 
+#if defined(IMX6Q)
+#define BIT_MSG_0			0x130
+#define BIT_MSG_1			0x134
+#define BIT_MSG_2			0x138
+#define BIT_MSG_3			0x13C
+#else
 #define BIT_MSG_0			0x1F0
 #define BIT_MSG_1			0x1F4
+#endif
 
 #define BIT_RTC_HOST_CTRL		0x1FC
 
