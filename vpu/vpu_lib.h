@@ -478,13 +478,13 @@ typedef struct {
 	int mjpg_thumbNailEnable;
 	int mjpg_thumbNailWidth;
 	int mjpg_thumbNailHeight;
-	Uint8 *mjpg_hufTable;
-	Uint8 *mjpg_qMatTable;
+	Uint8 *mjpg_hufTable;   /* Not used on mx6 */
+	Uint8 *mjpg_qMatTable;  /* Not used on mx6 */
 
-	Uint8 huffVal[4][162];
-	Uint8 huffBits[4][256];
-	Uint8 qMatTab[4][64];
-	Uint8 cInfoTab[4][6];
+	Uint8 huffVal[4][162];  /* mx6 */
+	Uint8 huffBits[4][256]; /* mx6 */
+	Uint8 qMatTab[4][64];   /* mx6 */
+	Uint8 cInfoTab[4][6];   /* mx6 */
 
 } EncMjpgParam;
 
@@ -663,7 +663,7 @@ typedef struct vpu_versioninfo {
  * v4.2.2 [2008.09.03] support encoder on MX51
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 12)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 13)
 
 extern unsigned int system_rev;
 
