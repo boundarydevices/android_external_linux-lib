@@ -186,8 +186,8 @@ enum {
 };
 
 // JPEG thumbnail
-static enum{ //Exif
-	IMAGE_WIDTH			= 0x0100,
+enum{ //Exif
+	IMAGE_WIDTH		= 0x0100,
 	IMAGE_HEIGHT		= 0x0101,
 	BITS_PER_SAMPLE		= 0x0102,
 	COMPRESSION_SCHEME	= 0x0103,
@@ -196,7 +196,7 @@ static enum{ //Exif
 	YCBCR_SUBSAMPLING	= 0x0212,
 	JPEG_IC_FORMAT		= 0x0201,
 	PLANAR_CONFIG		= 0x011c
-}EXIF_TAG;
+};
 
 typedef struct{
 	Uint32	tag;
@@ -440,6 +440,9 @@ typedef struct {
 	Uint8 *pVirtJpgChunkBase;
 	int chunkSize;
 
+	int iHorScaleMode;
+	int iVerScaleMode;
+
     // thumbnail
 
 	THUMB_INFO	ThumbInfo;
@@ -518,6 +521,7 @@ typedef struct {
 	DecReportInfo decReportMVInfo;     /* Motion vector */
 	DecReportInfo decReportUserData;
 	int frame_delay;
+	int decoded_pictype[32];
 } DecInfo;
 
 typedef struct CodecInst {
