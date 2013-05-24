@@ -50,8 +50,6 @@ extern semaphore_t *vpu_semap;
 
 extern void vpu_setting_iram();
 
-static int decoded_pictype[32];
-
 static volatile int bInit=0;
 static __inline void EnterInit()
 {
@@ -209,6 +207,16 @@ int vpu_WaitForInt(int timeout_in_ms)
 					dprintf(4, "pic not done, wait\n");
 				}
 			}
+			IOClkGateSet(false);
+		} else { /* VPU */
+			IOClkGateSet(true);
+			if (VpuReadReg(BIT_BUSY_FLAG)) {
+				if (ret == 0)
+					warn_msg("intr received but VPU is still busy\n");
+				ret = -1;
+			}
+			else
+				ret = 0;
 			IOClkGateSet(false);
 		}
 	}
@@ -473,6 +481,9 @@ RetCode vpu_GetVersionInfo(vpu_versioninfo * verinfo)
 		UnlockVpu(vpu_semap);
 		return RETCODE_NOT_INITIALIZED;
 	}
+
+	if (VpuReadReg(BIT_BUSY_FLAG))
+		err_msg("fatal: VPU is busy in %s\n", __func__);
 
 	VpuWriteReg(RET_VER_NUM, 0);
 
@@ -1806,7 +1817,6 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 		info->bitstreamSize = VpuReadReg(MJPEG_BBC_WR_PTR_REG) -
 					pEncInfo->streamBufStartAddr;
 		VpuWriteReg(MJPEG_BBC_FLUSH_CMD_REG, 0);
-		pEncInfo->jpgInfo.frameIdx++;
 		info->picType = 0;
 		info->numOfSlices = 0;
 		*ppendingInst = 0;
@@ -1876,12 +1886,11 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 
 	if (pEncInfo->encReportMBInfo.enable) {
 		int size = 0;
-		Uint32 tempBuf[2], address = 0;
+		Uint32 tempBuf[2];
 		Uint8 *dst_addr = NULL, *src_addr = NULL;
 		Uint32 virt_addr = pEncInfo->picParaBaseMem.virt_uaddr;
 
 		memcpy((char *)tempBuf, (void *)virt_addr, 8);
-		address = *tempBuf;
 		val = *(tempBuf + 1);
 		info->mbInfo.size = val & 0xFFFF;
 		info->mbInfo.enable = (val >> 24) & 0xFF;
@@ -1896,12 +1905,11 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 
 	if (pEncInfo->encReportMVInfo.enable) {
 		int size = 0;
-		Uint32 tempBuf[2], address = 0;
+		Uint32 tempBuf[2];
 		Uint8 *dst_addr = NULL, *src_addr = NULL;
 		Uint32 virt_addr = pEncInfo->picParaBaseMem.virt_uaddr;
 
 		memcpy((char *)tempBuf, (void *)(virt_addr + 8), 8);
-		address = *tempBuf;
 		val = *(tempBuf + 1);
 		info->mvInfo.size = val & 0xFFFF;
 		info->mvInfo.enable = (val >> 24) & 0xFF;
@@ -1917,12 +1925,11 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 
 	if (pEncInfo->encReportSliceInfo.enable) {
 		int size = 0;
-		Uint32 tempBuf[2], address = 0;
+		Uint32 tempBuf[2];
 		Uint8 *dst_addr = NULL, *src_addr = NULL;
 		Uint32 virt_addr = pEncInfo->picParaBaseMem.virt_uaddr;
 
 		memcpy((char *)tempBuf, (void *)(virt_addr + 16), 8);
-		address = *tempBuf;
 		val = *(tempBuf + 1);
 
 		info->sliceInfo.size = val & 0xFFFF;
@@ -2134,13 +2141,9 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 				break;
 
 			SearchRamParam *scRamParam = NULL;
-			int EncPicX;
 			if (param == 0) {
 				return RETCODE_INVALID_PARAM;
 			}
-
-			EncPicX =
-			    pCodecInst->CodecInfo.encInfo.openParam.picWidth;
 
 			scRamParam = (SearchRamParam *) param;
 
@@ -2457,9 +2460,12 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 {
 	CodecInst *pCodecInst;
 	DecInfo *pDecInfo;
-	int instIdx, i;
+	int instIdx;
 	Uint32 val;
 	RetCode ret;
+#ifdef MEM_PROTECT
+	int i;
+#endif
 
 	ENTER_FUNC();
 
@@ -2734,7 +2740,6 @@ dec_out:
 RetCode vpu_DecSetEscSeqInit(DecHandle handle, int escape)
 {
 	CodecInst *pCodecInst;
-	DecInfo *pDecInfo;
 	RetCode ret;
 
 	ENTER_FUNC();
@@ -2744,7 +2749,6 @@ RetCode vpu_DecSetEscSeqInit(DecHandle handle, int escape)
 		return ret;
 
 	pCodecInst = handle;
-	pDecInfo = &pCodecInst->CodecInfo.decInfo;
 
 	if (is_mx6x_mjpg_codec(pCodecInst->codecMode))
 		return RETCODE_SUCCESS;
@@ -2849,6 +2853,12 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		return RETCODE_FAILURE_TIMEOUT;
 
 	if (DecBitstreamBufEmpty(handle)) {
+		err_msg("rd 0x%lx, rd reg 0x%lx, wr 0x%lx, wr reg 0x%lx, idx %d, idx reg %ld\n",
+			pCodecInst->ctxRegs[CTX_BIT_RD_PTR], VpuReadReg(BIT_RD_PTR),
+			pCodecInst->ctxRegs[CTX_BIT_WR_PTR], VpuReadReg(BIT_WR_PTR),
+			pCodecInst->instIndex, VpuReadReg(BIT_RUN_INDEX)
+		       );
+
 		UnlockVpu(vpu_semap);
 		return RETCODE_WRONG_CALL_SEQUENCE;
 	}
@@ -3701,6 +3711,8 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		SetGDIRegs(&pDecInfo->sTiledInfo);
 
 	if (is_mx6x_mjpg_codec(pCodecInst->codecMode)) {
+		pDecInfo->jpgInfo.iHorScaleMode = param->mjpegScaleDownRatioWidth;
+		pDecInfo->jpgInfo.iVerScaleMode = param->mjpegScaleDownRatioHeight;
 		if (pDecInfo->jpgInfo.lineBufferMode) {
 			if (param->chunkSize <= 0) {
 				UnlockVpu(vpu_semap);
@@ -3791,7 +3803,12 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 						pDecInfo->jpgInfo.compInfo[0] << 8 |
 						pDecInfo->jpgInfo.compInfo[1] << 4 |
 						pDecInfo->jpgInfo.compInfo[2]);
-		VpuWriteReg(MJPEG_SCL_INFO_REG, 0);
+		if (pDecInfo->jpgInfo.iHorScaleMode | pDecInfo->jpgInfo.iVerScaleMode)
+			reg = ((pDecInfo->jpgInfo.iHorScaleMode & 0x3) << 2) |
+				((pDecInfo->jpgInfo.iVerScaleMode & 0x3)) | 0x10 ;
+		else
+			reg = 0;
+		VpuWriteReg(MJPEG_SCL_INFO_REG, reg);
 		VpuWriteReg(MJPEG_DPB_CONFIG_REG,
 			    pDecInfo->openParam.chromaInterleave);
 		VpuWriteReg(MJPEG_RST_INTVAL_REG, pDecInfo->jpgInfo.rstIntval);
@@ -4060,17 +4077,14 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	RetCode ret;
 	Uint32 val = 0;
 	Uint32 val2 = 0;
-	PhysicalAddress paraBuffer;
 
 	ENTER_FUNC();
 
-	paraBuffer =
-	    bit_work_addr.phy_addr + CODE_BUF_SIZE + TEMP_BUF_SIZE +
-	    PARA_BUF2_SIZE;
-
 	ret = CheckDecInstanceValidity(handle);
-	if (ret != RETCODE_SUCCESS)
+	if (ret != RETCODE_SUCCESS) {
+		err_msg("CheckInst, ret=%d\n", ret);
 		return ret;
+	}
 
 	if (info == 0) {
 		return RETCODE_INVALID_PARAM;
@@ -4084,6 +4098,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	}
 
 	if (pCodecInst != *ppendingInst) {
+		err_msg("pCodecInst 0x%p, pendingInst 0x%p\n", pCodecInst, *ppendingInst);
 		return RETCODE_INVALID_HANDLE;
 	}
 
@@ -4108,8 +4123,8 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 			return RETCODE_SUCCESS;
 		}
 
-		info->decPicWidth = pDecInfo->jpgInfo.alignedWidth;
-		info->decPicHeight = pDecInfo->jpgInfo.alignedHeight;
+		info->decPicWidth = pDecInfo->jpgInfo.picWidth >> pDecInfo->jpgInfo.iHorScaleMode;
+		info->decPicHeight = pDecInfo->jpgInfo.picHeight >> pDecInfo->jpgInfo.iVerScaleMode;
 		info->indexFrameDecoded = 0;
 		info->indexFrameDisplay = 0;
 		info->consumedByte = VpuReadReg(MJPEG_GBU_TT_CNT_REG) / 8;
@@ -4139,6 +4154,9 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		UnlockVpu(vpu_semap);
 		return RETCODE_SUCCESS;
 	}
+
+	if (VpuReadReg(BIT_BUSY_FLAG))
+		err_msg("fatal: VPU is busy in %s\n", __func__);
 
 	val = VpuReadReg(RET_DEC_PIC_SUCCESS);
 	info->decodingSuccess = (val & 0x01);
@@ -4290,13 +4308,12 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 
 	/* Not support framebuffer, MB, MV report on mx6 vpu */
 	if (pDecInfo->decReportFrameBufStat.enable) {
-		int size = 0, paraInfo = 0, address = 0;
+		int size = 0, paraInfo = 0;
 		Uint32 tempBuf[2], virt_addr;
 
 		virt_addr = pDecInfo->picParaBaseMem.virt_uaddr;
 		memcpy((char *)tempBuf, (void *)virt_addr, 8);
 		val = *(tempBuf + 1);
-		address = *tempBuf;
 
 		paraInfo = (val >> 24) & 0xFF;
 		size = (val >>  0) & 0xFFFFFF;
@@ -4318,14 +4335,13 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 
 	/* Mb Param */
 	if (pDecInfo->decReportMBInfo.enable) {
-		int size = 0, paraInfo = 0, address = 0;
+		int size = 0, paraInfo = 0;
 		Uint32 tempBuf[2], virt_addr;
 
 		virt_addr = pDecInfo->picParaBaseMem.virt_uaddr;
 
 		memcpy((char *)tempBuf, (void *)(virt_addr + 8), 8);
 		val = *(tempBuf + 1);
-		address = *tempBuf;
 
 		paraInfo = (val >> 24) & 0xFF;
 		size = (val >>  0) & 0x00FFFF;
@@ -4352,13 +4368,12 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 
 	/* Motion Vector */
 	if (pDecInfo->decReportMVInfo.enable) {
-		int size = 0, paraInfo = 0, address = 0, mvNumPerMb = 0;
+		int size = 0, paraInfo = 0, mvNumPerMb = 0;
 		Uint32 tempBuf[2], virt_addr;
 
 		virt_addr = pDecInfo->picParaBaseMem.virt_uaddr;
 		memcpy((char *)tempBuf, (void *)(virt_addr + 16), 8);
 		val = *(tempBuf + 1);
-		address = *tempBuf;
 
 		paraInfo	= (val >> 24) & 0xFF;
 		mvNumPerMb	= (val >> 16) & 0xFF;
@@ -4429,13 +4444,13 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 
 	/* save decoded picType to this array */
 	if (info->indexFrameDecoded >= 0)
-		decoded_pictype[info->indexFrameDecoded] = info->picType;
+		pDecInfo->decoded_pictype[info->indexFrameDecoded] = info->picType;
 
 	if (pCodecInst->codecMode == VC1_DEC && info->indexFrameDisplay != -3) {
 		if (pDecInfo->vc1BframeDisplayValid == 0) {
 			/* Check the pictype of displayed frame */
-			if ((decoded_pictype[info->indexFrameDisplay] == 3 && pDecInfo->initialInfo.profile != 2) ||
-			    ((decoded_pictype[info->indexFrameDisplay] >> 3) == 3 && pDecInfo->initialInfo.profile == 2)) {
+			if ((pDecInfo->decoded_pictype[info->indexFrameDisplay] == 3 && pDecInfo->initialInfo.profile != 2) ||
+			    ((pDecInfo->decoded_pictype[info->indexFrameDisplay] >> 3) == 3 && pDecInfo->initialInfo.profile == 2)) {
 				/* clear buffer for not displayed B frame */
 				val = ~(1 << info->indexFrameDisplay);
 				val &= VpuReadReg(BIT_FRM_DIS_FLG);
@@ -4897,7 +4912,7 @@ void SaveGetEncodeHeader(EncHandle handle, int encHeaderType, char *filename)
 	FILE *fp = NULL;
 	Uint8 *pHeader = NULL;
 	EncParamSet encHeaderParam = { 0, 0, 0 };
-	int i,n;
+	int i;
 	Uint32 dword1, dword2;
 	Uint32 *pBuf;
 	Uint32 byteSize;
@@ -4927,7 +4942,7 @@ void SaveGetEncodeHeader(EncHandle handle, int encHeaderType, char *filename)
 		if (encHeaderParam.size > 0) {
 			fp = fopen(filename, "wb");
 			if (fp) {
-				n = fwrite(pHeader, sizeof(Uint8),
+				fwrite(pHeader, sizeof(Uint8),
 				       encHeaderParam.size, fp);
 				fclose(fp);
 			}
