@@ -1180,7 +1180,10 @@ semaphore_t *vpu_semaphore_open(void)
 		return NULL;
 	}
 
+	IOLockDev(1);
+
 	if (!semap->is_initialized) {
+		dprintf(4, "sema not init\n");
 		pthread_mutexattr_init(&psharedm);
 		pthread_mutexattr_setpshared(&psharedm, PTHREAD_PROCESS_SHARED);
 		pthread_mutex_init(&semap->api_lock, &psharedm);
@@ -1191,7 +1194,10 @@ semaphore_t *vpu_semaphore_open(void)
 			pCodecInst->inUse = 0;
 		}
 		semap->is_initialized = 1;
+		dprintf(4, "sema inited\n");
 	}
+
+	IOLockDev(0);
 
 	timeout_env = getenv("VPU_MUTEX_TIMEOUT");
 	if (timeout_env == NULL)
