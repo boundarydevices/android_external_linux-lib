@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2012 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2013 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -56,6 +56,7 @@ typedef struct iram_t {
 #define VPU_IOC_QUERY_BITWORK_MEM  _IO(VPU_IOC_MAGIC, 13)
 #define VPU_IOC_SET_BITWORK_MEM    _IO(VPU_IOC_MAGIC, 14)
 #define VPU_IOC_PHYMEM_CHECK	_IO(VPU_IOC_MAGIC, 15)
+#define VPU_IOC_LOCK_DEV	_IO(VPU_IOC_MAGIC, 16)
 
 typedef void (*vpu_callback) (int status);
 
@@ -72,6 +73,7 @@ int IOGetIramBase(iram_t * iram);
 int IOClkGateSet(int on);
 int IOGetPhyShareMem(vpu_mem_desc * buff);
 int IOSysSWReset(void);
+int IOLockDev(int on);
 
 unsigned long VpuWriteReg(unsigned long addr, unsigned int data);
 unsigned long VpuReadReg(unsigned long addr);
