@@ -728,6 +728,15 @@ int IOSysSWReset(void)
 	return ret;
 }
 
+int IOLockDev(int on)
+{
+	int ret = 0;
+
+	ret = ioctl(vpu_fd, VPU_IOC_LOCK_DEV, &on);
+
+	return ret;
+}
+
 /*!
  * @brief
  * When the system starts up, resetting is needed in advance.
