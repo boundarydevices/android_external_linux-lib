@@ -2849,7 +2849,7 @@ int JpegDecodeHeader(DecInfo *pDecInfo)
 	for (;;) {
 		if (find_start_code(jpg) == 0) {
 			ret = -1;
-			err_msg("err in find start code\n");
+			dprintf(4, "err in find start code\n");
 			goto DONE_DEC_HEADER;
 		}
 
@@ -2926,6 +2926,7 @@ int JpegDecodeHeader(DecInfo *pDecInfo)
 			break;
 		case EOI_Marker:
 			ret = -3;
+			dprintf(4, "met EOI\n");
 			goto DONE_DEC_HEADER;
 		default:
 			switch (code & 0xFFF0) {
@@ -2945,8 +2946,6 @@ int JpegDecodeHeader(DecInfo *pDecInfo)
 				}
 			default:
 				dprintf(4, "code = [%x]\n", code);
-				if (jpg->lineBufferMode)
-					return 0;
 			}
 			break;
 		}
@@ -2969,7 +2968,7 @@ DONE_DEC_HEADER:
 
 	if (!jpg->ecsPtr || ret == -3) {
 		if (pDecInfo->jpgInfo.lineBufferMode)
-			return 0;
+			return -3;
 		else {
 			/* Skip the bitstream to EOI if EOI marker is found */
 			jpg->frameOffset += get_bits_count(&jpg->gbc) / 8 + 2;
