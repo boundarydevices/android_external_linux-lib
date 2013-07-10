@@ -212,7 +212,7 @@ int vpu_WaitForInt(int timeout_in_ms)
 			IOClkGateSet(true);
 			if (VpuReadReg(BIT_BUSY_FLAG)) {
 				if (ret == 0)
-					warn_msg("intr received but VPU is still busy\n");
+					dprintf(4, "intr received but VPU is still busy\n");
 				ret = -1;
 			}
 			else
@@ -3729,7 +3729,7 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 			if (val == 0) {
 				UnlockVpu(vpu_semap);
 				return RETCODE_FAILURE;
-			} else if (val == -1) {
+			} else if ((val == -1) || (val == -3)) {
 				UnlockVpu(vpu_semap);
 				return RETCODE_JPEG_BIT_EMPTY;
 			}
