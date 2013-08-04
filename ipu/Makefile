@@ -28,7 +28,7 @@ all install:
 endif
 
 $(LIBNAME).so.$(SONAMEVERSION): $(OBJS)
-	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^ -lpthread
+	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^
 
 $(LIBNAME).so: $(LIBNAME).so.$(SONAMEVERSION)
 	ln -s $< $@
