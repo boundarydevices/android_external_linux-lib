@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2011 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2004-2013 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  */
 
@@ -29,7 +29,6 @@
 #include <math.h>
 #include <string.h>
 #include <malloc.h>
-#include <pthread.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
