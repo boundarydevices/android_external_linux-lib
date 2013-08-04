@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2012 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2009-2013 Freescale Semiconductor, Inc. All Rights Reserved.
  *
  */
 
@@ -33,7 +33,6 @@ extern "C"{
 #include <malloc.h>
 #include <string.h>
 #include <signal.h>
-#include <pthread.h>
 #include <time.h>
 #include <semaphore.h>
 #include <sys/time.h>
