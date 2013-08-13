@@ -1001,7 +1001,7 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 	}
 
 	if (cpu_is_mx6x()) {
-		if(pEncInfo->openParam.userQpMax) {
+		if (pEncOP->userQpMaxEnable) {
 			data |= (1 << 6);
 			VpuWriteReg(CMD_ENC_SEQ_RC_QP_MIN_MAX, pEncInfo->openParam.userQpMax);
 		}
