@@ -70,7 +70,7 @@ int isVpuInitialized(void)
 static int get_system_rev(void)
 {
 	FILE *fp;
-	char buf[1024];
+	char buf[2048];
 	int nread;
 	char *tmp, *rev;
 	int ret = -1;
@@ -84,7 +84,6 @@ static int get_system_rev(void)
 	nread = fread(buf, 1, sizeof(buf), fp);
 	fclose(fp);
 	if ((nread == 0) || (nread == sizeof(buf))) {
-		fclose(fp);
 		return ret;
 	}
 
