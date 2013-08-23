@@ -27,6 +27,7 @@
 #include <sys/ioctl.h>		/* fopen/fread */
 #include <sys/errno.h>		/* fopen/fread */
 #include <sys/types.h>
+#include <sys/utsname.h>	/* uname */
 
 #include "vpu_debug.h"
 #include "vpu_reg.h"
@@ -45,6 +46,8 @@
 #include <linux/android_pmem.h>
 #endif
 #endif
+
+#define KERN_VER(a, b, c) (((a) << 16) + ((b) << 8) + (c))
 
 static int vpu_fd = -1;
 static unsigned long vpu_reg_base;
@@ -74,29 +77,90 @@ static int get_system_rev(void)
 	int nread;
 	char *tmp, *rev;
 	int ret = -1;
+	struct utsname sys_name;
+	int kv, kv_major, kv_minor, kv_rel;
+	char soc_name[255];
+	int rev_major, rev_minor;
+	int idx, num;
 
-	fp = fopen("/proc/cpuinfo", "r");
-	if (fp == NULL) {
-		perror("/proc/cpuinfo\n");
+	if (uname(&sys_name) < 0) {
+		perror("uname");
 		return ret;
 	}
 
-	nread = fread(buf, 1, sizeof(buf), fp);
-	fclose(fp);
-	if ((nread == 0) || (nread == sizeof(buf))) {
+	if (sscanf(sys_name.release, "%d.%d.%d", &kv_major, &kv_minor, &kv_rel) != 3) {
+		perror("sscanf");
 		return ret;
 	}
 
-	buf[nread] = '\0';
+	kv = ((kv_major << 16) + (kv_minor << 8) + kv_rel);
+	dprintf(4, "kernel:%s, %d.%d.%d\n", sys_name.release, kv_major, kv_minor, kv_rel);
 
-	tmp = strstr(buf, "Revision");
-	if (tmp != NULL) {
-		rev = index(tmp, ':');
-		if (rev != NULL) {
-			rev++;
-			system_rev = strtoul(rev, NULL, 16);
+	if (kv < KERN_VER(3, 10, 0)) {
+		fp = fopen("/proc/cpuinfo", "r");
+		if (fp == NULL) {
+			perror("/proc/cpuinfo");
+			return ret;
+		}
+
+		nread = fread(buf, 1, sizeof(buf), fp);
+		fclose(fp);
+		if ((nread == 0) || (nread == sizeof(buf))) {
+			return ret;
+		}
+
+		buf[nread] = '\0';
+
+		tmp = strstr(buf, "Revision");
+		if (tmp != NULL) {
+			rev = index(tmp, ':');
+			if (rev != NULL) {
+				rev++;
+				system_rev = strtoul(rev, NULL, 16);
+				ret = 0;
+			}
+		}
+	}
+	else {
+		fp = fopen("/sys/devices/soc0/soc_id", "r");
+		if (fp == NULL) {
+			perror("/sys/devices/soc0/soc_id");
+			return ret;
+		}
+
+		if (fscanf(fp, "%s", soc_name) != 1) {
+			perror("fscanf");
+			fclose(fp);
+			return ret;
+		}
+		fclose(fp);
+
+		fp = fopen("/sys/devices/soc0/revision", "r");
+		if (fp == NULL) {
+			perror("/sys/devices/soc0/revision");
+			return ret;
+		}
+
+		if (fscanf(fp, "%d.%d", &rev_major, &rev_minor) != 2) {
+			perror("fscanf");
+			fclose(fp);
+			return ret;
+		}
+		fclose(fp);
+
+		num = sizeof(soc_info)/sizeof(soc_info[0]);
+
+		for (idx = 0; idx < num; idx++) {
+			if (!strcmp(soc_name, soc_info[idx].name))
+				break;
+		}
+
+		if (idx < num) {
+			system_rev = (soc_info[idx].id << 12) | (rev_major << 4) | rev_minor;
 			ret = 0;
 		}
+
+		dprintf(4, "soc: %s, rev: 0x%x\n", soc_name, system_rev);
 	}
 
 	return ret;

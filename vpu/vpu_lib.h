@@ -645,6 +645,27 @@ typedef struct vpu_versioninfo {
 	int lib_release;	/* library release version */
 } vpu_versioninfo;
 
+typedef enum {
+	MX27 = 0,
+	MX51,
+	MX53,
+	MX61,
+	MX63
+} SocIndex;
+
+typedef struct {
+	int id;
+	char *name;
+} SocInfo;
+
+static const SocInfo soc_info[] = {
+	{0x27, "i.MX27"},
+	{0x51, "i.MX51"},
+	{0x53, "i.MX53"},
+	{0x61, "i.MX6DL"},
+	{0x63, "i.MX6Q"}
+};
+
 #define VPU_FW_VERSION(major, minor, release)	 \
 	(((major) << 12) + ((minor) << 8) + (release))
 
@@ -682,13 +703,13 @@ static inline int type## _rev (int rev)         \
         return (type() ? mxc_cpu_is_rev(rev) : 0);      \
 }
 
-#define cpu_is_mx27()		mxc_is_cpu(0x27)
-#define cpu_is_mx51()		mxc_is_cpu(0x51)
-#define cpu_is_mx53()		mxc_is_cpu(0x53)
-#define cpu_is_mx5x()		(mxc_is_cpu(0x51) || mxc_is_cpu(0x53))
-#define cpu_is_mx6q()		mxc_is_cpu(0x63)
-#define cpu_is_mx6dl()		mxc_is_cpu(0x61)
-#define cpu_is_mx6x()		(mxc_is_cpu(0x63) || mxc_is_cpu(0x61))
+#define cpu_is_mx27()		mxc_is_cpu(soc_info[MX27].id)
+#define cpu_is_mx51()		mxc_is_cpu(soc_info[MX51].id)
+#define cpu_is_mx53()		mxc_is_cpu(soc_info[MX53].id)
+#define cpu_is_mx5x()		(cpu_is_mx51() || cpu_is_mx53())
+#define cpu_is_mx6q()		mxc_is_cpu(soc_info[MX63].id)
+#define cpu_is_mx6dl()		mxc_is_cpu(soc_info[MX61].id)
+#define cpu_is_mx6x()		(cpu_is_mx6q() || cpu_is_mx6dl())
 
 MXC_REV(cpu_is_mx27);
 
