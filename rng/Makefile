@@ -1,6 +1,9 @@
+EXCLUDE_LIST:= IMX6Q
+
+ifeq (,$(findstring $(PLATFORM), $(EXCLUDE_LIST)))
 AR = ar -crv
 RM = rm -f
-CC=$(CROSS_COMPILE)gcc
+CC ?=$(CROSS_COMPILE)gcc
 LD=$(CROSS_COMPILE)ld
 
 INC := $(INCLUDE)
@@ -44,3 +47,8 @@ clean:
 fsl_shw_keystore.o: ../sahara2/fsl_shw_keystore.c
 	$(CC) $(CFLAGS) -c ../sahara2/fsl_shw_keystore.c
 
+else
+OBJS =
+all: ${OBJS}
+install: ${OBJS}
+endif
