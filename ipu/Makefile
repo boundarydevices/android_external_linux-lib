@@ -1,5 +1,5 @@
-CC=$(CROSS_COMPILE)gcc
-AR=$(CROSS_COMPILE)ar
+CC ?=$(CROSS_COMPILE)gcc
+AR ?=$(CROSS_COMPILE)ar
 
 ifeq ($(PLATFORM), IMX6Q)
 OBJS = mxc_ipu_hl_lib_dummy.o
