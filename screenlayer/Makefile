@@ -1,5 +1,5 @@
-CC=$(CROSS_COMPILE)gcc
-AR=$(CROSS_COMPILE)ar
+CC ?=$(CROSS_COMPILE)gcc
+AR ?=$(CROSS_COMPILE)ar
 INC = $(INCLUDE) -I../ipu
 
 OBJS = ScreenLayer.o

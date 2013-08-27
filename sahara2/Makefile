@@ -1,6 +1,9 @@
+EXCLUDE_LIST:= IMX6Q
+
+ifeq (,$(findstring $(PLATFORM), $(EXCLUDE_LIST)))
 AR = ar -crv
 RM = rm -f
-CC=$(CROSS_COMPILE)gcc
+CC ?=$(CROSS_COMPILE)gcc
 LD=$(CROSS_COMPILE)ld
 
 INC := $(INCLUDE)
@@ -77,3 +80,8 @@ fsl_shw_keystore.o: fsl_shw_keystore.c
 um_adaptor.o: um_adaptor.c
 
 sf_util.o: sf_util.c
+else
+OBJS =
+all: ${OBJS}
+install: ${OBJS}
+endif
