@@ -173,20 +173,20 @@ enum {
 enum {
 	Marker          = 0xFF,
 	FF_Marker       = 0x00,
-	SOI_Marker      = 0xFFD8,           // Start of image
-	EOI_Marker      = 0xFFD9,           // End of image
-	JFIF_CODE       = 0xFFE0,           // Application
+	SOI_Marker      = 0xFFD8,           /* Start of image */
+	EOI_Marker      = 0xFFD9,           /* End of image */
+	JFIF_CODE       = 0xFFE0,           /* Application */
 	EXIF_CODE       = 0xFFE1,
-	DRI_Marker      = 0xFFDD,           // Define restart interval
-	RST_Marker      = 0xD,              // 0xD0 ~0xD7
-	DQT_Marker      = 0xFFDB,           // Define quantization table(s)
-	DHT_Marker      = 0xFFC4,           // Define Huffman table(s)
-	SOF_Marker      = 0xFFC0,           // Start of frame : Baseline DCT
-	SOS_Marker      = 0xFFDA,           // Start of scan
+	DRI_Marker      = 0xFFDD,           /* Define restart interval */
+	RST_Marker      = 0xD,              /* 0xD0 ~0xD7 */
+	DQT_Marker      = 0xFFDB,           /* Define quantization table(s) */
+	DHT_Marker      = 0xFFC4,           /* Define Huffman table(s) */
+	SOF_Marker      = 0xFFC0,           /* Start of frame : Baseline DCT */
+	SOS_Marker      = 0xFFDA,           /* Start of scan */
 };
 
-// JPEG thumbnail
-enum{ //Exif
+/* JPEG thumbnail */
+enum{ /* Exif */
 	IMAGE_WIDTH		= 0x0100,
 	IMAGE_HEIGHT		= 0x0101,
 	BITS_PER_SAMPLE		= 0x0102,
@@ -206,11 +206,11 @@ typedef struct{
 }TAG;
 
 enum {
-    JFIF    	= 0,
-    JFXX_JPG	= 1,
-    JFXX_PAL  	= 2,
-    JFXX_RAW 	= 3,
-    EXIF_JPG	= 4
+	JFIF    	= 0,
+	JFXX_JPG	= 1,
+	JFXX_PAL  	= 2,
+	JFXX_RAW 	= 3,
+	EXIF_JPG	= 4
 };
 
 typedef struct {
@@ -243,7 +243,7 @@ typedef struct {
 	EXIF_INFO	ExifInfo;
 	int  		ThumbType;
 
-    int  		Version;
+	int  		Version;
 	Uint8 		Pallette[256][3];
 } THUMB_INFO;
 
@@ -306,14 +306,14 @@ typedef struct {
 
 #ifdef MEM_PROTECT
 typedef struct {
-    int enable;
-    int is_secondary;
-    PhysicalAddress start_address;
-    PhysicalAddress end_address;
+	int enable;
+	int is_secondary;
+	PhysicalAddress start_address;
+	PhysicalAddress end_address;
 } WriteMemProtectRegion;
 
 typedef struct {
-    WriteMemProtectRegion region[6];
+	WriteMemProtectRegion region[6];
 } WriteMemProtectCfg;
 #endif
 
@@ -443,7 +443,7 @@ typedef struct {
 	int iHorScaleMode;
 	int iVerScaleMode;
 
-    // thumbnail
+	/* thumbnail */
 
 	THUMB_INFO	ThumbInfo;
 
