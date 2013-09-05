@@ -684,7 +684,7 @@ static const SocInfo soc_info[] = {
  * v4.2.2 [2008.09.03] support encoder on MX51
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 17)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 18)
 
 extern unsigned int system_rev;
 
@@ -724,7 +724,7 @@ RetCode vpu_EncRegisterFrameBuffer(EncHandle handle, FrameBuffer * bufArray,
 				   int num, int frameBufStride, int sourceBufStride,
 				   PhysicalAddress subSampBaseA, PhysicalAddress subSampBaseB,
 				   EncExtBufInfo * pBufInfo);
-RetCode vpu_EncGetBitstreamBuffer(EncHandle handle, PhysicalAddress * prdPrt,
+RetCode vpu_EncGetBitstreamBuffer(EncHandle handle, PhysicalAddress * prdPtr,
 				  PhysicalAddress * pwrPtr, Uint32 * size);
 RetCode vpu_EncUpdateBitstreamBuffer(EncHandle handle, Uint32 size);
 RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param);
