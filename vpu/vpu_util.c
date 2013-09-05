@@ -52,8 +52,8 @@ static int mutex_timeout;
 
 // thumbnail
 typedef enum {
-    JPG_LITTLE_ENDIAN = 0,
-    JPG_BIG_ENDIAN,
+	JPG_LITTLE_ENDIAN = 0,
+	JPG_BIG_ENDIAN,
 } JpgEndianMode;
 
 const char lendian[4] = {0x49, 0x49, 0x2A, 0x00};
@@ -311,10 +311,10 @@ int SetDecWriteProtectRegions(CodecInst *inst)
 
 		regionEnable |= (enable << i);
 		regionEnable |= (isSecondary << (i + 6));
-		VpuWriteReg(GDI_WPROT_RGN0_STA + 8*i, p->start_address         >> 12);	// round down
-		VpuWriteReg(GDI_WPROT_RGN0_END + 8*i, (p->end_address + 0xFFF) >> 12);	// round up
+		VpuWriteReg(GDI_WPROT_RGN0_STA + 8*i, p->start_address         >> 12);	/* round down */
+		VpuWriteReg(GDI_WPROT_RGN0_END + 8*i, (p->end_address + 0xFFF) >> 12);	/* round up */
 	}
-    VpuWriteReg(GDI_WPROT_RGN_EN, regionEnable);
+	VpuWriteReg(GDI_WPROT_RGN_EN, regionEnable);
 	return 1;
 }
 #endif
@@ -344,13 +344,13 @@ void BitIssueCommand(CodecInst *pCodecInst, int cmd)
 		cdcMode = pCodecInst->codecMode;
 		auxMode = pCodecInst->codecModeAux;
 
-        if (cpu_is_mx6x()) {
-            VpuWriteReg(GDI_WPROT_ERR_CLR, 1);
-            VpuWriteReg(GDI_WPROT_RGN_EN, 0);
+		if (cpu_is_mx6x()) {
+			VpuWriteReg(GDI_WPROT_ERR_CLR, 1);
+			VpuWriteReg(GDI_WPROT_RGN_EN, 0);
 #ifdef MEM_PROTECT
-            SetDecWriteProtectRegions(pCodecInst);
+			SetDecWriteProtectRegions(pCodecInst);
 #endif
-        }
+		}
 	}
 
 	VpuWriteReg(BIT_BUSY_FLAG, 0x1);
@@ -2396,25 +2396,25 @@ static Uint32 tGetBits(DecInfo *pDecInfo, int endian, int byteCnt)
 static void thumbRaw(DecInfo *pDecInfo, Uint8 pal[][3])
 {
 	int i;
-    int pixelCnt;
+	int pixelCnt;
 
-    dprintf(4, "checking raw thumbnail\n");
+	dprintf(4, "checking raw thumbnail\n");
 
-    if (pDecInfo->jpgInfo.ThumbInfo.ThumbType == JFXX_PAL) {
-        for (i = 0; i < 256; i++) {
-            pal[i][0] = get_bits(&pDecInfo->jpgInfo.gbc, 8);
-            pal[i][1] = get_bits(&pDecInfo->jpgInfo.gbc, 8);
-            pal[i][2] = get_bits(&pDecInfo->jpgInfo.gbc, 8);
-        }
-    }
+	if (pDecInfo->jpgInfo.ThumbInfo.ThumbType == JFXX_PAL) {
+		for (i = 0; i < 256; i++) {
+			pal[i][0] = get_bits(&pDecInfo->jpgInfo.gbc, 8);
+			pal[i][1] = get_bits(&pDecInfo->jpgInfo.gbc, 8);
+			pal[i][2] = get_bits(&pDecInfo->jpgInfo.gbc, 8);
+		}
+	}
 
-    pixelCnt = pDecInfo->jpgInfo.picWidth
-        * pDecInfo->jpgInfo.picHeight
-        * (pDecInfo->jpgInfo.thumbInfo.MbSize/64);
+	pixelCnt = pDecInfo->jpgInfo.picWidth
+		* pDecInfo->jpgInfo.picHeight
+		* (pDecInfo->jpgInfo.thumbInfo.MbSize/64);
 
-    for (i=0; i<pixelCnt; i++) {
-        get_bits(&pDecInfo->jpgInfo.gbc, 8);
-    }
+	for (i=0; i<pixelCnt; i++) {
+		get_bits(&pDecInfo->jpgInfo.gbc, 8);
+	}
 }
 
 int ParseJFIF(DecInfo *pDecInfo, int jfif, int length)
@@ -2424,7 +2424,7 @@ int ParseJFIF(DecInfo *pDecInfo, int jfif, int length)
 	THUMB_INFO *pThumbInfo;
 	pThumbInfo = &(pDecInfo->jpgInfo.ThumbInfo);
 
-    // if EXIF thumbnail contains JFIF APP0
+	/* if EXIF thumbnail contains JFIF APP0 */
 	if (pThumbInfo->ThumbType == EXIF_JPG)
 	{
 		if(jfif)
@@ -2471,7 +2471,7 @@ int ParseJFIF(DecInfo *pDecInfo, int jfif, int length)
 		length -= 9;
 
 	}
-	else							//JFXX
+	else /* JFXX */
 	{
 		exCode = get_bits(&pDecInfo->jpgInfo.gbc, 8);
 		length -= 1;
@@ -2706,50 +2706,50 @@ int CheckThumbNail(DecInfo *pDecInfo)
 	}
 	else
 	{
-        for (i = 0; i < 4; i++)
-        {
-            id = (Uint8) get_bits(&pDecInfo->jpgInfo.gbc, 8);
+		for (i = 0; i < 4; i++)
+		{
+			id = (Uint8) get_bits(&pDecInfo->jpgInfo.gbc, 8);
 
-            if (id != jfif[i])
-                jfifFlag = false;
-            if (id != jfxx[i])
-                jfxxFlag = false;
-            if (id != exif[i])
-                exifFlag = false;
+			if (id != jfif[i])
+				jfifFlag = false;
+			if (id != jfxx[i])
+				jfxxFlag = false;
+			if (id != exif[i])
+				exifFlag = false;
 
-        }
-        get_bits(&pDecInfo->jpgInfo.gbc, 8);
-        length -= 5;
+		}
+		get_bits(&pDecInfo->jpgInfo.gbc, 8);
+		length -= 5;
 
-        if (exifFlag)
-        {
-            get_bits(&pDecInfo->jpgInfo.gbc, 8);
-            length -= 1;
-        }
-        if (jfifFlag | jfxxFlag)	//JFIF
-        {
-            length = ParseJFIF(pDecInfo, jfifFlag, length);
+		if (exifFlag)
+		{
+			get_bits(&pDecInfo->jpgInfo.gbc, 8);
+			length -= 1;
+		}
+		if (jfifFlag | jfxxFlag) /* JFIF */
+		{
+			length = ParseJFIF(pDecInfo, jfifFlag, length);
 
-            if (pThumbInfo->ThumbType != EXIF_JPG)
-            {
-                if(pThumbInfo->ThumbType != JFXX_JPG)
-                {
-                    //RAW data
-                    thumbRaw(pDecInfo, pThumbInfo->Pallette);
+			if (pThumbInfo->ThumbType != EXIF_JPG)
+			{
+				if(pThumbInfo->ThumbType != JFXX_JPG)
+				{
+					/* RAW data */
+					thumbRaw(pDecInfo, pThumbInfo->Pallette);
 
-                }
-            }
+				}
+			}
 
-        }
-        else if (exifFlag)			//EXIF
-        {
-            length = ParseEXIF(pDecInfo, length);
-            if (length == -1)
-                return 0;
-        }
-    }
+		}
+		else if (exifFlag) /* EXIF */
+		{
+			length = ParseEXIF(pDecInfo, length);
+			if (length == -1)
+				return 0;
+		}
+	}
 
-    return 1;
+	return 1;
 
 }
 
@@ -2873,15 +2873,15 @@ int JpegDecodeHeader(DecInfo *pDecInfo)
 		case EXIF_CODE:
 			if (pDecInfo->openParam.mjpg_thumbNailDecEnable == 1) {
 				CheckThumbNail(pDecInfo);
-                dprintf(4, "ThumbType = %d\n", pDecInfo->jpgInfo.ThumbInfo.ThumbType);
+				dprintf(4, "ThumbType = %d\n", pDecInfo->jpgInfo.ThumbInfo.ThumbType);
 			}
 			else {
-                if (!decode_app_header(jpg)) {
-                    dprintf(4, "err in JFIF_CODE or EXIF_CODE\n");
-                    ret = -1;
-                    goto DONE_DEC_HEADER;
-                }
-            }
+				if (!decode_app_header(jpg)) {
+					dprintf(4, "err in JFIF_CODE or EXIF_CODE\n");
+					ret = -1;
+					goto DONE_DEC_HEADER;
+				}
+			}
 			break;
 		case DRI_Marker:
 			if (!decode_dri_header(jpg)) {
