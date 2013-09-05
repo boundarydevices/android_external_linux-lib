@@ -31,10 +31,12 @@
 #define IMAGE_ENDIAN			0
 #define STREAM_ENDIAN			0
 
-#define MAX_PIC_WIDTH           1920
-#define MAX_PIC_HEIGHT          1088
-// Alloc buffers of MAX resolution in seqinit,
-// in the case of dynamic resolution change
+#define MAX_PIC_WIDTH			1920
+#define MAX_PIC_HEIGHT			1088
+/*
+ * Alloc buffers of MAX resolution in seqinit,
+ * in the case of dynamic resolution change
+ */
 #define ALLOC_MAX_RESOLUTION
 
 /* If a frame is started, pendingInst is set to the proper instance. */
@@ -1294,7 +1296,7 @@ RetCode vpu_EncRegisterFrameBuffer(EncHandle handle, FrameBuffer * bufArray,
 }
 
 RetCode vpu_EncGetBitstreamBuffer(EncHandle handle,
-				  PhysicalAddress * prdPrt,
+				  PhysicalAddress * prdPtr,
 				  PhysicalAddress * pwrPtr, Uint32 * size)
 {
 	CodecInst *pCodecInst;
@@ -1311,7 +1313,7 @@ RetCode vpu_EncGetBitstreamBuffer(EncHandle handle,
 	if (ret != RETCODE_SUCCESS)
 		return ret;
 
-	if (prdPrt == 0 || pwrPtr == 0 || size == 0) {
+	if (prdPtr == 0 || pwrPtr == 0 || size == 0) {
 		return RETCODE_INVALID_PARAM;
 	}
 
@@ -1319,9 +1321,9 @@ RetCode vpu_EncGetBitstreamBuffer(EncHandle handle,
 	pEncInfo = &pCodecInst->CodecInfo.encInfo;
 
 	if (is_mx6x_mjpg_codec(pCodecInst->codecMode)) {
-		*prdPrt = pEncInfo->streamRdPtr;
+		*prdPtr = pEncInfo->streamRdPtr;
 		*pwrPtr = VpuReadReg(MJPEG_BBC_WR_PTR_REG);
-		*size = *pwrPtr - *prdPrt;
+		*size = *pwrPtr - *prdPtr;
 		return RETCODE_SUCCESS;
 	}
 
@@ -1350,7 +1352,7 @@ RetCode vpu_EncGetBitstreamBuffer(EncHandle handle,
 			return RETCODE_INVALID_PARAM;
 	}
 
-	*prdPrt = rdPtr;
+	*prdPtr = rdPtr;
 	*pwrPtr = wrPtr;
 	*size = room;
 
@@ -1424,7 +1426,7 @@ RetCode vpu_EncUpdateBitstreamBuffer(EncHandle handle, Uint32 size)
 	LockVpuReg(vpu_semap);
 	instIndex = (int)VpuReadReg(BIT_RUN_INDEX);
 	if (pCodecInst->instIndex == instIndex)
-		VpuWriteReg(BIT_RD_PTR, wrPtr);
+		VpuWriteReg(BIT_RD_PTR, rdPtr);
 	pCodecInst->ctxRegs[CTX_BIT_RD_PTR] = rdPtr;
 	UnlockVpuReg(vpu_semap);
 
@@ -2611,26 +2613,27 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 
 #ifdef MEM_PROTECT
 	if (cpu_is_mx6x())
-    {
-        WriteMemProtectCfg *pCfg = NULL;
-        pCfg = &pCodecInst->CodecInfo.decInfo.writeMemProtectCfg;
-        // Temp buf
-        pCfg->region[0].enable = 1;
-        pCfg->region[0].is_secondary = 0;
-        pCfg->region[0].start_address = bit_work_addr.phy_addr+CODE_BUF_SIZE;
-        pCfg->region[0].end_address = bit_work_addr.phy_addr+CODE_BUF_SIZE+TEMP_BUF_SIZE;
-        info_msg("Protection Region 0: Temp buf, start 0x%x, end 0x%x\n",
-                pCfg->region[0].start_address,
-                pCfg->region[0].end_address);
-        // Context buf
-        pCfg->region[1].enable = 1;
-        pCfg->region[1].is_secondary = 0;
-        pCfg->region[1].start_address = pCodecInst->contextBufMem.phy_addr;
-        pCfg->region[1].end_address = pCodecInst->contextBufMem.phy_addr + pCodecInst->contextBufMem.size;
-        info_msg("Protection Region 1: Context buf, start 0x%x, end 0x%x\n",
-                pCfg->region[1].start_address,
-                pCfg->region[1].end_address);
-    }
+	{
+		WriteMemProtectCfg *pCfg = NULL;
+		pCfg = &pCodecInst->CodecInfo.decInfo.writeMemProtectCfg;
+		/* Temp buf */
+		pCfg->region[0].enable = 1;
+		pCfg->region[0].is_secondary = 0;
+		pCfg->region[0].start_address = bit_work_addr.phy_addr + CODE_BUF_SIZE;
+		pCfg->region[0].end_address = bit_work_addr.phy_addr + CODE_BUF_SIZE + TEMP_BUF_SIZE;
+		info_msg("Protection Region 0: Temp buf, start 0x%x, end 0x%x\n",
+				pCfg->region[0].start_address,
+				pCfg->region[0].end_address);
+		/* Context buf */
+		pCfg->region[1].enable = 1;
+		pCfg->region[1].is_secondary = 0;
+		pCfg->region[1].start_address = pCodecInst->contextBufMem.phy_addr;
+		pCfg->region[1].end_address = pCodecInst->contextBufMem.phy_addr
+			+ pCodecInst->contextBufMem.size;
+		info_msg("Protection Region 1: Context buf, start 0x%x, end 0x%x\n",
+				pCfg->region[1].start_address,
+				pCfg->region[1].end_address);
+	}
 #endif
 
 	LockVpuReg(vpu_semap);
@@ -2832,17 +2835,17 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		pDecInfo->initialInfoObtained = 1;
 		pDecInfo->jpgInfo.frameOffset = 0;
 
-        if (pDecInfo->openParam.mjpg_thumbNailDecEnable == 1) {
-            if((pDecInfo->jpgInfo.ThumbInfo.ThumbType != JFXX_JPG)
-                    && (pDecInfo->jpgInfo.ThumbInfo.ThumbType != EXIF_JPG)) {
-                info->mjpg_thumbNailEnable = 0;
-                UnlockVpu(vpu_semap);
-                return RETCODE_FAILURE;
-            }
-            else {
-                info->mjpg_thumbNailEnable = 1;
-            }
-        }
+		if (pDecInfo->openParam.mjpg_thumbNailDecEnable == 1) {
+			if((pDecInfo->jpgInfo.ThumbInfo.ThumbType != JFXX_JPG)
+				&& (pDecInfo->jpgInfo.ThumbInfo.ThumbType != EXIF_JPG)) {
+				info->mjpg_thumbNailEnable = 0;
+				UnlockVpu(vpu_semap);
+				return RETCODE_FAILURE;
+			}
+			else {
+				info->mjpg_thumbNailEnable = 1;
+			}
+		}
 
 		UnlockVpu(vpu_semap);
 		return RETCODE_SUCCESS;
@@ -2857,10 +2860,9 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 
 	if (DecBitstreamBufEmpty(handle)) {
 		err_msg("rd 0x%lx, rd reg 0x%lx, wr 0x%lx, wr reg 0x%lx, idx %d, idx reg %ld\n",
-			pCodecInst->ctxRegs[CTX_BIT_RD_PTR], VpuReadReg(BIT_RD_PTR),
-			pCodecInst->ctxRegs[CTX_BIT_WR_PTR], VpuReadReg(BIT_WR_PTR),
-			pCodecInst->instIndex, VpuReadReg(BIT_RUN_INDEX)
-		       );
+				pCodecInst->ctxRegs[CTX_BIT_RD_PTR], VpuReadReg(BIT_RD_PTR),
+				pCodecInst->ctxRegs[CTX_BIT_WR_PTR], VpuReadReg(BIT_WR_PTR),
+				pCodecInst->instIndex, VpuReadReg(BIT_RUN_INDEX));
 
 		UnlockVpu(vpu_semap);
 		return RETCODE_WRONG_CALL_SEQUENCE;
@@ -2953,18 +2955,22 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	}
 
+	/* Backup rd pointer to ctx */
+	pCodecInst->ctxRegs[CTX_BIT_RD_PTR] = VpuReadReg(BIT_RD_PTR);
+	pCodecInst->ctxRegs[CTX_BIT_STREAM_PARAM] = VpuReadReg(BIT_BIT_STREAM_PARAM);
+
 	val = VpuReadReg(RET_DEC_SEQ_SUCCESS);
 
 	if (cpu_is_mx6x()) {
 #ifdef MEM_PROTECT
 		if (val & (1 << 31)) {
-            err_msg("access violation in vpu_DecGetInitialInfo\n");
-            err_msg("PC: 0x%x, ERR_CLR: 0x%x, ERR_RSN: 0x%x, ERR_ADR: 0x%x\n",
-                    VpuReadReg(BIT_CUR_PC),
-                    VpuReadReg(GDI_WPROT_ERR_CLR),
-                    VpuReadReg(GDI_WPROT_ERR_RSN),
-                    VpuReadReg(GDI_WPROT_ERR_ADR));
-            vpu_mx6_swreset(0);
+			err_msg("access violation in vpu_DecGetInitialInfo\n");
+			err_msg("PC: 0x%x, ERR_CLR: 0x%x, ERR_RSN: 0x%x, ERR_ADR: 0x%x\n",
+					VpuReadReg(BIT_CUR_PC),
+					VpuReadReg(GDI_WPROT_ERR_CLR),
+					VpuReadReg(GDI_WPROT_ERR_RSN),
+					VpuReadReg(GDI_WPROT_ERR_ADR));
+			vpu_mx6_swreset(0);
 			UnlockVpu(vpu_semap);
 			return RETCODE_MEMORY_ACCESS_VIOLATION;
 		}
@@ -3065,7 +3071,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		}
 
 #ifdef ALLOC_MAX_RESOLUTION
-        val = MAX_PIC_WIDTH * MAX_PIC_HEIGHT;
+		val = MAX_PIC_WIDTH * MAX_PIC_HEIGHT;
 #else
 		val = info->picWidth * info->picHeight;
 #endif
@@ -3080,9 +3086,9 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 
 	if (!cpu_is_mx6x() && pCodecInst->codecMode == MJPG_DEC) {
 		info->mjpg_thumbNailEnable =
-		    (VpuReadReg(RET_DEC_SEQ_JPG_THUMB_IND) & 0x01);
+			(VpuReadReg(RET_DEC_SEQ_JPG_THUMB_IND) & 0x01);
 		info->mjpg_sourceFormat =
-		    (VpuReadReg(RET_DEC_SEQ_JPG_PARA) & 0x07);
+			(VpuReadReg(RET_DEC_SEQ_JPG_PARA) & 0x07);
 		if (pDecInfo->openParam.mjpg_thumbNailDecEnable == 1)
 			if (info->mjpg_thumbNailEnable == 0) {
 				UnlockVpu(vpu_semap);
@@ -3114,10 +3120,6 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 		info->streamInfoObtained = 1;
 	else
 		info->streamInfoObtained = 0;
-
-	/* Backup rd pointer to ctx */
-	pCodecInst->ctxRegs[CTX_BIT_RD_PTR] = VpuReadReg(BIT_RD_PTR);
-	pCodecInst->ctxRegs[CTX_BIT_STREAM_PARAM] = VpuReadReg(BIT_BIT_STREAM_PARAM);
 
 	UnlockVpu(vpu_semap);
 
@@ -3219,62 +3221,66 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 
 #ifdef MEM_PROTECT
 	if (cpu_is_mx6x())
-    {
-        WriteMemProtectCfg *pCfg = NULL;
-        Uint32 minFB = 0xFFFFFFFF, maxFB = 0;
-        Uint32 minMV = 0xFFFFFFFF, maxMV = 0;
-        int align;
-        int picheight;
-        pCfg = &pCodecInst->CodecInfo.decInfo.writeMemProtectCfg;
-        // Frame buf
-        if ((pDecInfo->openParam.bitstreamFormat == STD_MPEG2 ||
-             pDecInfo->openParam.bitstreamFormat == STD_VC1 ||
-             pDecInfo->openParam.bitstreamFormat == STD_AVC ||
-             pDecInfo->openParam.bitstreamFormat == STD_VP8) && pDecInfo->initialInfo.interlace == 1) {
-            align = 32;
-        }
-        else {
-            align = 16;
-        }
+	{
+		WriteMemProtectCfg *pCfg = NULL;
+		Uint32 minFB = 0xFFFFFFFF, maxFB = 0;
+		Uint32 minMV = 0xFFFFFFFF, maxMV = 0;
+		int align;
+		int picheight;
+		pCfg = &pCodecInst->CodecInfo.decInfo.writeMemProtectCfg;
+		/* Frame buf */
+		if ((pDecInfo->openParam.bitstreamFormat == STD_MPEG2
+			|| pDecInfo->openParam.bitstreamFormat == STD_VC1
+			|| pDecInfo->openParam.bitstreamFormat == STD_AVC
+			|| pDecInfo->openParam.bitstreamFormat == STD_VP8)
+			&& pDecInfo->initialInfo.interlace == 1) {
+			align = 32;
+		}
+		else {
+			align = 16;
+		}
 
-        picheight = ((pDecInfo->initialInfo.picHeight + align - 1) & ~(align - 1));
-        for (i = 0; i < num; i++) {
-            info_msg("[%d] bufY 0x%x, bufCb 0x%x, bufCr 0x%x, bufMvCol 0x%x\n", i, bufArray[i].bufY, bufArray[i].bufCb, bufArray[i].bufCr, bufArray[i].bufMvCol);
-            // Caution: Y/Cb/Cr is assumed to be contiguous
-            // not for Tiled format
-            if (minFB > bufArray[i].bufY) minFB = bufArray[i].bufY;
-            if (maxFB < bufArray[i].bufY) maxFB = bufArray[i].bufY;
-            if (minMV > bufArray[i].bufMvCol) minMV = bufArray[i].bufMvCol;
-            if (maxMV < bufArray[i].bufMvCol) maxMV = bufArray[i].bufMvCol;
-        }
-        pCfg->region[2].enable = 1;
-        pCfg->region[2].is_secondary = 0;
-        pCfg->region[2].start_address = minFB;
-        pCfg->region[2].end_address = maxFB+stride*picheight*3/2;
-        info_msg("Protection Region 2: Frame buf, start 0x%x, end 0x%x\n",
-                pCfg->region[2].start_address,
-                pCfg->region[2].end_address);
-        pCfg->region[3].enable = 1;
-        pCfg->region[3].is_secondary = 0;
-        pCfg->region[3].start_address = minMV;
-        pCfg->region[3].end_address = maxMV+stride*picheight/4;
-        info_msg("Protection Region 3: MvCol buf, start 0x%x, end 0x%x\n",
-                pCfg->region[3].start_address,
-                pCfg->region[3].end_address);
+		picheight = ((pDecInfo->initialInfo.picHeight + align - 1) & ~(align - 1));
+		for (i = 0; i < num; i++) {
+			info_msg("[%d] bufY 0x%x, bufCb 0x%x, bufCr 0x%x, bufMvCol 0x%x\n",
+				i, bufArray[i].bufY, bufArray[i].bufCb,
+				bufArray[i].bufCr, bufArray[i].bufMvCol);
+			/* Caution: Y/Cb/Cr is assumed to be contiguous */
+			/* not for Tiled format */
+			if (minFB > bufArray[i].bufY) minFB = bufArray[i].bufY;
+			if (maxFB < bufArray[i].bufY) maxFB = bufArray[i].bufY;
+			if (minMV > bufArray[i].bufMvCol) minMV = bufArray[i].bufMvCol;
+			if (maxMV < bufArray[i].bufMvCol) maxMV = bufArray[i].bufMvCol;
+		}
+		pCfg->region[2].enable = 1;
+		pCfg->region[2].is_secondary = 0;
+		pCfg->region[2].start_address = minFB;
+		pCfg->region[2].end_address = maxFB+stride*picheight*3/2;
+		info_msg("Protection Region 2: Frame buf, start 0x%x, end 0x%x\n",
+				pCfg->region[2].start_address,
+				pCfg->region[2].end_address);
+		pCfg->region[3].enable = 1;
+		pCfg->region[3].is_secondary = 0;
+		pCfg->region[3].start_address = minMV;
+		pCfg->region[3].end_address = maxMV+stride*picheight/4;
+		info_msg("Protection Region 3: MvCol buf, start 0x%x, end 0x%x\n",
+				pCfg->region[3].start_address,
+				pCfg->region[3].end_address);
 
-        // AVC Slice save buf
-        if (pCodecInst->codecMode == AVC_DEC) {
-            pCfg->region[4].enable = 1;
-            pCfg->region[4].is_secondary = 0;
-            pCfg->region[4].start_address = pBufInfo->avcSliceBufInfo.bufferBase;
-            pCfg->region[4].end_address = pBufInfo->avcSliceBufInfo.bufferBase + pBufInfo->avcSliceBufInfo.bufferSize;
-            info_msg("Protection Region 4: AVC Slice save buf, start 0x%x, end 0x%x\n",
-                    pCfg->region[4].start_address,
-                    pCfg->region[4].end_address);
-        }
+		/* AVC Slice save buf */
+		if (pCodecInst->codecMode == AVC_DEC) {
+			pCfg->region[4].enable = 1;
+			pCfg->region[4].is_secondary = 0;
+			pCfg->region[4].start_address = pBufInfo->avcSliceBufInfo.bufferBase;
+			pCfg->region[4].end_address = pBufInfo->avcSliceBufInfo.bufferBase
+				+ pBufInfo->avcSliceBufInfo.bufferSize;
+			info_msg("Protection Region 4: AVC Slice save buf, start 0x%x, end 0x%x\n",
+					pCfg->region[4].start_address,
+					pCfg->region[4].end_address);
+		}
 
-        // AVC Ps save buf (moved to temp buf by FW)
-    }
+		/* AVC Ps save buf (moved to temp buf by FW) */
+	}
 #endif
 
 	if (cpu_is_mx27()) {
@@ -3380,19 +3386,20 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 			     1024));
 	}
 
-    if (cpu_is_mx6x()) {
-        // To align with mx5x
-        if (pBufInfo->maxDecFrmInfo.maxMbNum == 0) {
-            pBufInfo->maxDecFrmInfo.maxMbX = MAX_PIC_WIDTH/16;
-            pBufInfo->maxDecFrmInfo.maxMbY = MAX_PIC_HEIGHT/16;
-            pBufInfo->maxDecFrmInfo.maxMbNum = pBufInfo->maxDecFrmInfo.maxMbX * pBufInfo->maxDecFrmInfo.maxMbY;
-        }
-    }
+	if (cpu_is_mx6x()) {
+		/* To align with mx5x */
+		if (pBufInfo->maxDecFrmInfo.maxMbNum == 0) {
+			pBufInfo->maxDecFrmInfo.maxMbX = MAX_PIC_WIDTH/16;
+			pBufInfo->maxDecFrmInfo.maxMbY = MAX_PIC_HEIGHT/16;
+			pBufInfo->maxDecFrmInfo.maxMbNum = pBufInfo->maxDecFrmInfo.maxMbX
+				* pBufInfo->maxDecFrmInfo.maxMbY;
+		}
+	}
 
-    VpuWriteReg(CMD_SET_FRAME_MAX_DEC_SIZE,
-            (pBufInfo->maxDecFrmInfo.maxMbNum << 16 |
-             pBufInfo->maxDecFrmInfo.maxMbX << 8 |
-             pBufInfo->maxDecFrmInfo.maxMbY));
+	VpuWriteReg(CMD_SET_FRAME_MAX_DEC_SIZE,
+			(pBufInfo->maxDecFrmInfo.maxMbNum << 16 |
+			 pBufInfo->maxDecFrmInfo.maxMbX << 8 |
+			 pBufInfo->maxDecFrmInfo.maxMbY));
 
 	BitIssueCommand(pCodecInst, SET_FRAME_BUF);
 
@@ -3400,12 +3407,12 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 
 #ifdef MEM_PROTECT
 	if (cpu_is_mx6x() && VpuReadReg(RET_SET_FRAME_SUCCESS) & (1 << 31)) {
-        err_msg("access violation in vpu_DecRegisterFrameBuffer\n");
-        err_msg("PC: 0x%x, ERR_CLR: 0x%x, ERR_RSN: 0x%x, ERR_ADR: 0x%x\n",
-                VpuReadReg(BIT_CUR_PC),
-                VpuReadReg(GDI_WPROT_ERR_CLR),
-                VpuReadReg(GDI_WPROT_ERR_RSN),
-                VpuReadReg(GDI_WPROT_ERR_ADR));
+		err_msg("access violation in vpu_DecRegisterFrameBuffer\n");
+		err_msg("PC: 0x%x, ERR_CLR: 0x%x, ERR_RSN: 0x%x, ERR_ADR: 0x%x\n",
+				VpuReadReg(BIT_CUR_PC),
+				VpuReadReg(GDI_WPROT_ERR_CLR),
+				VpuReadReg(GDI_WPROT_ERR_RSN),
+				VpuReadReg(GDI_WPROT_ERR_ADR));
 		vpu_mx6_swreset(0);
 		UnlockVpu(vpu_semap);
 		return RETCODE_MEMORY_ACCESS_VIOLATION;
@@ -4169,13 +4176,13 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 #ifdef MEM_PROTECT
 		if (val & (1 << 31)) {
 			*ppendingInst = 0;
-            err_msg("access violation in vpu_DecGetOutputInfo\n");
-            err_msg("PC: 0x%x, ERR_CLR: 0x%x, ERR_RSN: 0x%x, ERR_ADR: 0x%x\n",
-                    VpuReadReg(BIT_CUR_PC),
-                    VpuReadReg(GDI_WPROT_ERR_CLR),
-                    VpuReadReg(GDI_WPROT_ERR_RSN),
-                    VpuReadReg(GDI_WPROT_ERR_ADR));
-            vpu_mx6_swreset(0);
+			err_msg("access violation in vpu_DecGetOutputInfo\n");
+			err_msg("PC: 0x%x, ERR_CLR: 0x%x, ERR_RSN: 0x%x, ERR_ADR: 0x%x\n",
+					VpuReadReg(BIT_CUR_PC),
+					VpuReadReg(GDI_WPROT_ERR_CLR),
+					VpuReadReg(GDI_WPROT_ERR_RSN),
+					VpuReadReg(GDI_WPROT_ERR_ADR));
+			vpu_mx6_swreset(0);
 			UnlockVpu(vpu_semap);
 			return RETCODE_MEMORY_ACCESS_VIOLATION;
 		}
@@ -4201,18 +4208,20 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	info->decPicWidth = (val >> 16) & 0xFFFF;
 
 	if (cpu_is_mx6x()) {
-        if(pCodecInst->codecMode == VC1_DEC || pCodecInst->codecMode == AVS_DEC || pCodecInst->codecMode == MP4_DEC) {
-            info->frameStartPos = VpuReadReg(BIT_BYTE_POS_FRAME_START);
-            info->frameEndPos = VpuReadReg(BIT_BYTE_POS_FRAME_END);
-        } else {
-            info->frameStartPos = pCodecInst->ctxRegs[CTX_BIT_RD_PTR];
-            info->frameEndPos = VpuReadReg(BIT_RD_PTR);
-        }
-        if (info->frameEndPos < info->frameStartPos) {
+		if(pCodecInst->codecMode == VC1_DEC
+			|| pCodecInst->codecMode == AVS_DEC
+			|| pCodecInst->codecMode == MP4_DEC) {
+			info->frameStartPos = VpuReadReg(BIT_BYTE_POS_FRAME_START);
+			info->frameEndPos = VpuReadReg(BIT_BYTE_POS_FRAME_END);
+		} else {
+			info->frameStartPos = pCodecInst->ctxRegs[CTX_BIT_RD_PTR];
+			info->frameEndPos = VpuReadReg(BIT_RD_PTR);
+		}
+		if (info->frameEndPos < info->frameStartPos) {
 			info->consumedByte =
-				    pDecInfo->streamBufEndAddr - info->frameStartPos;
+				pDecInfo->streamBufEndAddr - info->frameStartPos;
 			info->consumedByte +=
-				    info->frameEndPos - pDecInfo->streamBufStartAddr;
+				info->frameEndPos - pDecInfo->streamBufStartAddr;
 		} else
 			info->consumedByte = info->frameEndPos - info->frameStartPos;
 	}
@@ -4455,8 +4464,10 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 	if (pCodecInst->codecMode == VC1_DEC && info->indexFrameDisplay != -3) {
 		if (pDecInfo->vc1BframeDisplayValid == 0) {
 			/* Check the pictype of displayed frame */
-			if ((pDecInfo->decoded_pictype[info->indexFrameDisplay] == 3 && pDecInfo->initialInfo.profile != 2) ||
-			    ((pDecInfo->decoded_pictype[info->indexFrameDisplay] >> 3) == 3 && pDecInfo->initialInfo.profile == 2)) {
+			if ((pDecInfo->decoded_pictype[info->indexFrameDisplay] == 3
+				&& pDecInfo->initialInfo.profile != 2)
+				|| ((pDecInfo->decoded_pictype[info->indexFrameDisplay] >> 3) == 3
+				&& pDecInfo->initialInfo.profile == 2)) {
 				/* clear buffer for not displayed B frame */
 				val = ~(1 << info->indexFrameDisplay);
 				val &= VpuReadReg(BIT_FRM_DIS_FLG);
@@ -4587,9 +4598,9 @@ RetCode vpu_DecBitBufferFlush(DecHandle handle)
 		pCodecInst->ctxRegs[CTX_BIT_RD_PTR] = pDecInfo->streamBufStartAddr;
 
 	if (!is_mx6x_mjpg_codec(pCodecInst->codecMode)) {
-        BitIssueCommand(pCodecInst, DEC_BUF_FLUSH);
-        while (VpuReadReg(BIT_BUSY_FLAG)) ;
-    }
+		BitIssueCommand(pCodecInst, DEC_BUF_FLUSH);
+		while (VpuReadReg(BIT_BUSY_FLAG)) ;
+	}
 
 	pDecInfo->streamWrPtr = pDecInfo->streamBufStartAddr;
 
