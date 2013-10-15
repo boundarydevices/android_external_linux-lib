@@ -352,6 +352,7 @@ typedef struct {
 	Uint8 *pCInfoTab[5];
 	Uint8 *pQMatTab[4];
 
+	int inProcess;
 } JpgEncInfo;
 
 typedef struct {
@@ -466,6 +467,7 @@ typedef struct {
 	int rollBack;
 	int wrappedHeader;
 	int header_status;
+	int inProcess;
 } JpgDecInfo;
 
 typedef struct {
