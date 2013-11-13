@@ -990,7 +990,10 @@ RetCode vpu_EncGetInitialInfo(EncHandle handle, EncInitialInfo * info)
 	}
 
 	VpuWriteReg(CMD_ENC_SEQ_RC_BUF_SIZE, pEncOP->vbvBufferSize);
-	VpuWriteReg(CMD_ENC_SEQ_INTRA_REFRESH, pEncOP->intraRefresh);
+	data = pEncOP->intraRefresh;
+	if (pEncOP->intraRefresh > 0)
+		data |= pEncInfo->intraRefreshMode << 16;
+	VpuWriteReg(CMD_ENC_SEQ_INTRA_REFRESH, data);
 
 	VpuWriteReg(CMD_ENC_SEQ_BB_START, pEncInfo->streamBufStartAddr);
 	VpuWriteReg(CMD_ENC_SEQ_BB_SIZE, pEncInfo->streamBufSize / 1024);
@@ -1878,6 +1881,7 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 					VpuReadReg(GDI_WPROT_ERR_RSN),
 					VpuReadReg(GDI_WPROT_ERR_ADR));
 			*ppendingInst = 0;
+			pEncInfo->jpgInfo.inProcess = 0;
 			UnlockVpu(vpu_semap);
 			return RETCODE_MEMORY_ACCESS_VIOLATION;
 		}
@@ -1885,6 +1889,7 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 		val = VpuReadReg(MJPEG_PIC_STATUS_REG);
 		if ((val & 0x4) >> 2) {
 			*ppendingInst = 0;
+			pEncInfo->jpgInfo.inProcess = 0;
 			UnlockVpu(vpu_semap);
 			return RETCODE_WRONG_CALL_SEQUENCE;
 		}
@@ -2516,6 +2521,12 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 	case ENC_DISABLE_SUB_FRAME_SYNC:
 		{
 			pEncInfo->subFrameSyncConfig.subFrameSyncOn = 0;
+			break;
+		}
+
+	case ENC_SET_INTRA_REFRESH_MODE:
+		{
+			pEncInfo->intraRefreshMode = *(int *)param;
 			break;
 		}
 
@@ -3277,8 +3288,9 @@ RetCode vpu_DecRegisterFrameBuffer(DecHandle handle,
 		return RETCODE_INSUFFICIENT_FRAME_BUFFERS;
 	}
 
-	if (stride < pDecInfo->initialInfo.picWidth || stride % 8 != 0) {
-		return RETCODE_INVALID_STRIDE;
+	if (!is_mx6x_mjpg_codec(pCodecInst->codecMode)) {
+		if (stride < pDecInfo->initialInfo.picWidth || stride % 8 != 0)
+			return RETCODE_INVALID_STRIDE;
 	}
 
 	pDecInfo->frameBufPool = bufArray;
@@ -4199,6 +4211,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 			info->indexFrameDisplay = -1;
 			info->decodingSuccess = 1;
 			*ppendingInst = 0;
+			pDecInfo->jpgInfo.inProcess = 0;
 			UnlockVpu(vpu_semap);
 			return RETCODE_SUCCESS;
 		}
@@ -4208,6 +4221,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 			info->indexFrameDisplay = -1;
 			pDecInfo->jpgInfo.rollBack = 0;
 			*ppendingInst = 0;
+			pDecInfo->jpgInfo.inProcess = 0;
 			UnlockVpu(vpu_semap);
 			return RETCODE_SUCCESS;
 		}
@@ -4864,8 +4878,9 @@ RetCode vpu_DecGiveCommand(DecHandle handle, CodecCommand cmd, void *param)
 					return RETCODE_INVALID_STRIDE;
 				}
 			} else {
-				if (pDecInfo->initialInfo.picWidth > stride) {
-					return RETCODE_INVALID_STRIDE;
+				if (!is_mx6x_mjpg_codec(pCodecInst->codecMode)) {
+					if (pDecInfo->initialInfo.picWidth > stride)
+						return RETCODE_INVALID_STRIDE;
 				}
 			}
 
