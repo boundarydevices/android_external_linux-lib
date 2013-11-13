@@ -903,13 +903,19 @@ RetCode SetIntraRefreshNum(EncHandle handle, Uint32 * pIntraRefreshNum)
 	CodecInst *pCodecInst;
 	Uint32 intraRefreshNum = *pIntraRefreshNum;
 	int data = 0;
+	EncInfo *pEncInfo;
 
 	IOClkGateSet(true);
 
 	pCodecInst = handle;
+	pEncInfo = &pCodecInst->CodecInfo.encInfo;
+
 	data = 1 << 4;
 	VpuWriteReg(CMD_ENC_SEQ_PARA_CHANGE_ENABLE, data);
-	VpuWriteReg(CMD_ENC_SEQ_PARA_INTRA_MB_NUM, intraRefreshNum);
+	data = intraRefreshNum;
+	if (intraRefreshNum > 0)
+		data |= pEncInfo->intraRefreshMode << 16;
+	VpuWriteReg(CMD_ENC_SEQ_PARA_INTRA_MB_NUM, data);
 	BitIssueCommand(pCodecInst, RC_CHANGE_PARAMETER);
 	while (VpuReadReg(BIT_BUSY_FLAG)) ;
 	IOClkGateSet(false);

@@ -395,6 +395,8 @@ typedef struct {
 	vpu_mem_desc picParaBaseMem;
 	vpu_mem_desc searchRamMem; /* Used if IRAM is disabled */
 
+	int intraRefreshMode;
+
 } EncInfo;
 
 typedef struct {
