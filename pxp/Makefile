@@ -8,6 +8,7 @@ OBJ = pxp_lib.o
 
 LIBNAME = libpxp
 SONAMEVERSION=0
+LFLAGS += -lpthread
 
 ifeq ($(PLATFORM), $(findstring $(PLATFORM), $(INCLUDE_LIST)))
 
@@ -28,7 +29,7 @@ endif
 	$(CC) -D$(PLATFORM) $(INCLUDE) -Wall -O2 -fPIC -c $^ -o $@
 
 $(LIBNAME).so.$(SONAMEVERSION): $(OBJ)
-	$(CC) -shared -nostartfiles -Wl,-soname,$@ $^ -o $@
+	$(CC) -shared -nostartfiles -Wl,-soname,$@ $(LFLAGS) $^ -o $@
 
 $(LIBNAME).so: $(LIBNAME).so.$(SONAMEVERSION)
 	ln -s $< $@
