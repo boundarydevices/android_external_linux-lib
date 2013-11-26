@@ -1,7 +1,7 @@
 /*
  * pxp_lib - a user space library for PxP
  *
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2013 Freescale Semiconductor, Inc.
  */
 
 /*
@@ -21,6 +21,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include "pxp_lib.h"
 
@@ -36,23 +37,28 @@ static int debug_level = DBG_ERR;
 
 static int fd = -1;
 static int active_open_nr;
+static pthread_spinlock_t lock;
 
 int pxp_init(void)
 {
+	pthread_spin_lock(&lock);
 	if (fd > 0) {
 		active_open_nr++;
+		pthread_spin_unlock(&lock);
 		return 0;
 	}
 
 	if (fd < 0) {
 		fd = open(PXP_DEVICE_NAME, O_RDWR, 0);
 		if (fd < 0) {
+			pthread_spin_unlock(&lock);
 			dbg(DBG_ERR, "open file error.\n");
 			return -1;
 		}
 	}
 
 	active_open_nr++;
+	pthread_spin_unlock(&lock);
 	return 0;
 }
 
@@ -112,8 +118,11 @@ int pxp_wait_for_completion(pxp_chan_handle_t *pxp_chan, int times)
 
 void pxp_uninit(void)
 {
-	if (fd == -1)
+	pthread_spin_lock(&lock);
+	if (fd == -1) {
+		pthread_spin_unlock(&lock);
 		return;
+	}
 
 	if (active_open_nr > 1) {
 		active_open_nr--;
@@ -124,6 +133,7 @@ void pxp_uninit(void)
 			fd = -1;
 		}
 	}
+	pthread_spin_unlock(&lock);
 }
 
 /*
