@@ -2005,7 +2005,7 @@ RetCode vpu_EncGetOutputInfo(EncHandle handle, EncOutputInfo * info)
 		if (info->mvInfo.addr && info->mvInfo.size) {
 			size = (info->mvInfo.size + 7) / 8 * 8;
 			dst_addr = (Uint8 *)info->mvInfo.addr;
-			src_addr = (Uint8 *)(virt_addr + ADDR_MB_BASE_OFFSET);
+			src_addr = (Uint8 *)(virt_addr + ADDR_MV_BASE_OFFSET);
 			CopyBufferData(dst_addr, src_addr, size);
 		}
 	}
@@ -4693,7 +4693,8 @@ RetCode vpu_DecBitBufferFlush(DecHandle handle)
 	if (!is_mx6x_mjpg_codec(pCodecInst->codecMode)) {
 		BitIssueCommand(pCodecInst, DEC_BUF_FLUSH);
 		while (VpuReadReg(BIT_BUSY_FLAG)) ;
-	}
+	} else
+		pDecInfo->jpgInfo.frameOffset = 0;
 
 	pDecInfo->streamWrPtr = pDecInfo->streamBufStartAddr;
 
