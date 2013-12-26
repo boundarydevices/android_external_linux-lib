@@ -1,7 +1,7 @@
 /*
  * pxp_lib - a user space library for PxP
  *
- * Copyright (C) 2013 Freescale Semiconductor, Inc.
+ * Copyright (C) 2014 Freescale Semiconductor, Inc.
  */
 
 /*
@@ -143,7 +143,6 @@ int pxp_get_phymem(struct pxp_mem_desc *mem)
 {
 	if (ioctl(fd, PXP_IOC_GET_PHYMEM, mem) < 0) {
 		mem->phys_addr = 0;
-		mem->cpu_addr = 0;
 		dbg(DBG_ERR, "PXP_IOC_GET_PHYMEM err\n");
 		return -1;
 	}
@@ -156,7 +155,6 @@ int pxp_put_phymem(struct pxp_mem_desc *mem)
 {
 	if (ioctl(fd, PXP_IOC_PUT_PHYMEM, mem) < 0) {
 		mem->phys_addr = 0;
-		mem->cpu_addr = 0;
 		dbg(DBG_ERR, "PXP_IOC_PUT_PHYMEM err\n");
 		return -1;
 	}
