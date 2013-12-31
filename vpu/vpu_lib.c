@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2013 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2014 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -2750,6 +2750,9 @@ RetCode vpu_DecOpen(DecHandle * pHandle, DecOpenParam * pop)
 			val |= (pDecInfo->tiledLinearEnable << 11 | 0x03 << 9);
 		val |= 1 << 12;
 
+		/* workaround for BWB blocking issue (ENGR00293425), FW v3.1.1 */
+		val &= ~(1 << 12);
+
 		// workaround for BWB blocking issue (ENGR00231107)
 		if (pDecInfo->openParam.bitstreamFormat == STD_VC1)
 			val &= ~(1 << 12);
@@ -4284,6 +4287,8 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 			info->decodingSuccess |= 0x10;
 			VpuWriteReg(BIT_RUN_INDEX, pCodecInst->instIndex);
 		}
+
+		info->decodingSuccess |= val & (1 << 20);
 	}
 
 	if (pCodecInst->codecMode == AVC_DEC) {
