@@ -1,7 +1,7 @@
 /*
  * pxp_lib - a user space library for PxP
  *
- * Copyright (C) 2014 Freescale Semiconductor, Inc.
+ * Copyright (C) 2013-2014 Freescale Semiconductor, Inc.
  */
 
 /*
@@ -71,21 +71,21 @@ int pxp_request_channel(pxp_chan_handle_t *pxp_chan)
 	if (ret < 0)
 		return -1;
 
-	pxp_chan->chan_id = cid;
+	pxp_chan->handle = cid;
 	return 0;
 }
 
 void pxp_release_channel(pxp_chan_handle_t *pxp_chan)
 {
-	ioctl(fd, PXP_IOC_PUT_CHAN, &(pxp_chan->chan_id));
+	ioctl(fd, PXP_IOC_PUT_CHAN, &(pxp_chan->handle));
 }
 
 int pxp_config_channel(pxp_chan_handle_t *pxp_chan, struct pxp_config_data *pxp_conf)
 {
 	int ret = 0;
 
-	pxp_conf->chan_id = pxp_chan->chan_id;
-	dbg(DBG_INFO, "chan_id %d\n\n", pxp_conf->chan_id);
+	pxp_conf->handle = pxp_chan->handle;
+	dbg(DBG_INFO, "channel handle %d\n\n", pxp_conf->handle);
 
 	ret = ioctl(fd, PXP_IOC_CONFIG_CHAN, pxp_conf);
 
@@ -96,7 +96,7 @@ int pxp_start_channel(pxp_chan_handle_t *pxp_chan)
 {
 	int ret = 0;
 
-	ret = ioctl(fd, PXP_IOC_START_CHAN, &(pxp_chan->chan_id));
+	ret = ioctl(fd, PXP_IOC_START_CHAN, &(pxp_chan->handle));
 
 	return ret;
 }
