@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2013 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2014 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -1175,6 +1175,9 @@ semaphore_t *vpu_semaphore_open(void)
 {
 	semaphore_t *semap;
 	pthread_mutexattr_t psharedm;
+#ifdef FIFO_MUTEX
+	pthread_condattr_t psharedc;
+#endif
 	CodecInst *pCodecInst;
 	char *timeout_env;
 	int i;
@@ -1192,7 +1195,20 @@ semaphore_t *vpu_semaphore_open(void)
 		dprintf(4, "sema not init\n");
 		pthread_mutexattr_init(&psharedm);
 		pthread_mutexattr_setpshared(&psharedm, PTHREAD_PROCESS_SHARED);
+#ifdef FIFO_MUTEX
+		pthread_mutex_init(&semap->api_lock.mutex, &psharedm);
+		pthread_condattr_init(&psharedc);
+		pthread_condattr_setpshared(&psharedc, PTHREAD_PROCESS_SHARED);
+		pthread_cond_init(&semap->api_lock.cond, &psharedc);
+		semap->api_lock.ts_late = 0;
+		semap->api_lock.locked = 0;
+		semap->api_lock.buf_head = 0;
+		semap->api_lock.buf_tail = -1;
+		for (i=0; i<MAX_ITEM_NUM; i++)
+			semap->api_lock.ts_buf[i].inUse = 0;
+#else
 		pthread_mutex_init(&semap->api_lock, &psharedm);
+#endif
 		pthread_mutex_init(&semap->reg_lock, &psharedm);
 		for (i = 0; i < MAX_NUM_INSTANCE; ++i) {
 			pCodecInst = (CodecInst *) (&semap->codecInstPool[i]);
@@ -1214,10 +1230,135 @@ semaphore_t *vpu_semaphore_open(void)
 	return semap;
 }
 
+#ifdef FIFO_MUTEX
+static inline int get_free_idx(ts_item_t *ts_buf)
+{
+	int i;
+
+	for (i=0; i<MAX_ITEM_NUM; i++) {
+		if (!ts_buf[i].inUse)
+			break;
+	}
+	if (i == MAX_ITEM_NUM) {
+		err_msg("no free idx\n");
+		i = -1;
+	}
+	return i;
+}
+
+static inline int get_ts_early(fifo_mutex_t *fifo_mutex)
+{
+	int ts = -1;
+
+	if (fifo_mutex->buf_tail != -1)
+		ts = fifo_mutex->ts_buf[fifo_mutex->buf_head].ts;
+	return ts;
+}
+
+static inline int is_ts_ok(int ts, fifo_mutex_t *fifo_mutex)
+{
+	int ts_early;
+	int ret = 0;
+
+	ts_early = get_ts_early(fifo_mutex);
+	if (ts_early == -1)
+		ret = 1;
+	else if (ts_early <= ts) {
+		if (ts - ts_early < MAX_REORDER)
+			ret = 1;
+	} else {
+		if (ts + MAX_TS - ts_early < MAX_REORDER)
+			ret = 1;
+	}
+	return ret;
+}
+
+static inline int enqueue_ts(int ts, fifo_mutex_t *fifo_mutex)
+{
+	int idx;
+
+	if (fifo_mutex->buf_tail == -1) {
+		idx = fifo_mutex->buf_head;
+	} else {
+		idx = get_free_idx(fifo_mutex->ts_buf);
+		if (idx < 0)
+			return -1;
+		fifo_mutex->ts_buf[fifo_mutex->buf_tail].next = idx;
+	}
+	fifo_mutex->ts_buf[idx].ts = ts;
+	fifo_mutex->ts_buf[idx].inUse = 1;
+	fifo_mutex->ts_buf[idx].prev = fifo_mutex->buf_tail;
+	fifo_mutex->ts_buf[idx].next = -1;
+	fifo_mutex->buf_tail = idx;
+	return idx;
+}
+
+static inline void dequeue_ts(int index, fifo_mutex_t *fifo_mutex)
+{
+	int prev;
+	int next;
+
+	fifo_mutex->ts_buf[index].inUse = 0;
+	prev = fifo_mutex->ts_buf[index].prev;
+	next = fifo_mutex->ts_buf[index].next;
+
+	if ((prev == -1) && (next != -1))
+		fifo_mutex->buf_head = next;
+
+	if (index == fifo_mutex->buf_tail)
+		fifo_mutex->buf_tail = prev;
+
+	if (prev != -1)
+		fifo_mutex->ts_buf[prev].next = next;
+
+	if (next != -1)
+		fifo_mutex->ts_buf[next].prev = prev;
+}
+
+static int fifo_mutex_timedlock(fifo_mutex_t *fifo_mutex, struct timespec *ts)
+{
+	int ret = 0;
+	int ts_curr;
+	int idx = -1;
+
+	pthread_mutex_lock(&fifo_mutex->mutex);
+	ts_curr = fifo_mutex->ts_late++;
+	if (fifo_mutex->ts_late == MAX_TS)
+		fifo_mutex->ts_late = 0;
+
+	while (fifo_mutex->locked || !is_ts_ok(ts_curr, fifo_mutex)) {
+		if (idx == -1) {
+			idx = enqueue_ts(ts_curr, fifo_mutex);
+			if (idx < 0)
+				return -1;
+		}
+		pthread_cond_wait(&fifo_mutex->cond, &fifo_mutex->mutex);
+	}
+
+	if (idx != -1)
+		dequeue_ts(idx, fifo_mutex);
+	fifo_mutex->locked = 1;
+	pthread_mutex_unlock(&fifo_mutex->mutex);
+	return ret;
+}
+
+static void fifo_mutex_unlock(fifo_mutex_t *fifo_mutex)
+{
+	pthread_mutex_lock(&fifo_mutex->mutex);
+	fifo_mutex->locked = 0;
+	pthread_cond_broadcast(&fifo_mutex->cond);
+	pthread_mutex_unlock(&fifo_mutex->mutex);
+}
+#endif
+
 void semaphore_post(semaphore_t *semap, int mutex)
 {
 	if (mutex == API_MUTEX)
+#ifdef FIFO_MUTEX
+		fifo_mutex_unlock(&semap->api_lock);
+#else
 		pthread_mutex_unlock(&semap->api_lock);
+#endif
 	else if (mutex == REG_MUTEX)
 		pthread_mutex_unlock(&semap->reg_lock);
 }
@@ -1246,7 +1387,11 @@ unsigned char semaphore_wait(semaphore_t *semap, int mutex)
 	ts.tv_sec = time(NULL) + mutex_timeout;
 	ts.tv_nsec = 0;
 	if (mutex == API_MUTEX)
+#ifdef FIFO_MUTEX
+		ret = fifo_mutex_timedlock(&semap->api_lock, &ts);
+#else
 		ret = pthread_mutex_timedlock(&semap->api_lock, &ts);
+#endif
 	else if (mutex == REG_MUTEX)
 		ret = pthread_mutex_timedlock(&semap->reg_lock, &ts);
 	else
