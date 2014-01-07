@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2013 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2014 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -545,9 +545,40 @@ typedef struct CodecInst {
 	} CodecParam;
 } CodecInst;
 
+#ifdef BUILD_FOR_ANDROID
+#undef FIFO_MUTEX
+#endif
+
+#ifdef FIFO_MUTEX
+#define MAX_TS 128
+#define MAX_REORDER 10
+#define MAX_ITEM_NUM MAX_NUM_INSTANCE
+
+typedef struct ts_item {
+	int ts;
+	int inUse;
+	int next;
+	int prev;
+} ts_item_t;
+
+typedef struct fifo_mutex {
+	pthread_mutex_t mutex;
+	pthread_cond_t cond;
+	int locked;
+	int ts_late;
+	int buf_head;
+	int buf_tail;
+	ts_item_t ts_buf[MAX_ITEM_NUM];
+} fifo_mutex_t;
+#endif
+
 typedef struct {
 	int is_initialized;
+#ifdef FIFO_MUTEX
+	fifo_mutex_t api_lock;
+#else
 	pthread_mutex_t api_lock;
+#endif
 	pthread_mutex_t reg_lock;
 
 	/* VPU data for sharing */
