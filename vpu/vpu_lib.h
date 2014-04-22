@@ -141,7 +141,8 @@ typedef enum {
 	ENC_DISABLE_SUB_FRAME_SYNC,
 
 	DEC_SET_FRAME_DELAY,
-	ENC_SET_INTRA_REFRESH_MODE
+	ENC_SET_INTRA_REFRESH_MODE,
+	ENC_ENABLE_SOF_STUFF
 } CodecCommand;
 
 typedef struct {
@@ -683,7 +684,7 @@ static const SocInfo soc_info[] = {
  * v4.2.2 [2008.09.03] support encoder on MX51
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 23)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 24)
 
 extern unsigned int system_rev;
 
