@@ -1714,12 +1714,14 @@ int JpgEncEncodeHeader(EncHandle handle, EncParamSet *para)
 		PUT_BYTE(p, pEncInfo->jpgInfo.pCInfoTab[i][3]);
 	}
 
-	pad = 0;
-	if (tot % 8) {
-		pad = tot % 8;
-		pad = 8 - pad;
-		for (i = 0; i < pad; i++) {
-			PUT_BYTE(p, 0x00);
+	if(pEncInfo->jpgInfo.enableSofStuffing) {
+		pad = 0;
+		if (tot % 8) {
+			pad = tot % 8;
+			pad = 8 - pad;
+			for (i = 0; i < pad; i++) {
+				PUT_BYTE(p, 0x00);
+			}
 		}
 	}
 
