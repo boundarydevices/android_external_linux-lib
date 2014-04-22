@@ -345,6 +345,8 @@ typedef struct {
 	int compNum;
 	int compInfo[3];
 
+	int enableSofStuffing;
+
 	Uint32 huffCode[4][256];
 	Uint32 huffSize[4][256];
 	Uint8 *pHuffVal[4];

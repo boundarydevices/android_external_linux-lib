@@ -673,6 +673,7 @@ RetCode vpu_EncOpen(EncHandle * pHandle, EncOpenParam * pop)
 
 		pEncInfo->jpgInfo.frameIdx = 0;
 		pEncInfo->jpgInfo.seqInited = 0;
+		pEncInfo->jpgInfo.enableSofStuffing = 1;
 		pEncInfo->jpgInfo.format = pEncInfo->openParam.EncStdParam.mjpgParam.mjpg_sourceFormat;
 		pEncInfo->jpgInfo.picWidth= pEncInfo->openParam.picWidth;
 		pEncInfo->jpgInfo.picHeight = pEncInfo->openParam.picHeight;
@@ -2527,6 +2528,12 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 	case ENC_SET_INTRA_REFRESH_MODE:
 		{
 			pEncInfo->intraRefreshMode = *(int *)param;
+			break;
+		}
+
+	case ENC_ENABLE_SOF_STUFF:
+		{
+			pEncInfo->jpgInfo.enableSofStuffing = *(int *)param;
 			break;
 		}
 
