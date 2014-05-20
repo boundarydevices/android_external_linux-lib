@@ -14,6 +14,8 @@
 #include <pthread.h>
 #include <errno.h>
 
+#include <sys/time.h>
+
 #include "vpu_reg.h"
 #include "vpu_lib.h"
 #include "vpu_io.h"
@@ -35,6 +37,12 @@ typedef enum {
 	INT_JPU_PARIAL_OVERFLOW = 3
 }InterruptJpu;
 
+typedef enum {
+	START_TRY_LOCK = 0,
+	START_GET_LOCK,
+	PIC_DONE,
+	OUT_UNLOCK
+} Event;
 
 #if defined(IMX6Q)
 #define BIT_WORK_SIZE			80 * 1024
@@ -668,6 +676,12 @@ int JpuGbuGetUsedBitCount(vpu_getbit_context_t *ctx);
 int JpuGbuGetLeftBitCount(vpu_getbit_context_t *ctx);
 unsigned int JpuGbuGetBit(vpu_getbit_context_t *ctx, int bit_num);
 unsigned int JpuGbuShowBit(vpu_getbit_context_t *ctx, int bit_num);
+
+#ifdef LOG_TIME
+int log_time(int inst, Event evt);
+#else
+#define log_time(inst, evt)
+#endif
 
 #define swab32(x) \
 	((Uint32)( \

@@ -52,18 +52,16 @@ extern semaphore_t *vpu_semap;
 
 extern void vpu_setting_iram();
 
-static volatile int bInit=0;
+static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
 static __inline void EnterInit()
 {
-	while(bInit==1){
-		usleep(1000);
-	}
-	bInit=1;
+	pthread_mutex_lock(&lock);
 }
 
 static __inline void LeaveInit()
 {
-	bInit=0;
+	pthread_mutex_unlock(&lock);
 }
 
 static __inline int is_mx6x_mjpg_codec(int codecMode)
@@ -188,6 +186,7 @@ int vpu_WaitForInt(int timeout_in_ms)
 							pDecInfo->jpgInfo.consumeByte = 0;
 						}
 						IOClkGateSet(false);
+						log_time(pCodecInst->instIndex, PIC_DONE);
 						return 0;
 					}
 					VpuWriteReg(MJPEG_PIC_STATUS_REG, 1 << INT_JPU_BIT_BUF_EMPTY);
@@ -237,6 +236,12 @@ int vpu_WaitForInt(int timeout_in_ms)
 			IOClkGateSet(false);
 		}
 	}
+
+	if (ret == 0) {
+		pCodecInst = *ppendingInst;
+		log_time(pCodecInst->instIndex, PIC_DONE);
+	}
+
 	return ret;
 }
 
@@ -3810,9 +3815,11 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 		}
 	}
 
+	log_time(pCodecInst->instIndex, START_TRY_LOCK);
 	if (!LockVpu(vpu_semap))
 		return RETCODE_FAILURE_TIMEOUT;
 
+	log_time(pCodecInst->instIndex, START_GET_LOCK);
 	/* Set GDI related registers per tiled map info for mx6 */
 	if (cpu_is_mx6x())
 		SetGDIRegs(&pDecInfo->sTiledInfo);
@@ -4220,6 +4227,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 			*ppendingInst = 0;
 			pDecInfo->jpgInfo.inProcess = 0;
 			UnlockVpu(vpu_semap);
+			log_time(pCodecInst->instIndex, OUT_UNLOCK);
 			return RETCODE_SUCCESS;
 		}
 
@@ -4230,6 +4238,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 			*ppendingInst = 0;
 			pDecInfo->jpgInfo.inProcess = 0;
 			UnlockVpu(vpu_semap);
+			log_time(pCodecInst->instIndex, OUT_UNLOCK);
 			return RETCODE_SUCCESS;
 		}
 
@@ -4263,6 +4272,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		*ppendingInst = 0;
 		pDecInfo->jpgInfo.inProcess = 0;
 		UnlockVpu(vpu_semap);
+		log_time(pCodecInst->instIndex, OUT_UNLOCK);
 		return RETCODE_SUCCESS;
 	}
 
@@ -4669,6 +4679,7 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 
 	*ppendingInst = 0;
 	UnlockVpu(vpu_semap);
+	log_time(pCodecInst->instIndex, OUT_UNLOCK);
 
 	return RETCODE_SUCCESS;
 }
