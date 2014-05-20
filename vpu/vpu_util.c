@@ -1195,6 +1195,7 @@ semaphore_t *vpu_semaphore_open(void)
 		dprintf(4, "sema not init\n");
 		pthread_mutexattr_init(&psharedm);
 		pthread_mutexattr_setpshared(&psharedm, PTHREAD_PROCESS_SHARED);
+		pthread_mutexattr_setrobust(&psharedm, PTHREAD_MUTEX_ROBUST);
 #ifdef FIFO_MUTEX
 		pthread_mutex_init(&semap->api_lock.mutex, &psharedm);
 		pthread_condattr_init(&psharedc);
@@ -1390,14 +1391,20 @@ unsigned char semaphore_wait(semaphore_t *semap, int mutex)
 #ifdef FIFO_MUTEX
 		ret = fifo_mutex_timedlock(&semap->api_lock, &ts);
 #else
+	{
 		ret = pthread_mutex_timedlock(&semap->api_lock, &ts);
+		if (ret == EOWNERDEAD) {
+			pthread_mutex_consistent(&semap->api_lock);
+			ret = 0;
+		}
+	}
 #endif
 	else if (mutex == REG_MUTEX)
 		ret = pthread_mutex_timedlock(&semap->reg_lock, &ts);
 	else
 		warn_msg("Not supported mutex\n");
 	if (ret) {
-		warn_msg("VPU mutex couldn't be locked before timeout expired or get lock failure\n");
+		warn_msg("VPU mutex couldn't be locked before timeout expired or get lock failure %d\n", ret);
 		return false;
 	}
 	return true;
@@ -3244,4 +3251,20 @@ proc_wrap:
 
 	return 1;
 }
+
+#ifdef LOG_TIME
+int log_time(int inst, Event evt)
+{
+	struct timeval tv;
+	long long sec, usec;
+	long long time;
+
+	gettimeofday(&tv, NULL);
+	sec = tv.tv_sec;
+	usec = tv.tv_usec;
+	time = (sec * 1000) + usec/1000;
+	info_msg("[%d][%d]%lld\n", inst, evt, time);
+	return 0;
+}
+#endif
 
