@@ -1195,7 +1195,9 @@ semaphore_t *vpu_semaphore_open(void)
 		dprintf(4, "sema not init\n");
 		pthread_mutexattr_init(&psharedm);
 		pthread_mutexattr_setpshared(&psharedm, PTHREAD_PROCESS_SHARED);
+#ifndef BUILD_FOR_ANDROID
 		pthread_mutexattr_setrobust(&psharedm, PTHREAD_MUTEX_ROBUST);
+#endif
 #ifdef FIFO_MUTEX
 		pthread_mutex_init(&semap->api_lock.mutex, &psharedm);
 		pthread_condattr_init(&psharedc);
@@ -1393,10 +1395,12 @@ unsigned char semaphore_wait(semaphore_t *semap, int mutex)
 #else
 	{
 		ret = pthread_mutex_timedlock(&semap->api_lock, &ts);
+#ifndef BUILD_FOR_ANDROID
 		if (ret == EOWNERDEAD) {
 			pthread_mutex_consistent(&semap->api_lock);
 			ret = 0;
 		}
+#endif
 	}
 #endif
 	else if (mutex == REG_MUTEX)
