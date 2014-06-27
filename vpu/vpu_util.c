@@ -16,6 +16,7 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <pthread.h>
+#include <sys/stat.h>
 
 #include "vpu_util.h"
 #include "vpu_io.h"
@@ -48,7 +49,15 @@ typedef struct {
 
 extern unsigned long *virt_paraBuf;
 extern semaphore_t *vpu_semap;
+extern shared_mem_t *vpu_shared_mem;
 static int mutex_timeout;
+static int fd_share;
+
+#ifdef BUILD_FOR_ANDROID
+#define FN_SHARE "/mnt/shm/vpu"
+#else
+#define FN_SHARE "/dev/shm/vpu"
+#endif
 
 // thumbnail
 typedef enum {
@@ -189,7 +198,7 @@ RetCode GetCodecInstance(CodecInst ** ppInst)
 	CodecInst *pCodecInst;
 
 	for (i = 0; i < MAX_NUM_INSTANCE; ++i) {
-		pCodecInst = (CodecInst *) (&vpu_semap->codecInstPool[i]);
+		pCodecInst = (CodecInst *) (&vpu_shared_mem->codecInstPool[i]);
 		if (!pCodecInst->inUse)
 			break;
 	}
@@ -213,7 +222,7 @@ RetCode CheckInstanceValidity(CodecInst * pci)
 	int i;
 
 	for (i = 0; i < MAX_NUM_INSTANCE; ++i) {
-		pCodecInst = (CodecInst *) (&vpu_semap->codecInstPool[i]);
+		pCodecInst = (CodecInst *) (&vpu_shared_mem->codecInstPool[i]);
 		if (pCodecInst == pci)
 			return RETCODE_SUCCESS;
 	}
@@ -1171,9 +1180,83 @@ void SetMaverickCache(MaverickCacheConfig *pCacheConf, int mapType, int chromInt
 	}
 }
 
-semaphore_t *vpu_semaphore_open(void)
+static void *get_shared_buf(int size, int create) {
+	int ret;
+	void *buf;
+
+	if (create) {
+		fd_share = open(FN_SHARE, O_RDWR|O_CREAT, S_IRUSR|S_IWUSR);
+		if(-1 == (ret = fd_share)) {
+			perror("open failed");
+			return NULL;
+		}
+
+		ret = close(fd_share);
+		if(-1 == ret) {
+			perror("close failed");
+			return NULL;
+		}
+
+		ret = unlink(FN_SHARE);
+		if(-1 == ret) {
+			perror("unlink failed");
+			return NULL;
+		}
+
+		fd_share = open(FN_SHARE, O_RDWR|O_CREAT, S_IRUSR|S_IWUSR);
+		if(-1 == (ret = fd_share)) {
+			perror("open failed");
+			return NULL;
+		}
+
+		ret = ftruncate(fd_share, size);
+		if(-1 == ret) {
+			perror("ftruncate failed");
+			return NULL;
+		}
+
+		buf = (void *)mmap(NULL, size, PROT_READ|PROT_WRITE,
+				MAP_SHARED, fd_share, SEEK_SET);
+		if(NULL == buf)
+			perror("mmap failed");
+
+		return buf;
+	} else {
+		fd_share = open(FN_SHARE, O_RDWR, S_IRUSR|S_IWUSR);
+		if(-1 == (ret = fd_share)) {
+			perror("open failed");
+			return NULL;
+		}
+
+		buf = (void *)mmap(NULL, size, PROT_READ|PROT_WRITE,
+				MAP_SHARED, fd_share, SEEK_SET);
+		if(NULL == buf)
+			perror("mmap failed");
+		return buf;
+	}
+}
+
+static void release_shared_buf(void *buf, int size, int destroy) {
+	int ret;
+
+	ret = munmap(buf, size);
+	if(-1 == ret)
+		perror("munmap failed");
+
+	ret = close(fd_share);
+	if(-1 == ret)
+		perror("close failed");
+
+	if (destroy) {
+		ret = unlink(FN_SHARE);
+		if(-1 == ret)
+			perror("unlink failed");
+	}
+}
+
+shared_mem_t *vpu_semaphore_open(void)
 {
-	semaphore_t *semap;
+	shared_mem_t *shared_mem;
 	pthread_mutexattr_t psharedm;
 #ifdef FIFO_MUTEX
 	pthread_condattr_t psharedc;
@@ -1183,15 +1266,22 @@ semaphore_t *vpu_semaphore_open(void)
 	int i;
 
 	/* Use vmalloced share memory for all platforms */
-	semap = (semaphore_t *)IOGetVShareMem(sizeof(semaphore_t));
-	if (!semap) {
+	shared_mem = (shared_mem_t *)IOGetVShareMem(sizeof(shared_mem_t));
+	if (!shared_mem) {
 		err_msg("Unable to Get VShare memory\n");
 		return NULL;
 	}
 
 	IOLockDev(1);
 
-	if (!semap->is_initialized) {
+	vpu_semap = (semaphore_t *)get_shared_buf(sizeof(semaphore_t), !shared_mem->is_initialized);
+	if (vpu_semap == NULL) {
+		munmap((void *)shared_mem, sizeof(shared_mem_t));
+		IOLockDev(0);
+		return NULL;
+	}
+
+	if (!shared_mem->is_initialized) {
 		dprintf(4, "sema not init\n");
 		pthread_mutexattr_init(&psharedm);
 		pthread_mutexattr_setpshared(&psharedm, PTHREAD_PROCESS_SHARED);
@@ -1199,29 +1289,30 @@ semaphore_t *vpu_semaphore_open(void)
 		pthread_mutexattr_setrobust(&psharedm, PTHREAD_MUTEX_ROBUST);
 #endif
 #ifdef FIFO_MUTEX
-		pthread_mutex_init(&semap->api_lock.mutex, &psharedm);
+		pthread_mutex_init(&vpu_semap->api_lock.mutex, &psharedm);
 		pthread_condattr_init(&psharedc);
 		pthread_condattr_setpshared(&psharedc, PTHREAD_PROCESS_SHARED);
-		pthread_cond_init(&semap->api_lock.cond, &psharedc);
-		semap->api_lock.ts_late = 0;
-		semap->api_lock.locked = 0;
-		semap->api_lock.buf_head = 0;
-		semap->api_lock.buf_tail = -1;
+		pthread_cond_init(&vpu_semap->api_lock.cond, &psharedc);
+		vpu_semap->api_lock.ts_late = 0;
+		vpu_semap->api_lock.locked = 0;
+		vpu_semap->api_lock.buf_head = 0;
+		vpu_semap->api_lock.buf_tail = -1;
 		for (i=0; i<MAX_ITEM_NUM; i++)
-			semap->api_lock.ts_buf[i].inUse = 0;
+			vpu_semap->api_lock.ts_buf[i].inUse = 0;
 #else
-		pthread_mutex_init(&semap->api_lock, &psharedm);
+		pthread_mutex_init(&vpu_semap->api_lock, &psharedm);
 #endif
-		pthread_mutex_init(&semap->reg_lock, &psharedm);
+		pthread_mutex_init(&vpu_semap->reg_lock, &psharedm);
 		for (i = 0; i < MAX_NUM_INSTANCE; ++i) {
-			pCodecInst = (CodecInst *) (&semap->codecInstPool[i]);
+			pCodecInst = (CodecInst *) (&shared_mem->codecInstPool[i]);
 			pCodecInst->instIndex = i;
 			pCodecInst->inUse = 0;
 		}
-		semap->is_initialized = 1;
+		shared_mem->is_initialized = 1;
 		dprintf(4, "sema inited\n");
 	}
 
+	shared_mem->numInst++;
 	IOLockDev(0);
 
 	timeout_env = getenv("VPU_MUTEX_TIMEOUT");
@@ -1230,7 +1321,7 @@ semaphore_t *vpu_semaphore_open(void)
 	else
 		mutex_timeout = atoi(timeout_env);
 
-	return semap;
+	return shared_mem;
 }
 
 #ifdef FIFO_MUTEX
@@ -1415,10 +1506,22 @@ unsigned char semaphore_wait(semaphore_t *semap, int mutex)
 #endif
 }
 
-void vpu_semaphore_close(semaphore_t * semap)
+void vpu_semaphore_close(shared_mem_t * shared_mem)
 {
-	if (munmap((void *)semap, sizeof(semaphore_t)) != 0)
+	IOLockDev(1);
+
+	shared_mem->numInst--;
+
+	release_shared_buf(vpu_semap, sizeof(semaphore_t), shared_mem->numInst == 0);
+
+	if (shared_mem->numInst == 0)
+		shared_mem->is_initialized = 0;
+
+	if (munmap((void *)shared_mem, sizeof(shared_mem_t)) != 0)
 		err_msg("munmap share mem failed\n");
+
+	IOLockDev(0);
+
 	return;
 }
 
@@ -2100,6 +2203,29 @@ int find_start_code(JpgDecInfo *jpg)
 	}
 
 	return word;
+}
+
+int find_start_soi_code_one_shot(JpgDecInfo *jpg)
+{
+	int size;
+	unsigned char *buf;
+	unsigned char *ptr;
+	unsigned short word = 0;
+
+	size = get_bits_left(&jpg->gbc)/8;
+	buf = jpg->gbc.buffer + jpg->gbc.index;
+	ptr = buf;
+
+	while (ptr < buf + size) {
+		word = (word << 8) | *ptr++;
+		if (word == SOI_Marker) {
+			jpg->gbc.index += (int)(ptr - 2 - buf);
+			return 0;
+		}
+	}
+
+	jpg->gbc.index += (int)(ptr - 1 - buf);
+	return -1;
 }
 
 int find_start_soi_code(JpgDecInfo *jpg)
@@ -2981,15 +3107,10 @@ int JpegDecodeHeader(DecInfo *pDecInfo)
 			}
 
 			init_get_bits(&jpg->gbc, b, size * 8);
-			for (;;) {
-				code = find_start_soi_code(jpg);
-				if (code == 0) {
-					ret = -1;
-					dprintf(4, "return 0 in soi finding\n");
-					goto DONE_DEC_HEADER;
-				}
-				if (code == SOI_Marker)
-					break;
+			if (find_start_soi_code_one_shot(jpg) == -1) {
+				ret = -1;
+				dprintf(4, "return 0 in soi finding\n");
+				goto DONE_DEC_HEADER;
 			}
 			soiOffset = get_bits_count(&pDecInfo->jpgInfo.gbc) / 8;
 			b += soiOffset;

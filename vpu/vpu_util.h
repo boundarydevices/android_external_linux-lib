@@ -584,16 +584,20 @@ typedef struct fifo_mutex {
 
 typedef struct {
 	int is_initialized;
+	int numInst;
+
+	/* VPU data for sharing */
+	CodecInst codecInstPool[MAX_NUM_INSTANCE];
+	CodecInst *pendingInst;
+} shared_mem_t;
+
+typedef struct {
 #ifdef FIFO_MUTEX
 	fifo_mutex_t api_lock;
 #else
 	pthread_mutex_t api_lock;
 #endif
 	pthread_mutex_t reg_lock;
-
-	/* VPU data for sharing */
-	CodecInst codecInstPool[MAX_NUM_INSTANCE];
-	CodecInst *pendingInst;
 } semaphore_t;
 
 void BitIssueCommand(CodecInst *pCodecInst, int cmd);
@@ -629,10 +633,10 @@ void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm);
 void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm);
 void SetMaverickCache(MaverickCacheConfig *pCacheConf, int mapType, int chromInterleave);
 
-semaphore_t *vpu_semaphore_open(void);
+shared_mem_t *vpu_semaphore_open(void);
 void semaphore_post(semaphore_t *semap, int mutex);
 unsigned char semaphore_wait(semaphore_t *semap, int mutex);
-void vpu_semaphore_close(semaphore_t *semap);
+void vpu_semaphore_close(shared_mem_t *shared_mem);
 
 static inline unsigned char LockVpu(semaphore_t *semap)
 {
