@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2013 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2014 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -55,6 +55,7 @@ static int vpu_active_num = 0;
 
 unsigned int system_rev;
 semaphore_t *vpu_semap;
+shared_mem_t *vpu_shared_mem;
 vpu_mem_desc bit_work_addr;
 
 int _IOGetPhyMem(int which, vpu_mem_desc *buff);
@@ -208,8 +209,8 @@ int IOSystemInit(void *callback)
 		return -1;
 	}
 
-	vpu_semap = vpu_semaphore_open();
-	if (vpu_semap == NULL) {
+	vpu_shared_mem = vpu_semaphore_open();
+	if (vpu_shared_mem == NULL) {
 		err_msg("Error: Unable to open vpu shared memory file\n");
 		close(vpu_fd);
 		vpu_fd = -1;
@@ -265,7 +266,7 @@ int IOSystemInit(void *callback)
 		goto err;
 	}
 
-	if (IOGetVirtMem(&bit_work_addr) <= 0)
+	if (IOGetVirtMem(&bit_work_addr) == -1)
 		goto err;
 #endif
 	UnlockVpu(vpu_semap);
@@ -335,7 +336,7 @@ int IOSystemShutdown(void)
 	vpu_active_num--;
 
 	semaphore_post(vpu_semap, API_MUTEX);
-	vpu_semaphore_close(vpu_semap);
+	vpu_semaphore_close(vpu_shared_mem);
 
 	if (vpu_fd >= 0) {
 		close(vpu_fd);
@@ -672,7 +673,7 @@ int IOPhyMemCheck(unsigned long phyaddr, const char *name)
  *
  * @param	buff	the structure containing memory information to be mapped.
  *
- * @return	user space address.
+ * @return	user space address on success or -1 ((int)MAP_FAILED) on failure.
  */
 int IOGetVirtMem(vpu_mem_desc * buff)
 {

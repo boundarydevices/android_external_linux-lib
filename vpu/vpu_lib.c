@@ -49,6 +49,7 @@ unsigned long *virt_paraBuf2;
 
 extern vpu_mem_desc bit_work_addr;
 extern semaphore_t *vpu_semap;
+extern shared_mem_t *vpu_shared_mem;
 
 extern void vpu_setting_iram();
 
@@ -293,7 +294,7 @@ RetCode vpu_Init(void *cb)
 	virt_paraBuf2 = (unsigned long *)(virt_codeBuf + CODE_BUF_SIZE +
 					  TEMP_BUF_SIZE);
 
-	ppendingInst = (CodecInst **) (&vpu_semap->pendingInst);
+	ppendingInst = (CodecInst **) (&vpu_shared_mem->pendingInst);
 
 	if (!isVpuInitialized()) {
 		bit_code = malloc(MAX_FW_BINARY_LEN * sizeof(Uint16));
@@ -398,7 +399,7 @@ RetCode vpu_SWReset(DecHandle handle, int index)
 			return RETCODE_FAILURE;
 
 		/* Free instance info per index */
-		pCodecInst = (CodecInst *)(&vpu_semap->codecInstPool[index]);
+		pCodecInst = (CodecInst *)(&vpu_shared_mem->codecInstPool[index]);
 		if (pCodecInst == NULL)
 			warn_msg("The instance is freed\n");
 		else {
@@ -1770,7 +1771,7 @@ RetCode vpu_EncStartOneFrame(EncHandle handle, EncParam * param)
 				err_msg("Unable to obtain physical mem\n");
 				return RETCODE_FAILURE;
 			}
-			if (IOGetVirtMem(&pEncInfo->picParaBaseMem) <= 0) {
+			if (IOGetVirtMem(&pEncInfo->picParaBaseMem) == -1) {
 				IOFreePhyMem(&pEncInfo->picParaBaseMem);
 				pEncInfo->picParaBaseMem.phy_addr = 0;
 				err_msg("Unable to obtain virtual mem\n");
@@ -2994,7 +2995,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 			UnlockVpu(vpu_semap);
 			return RETCODE_FAILURE;
 		}
-		if (IOGetVirtMem(&pDecInfo->userDataBufMem) <= 0) {
+		if (IOGetVirtMem(&pDecInfo->userDataBufMem) == -1) {
 			IOFreePhyMem(&pDecInfo->userDataBufMem);
 			pDecInfo->userDataBufMem.phy_addr = 0;
 			err_msg("Unable to obtain virtual mem\n");
@@ -3037,7 +3038,7 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 			    pDecInfo->openParam.mjpg_thumbNailDecEnable);
 	}
 
-	if (!cpu_is_mx6x() || (pCodecInst->codecMode == VPX_DEC))
+	if (!cpu_is_mx6x())
 		VpuWriteReg(CMD_DEC_SEQ_SRC_SIZE, pDecInfo->picSrcSize);
 	else if (cpu_is_mx6x() && (pCodecInst->codecMode == AVC_DEC))
 		VpuWriteReg(CMD_DEC_SEQ_SPP_CHUNK_SIZE, 512);
@@ -4031,7 +4032,7 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 				UnlockVpu(vpu_semap);
 				return RETCODE_FAILURE;
 			}
-			if (IOGetVirtMem(&pDecInfo->picParaBaseMem) <= 0) {
+			if (IOGetVirtMem(&pDecInfo->picParaBaseMem) == -1) {
 				IOFreePhyMem(&pDecInfo->picParaBaseMem);
 				pDecInfo->picParaBaseMem.phy_addr = 0;
 				err_msg("Unable to obtain virtual mem\n");
@@ -4071,7 +4072,7 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 			UnlockVpu(vpu_semap);
 			return RETCODE_FAILURE;
 		}
-		if (IOGetVirtMem(&pDecInfo->userDataBufMem) <= 0) {
+		if (IOGetVirtMem(&pDecInfo->userDataBufMem) == -1) {
 			IOFreePhyMem(&pDecInfo->userDataBufMem);
 			pDecInfo->userDataBufMem.phy_addr = 0;
 			err_msg("Unable to obtain virtual mem\n");
@@ -4567,7 +4568,8 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 
 	info->indexFrameDisplay = VpuReadReg(RET_DEC_PIC_FRAME_IDX);
 	info->indexFrameDecoded = VpuReadReg(RET_DEC_PIC_CUR_IDX);
-	info->NumDecFrameBuf = VpuReadReg(RET_DEC_PIC_FRAME_NEED);
+	if (!cpu_is_mx6x())
+		info->NumDecFrameBuf = VpuReadReg(RET_DEC_PIC_FRAME_NEED);
 
 	/* save decoded picType to this array */
 	if (info->indexFrameDecoded >= 0)
