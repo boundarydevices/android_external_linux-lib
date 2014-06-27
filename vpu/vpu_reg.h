@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2013 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2014 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -113,7 +113,7 @@
 #define CMD_DEC_SEQ_BB_START		0x180
 #define CMD_DEC_SEQ_BB_SIZE		0x184
 #define CMD_DEC_SEQ_OPTION		0x188
-#define CMD_DEC_SEQ_SRC_SIZE		0x18C
+#define CMD_DEC_SEQ_SRC_SIZE		0x18C  /* dummy for mx6 */
 #define CMD_DEC_SEQ_START_BYTE		0x190
 #define CMD_DEC_SEQ_PS_BB_START     	0x194  /* dummy for mx6 */
 #define CMD_DEC_SEQ_PS_BB_SIZE      	0x198  /* dummy for mx6 */
@@ -125,6 +125,7 @@
 
 #define CMD_DEC_SEQ_INIT_ESCAPE		0x114
 
+#define RET_DEC_SEQ_VUI_INFO            0x18C /* MX6 platform */
 #define RET_DEC_SEQ_BIT_RATE            0x1B4 /* MX6 platform */
 
 #if defined(IMX6Q)
@@ -270,7 +271,8 @@
 #endif
 
 #define RET_DEC_PIC_CUR_IDX		0x1DC
-#define RET_DEC_PIC_FRAME_NEED		0x1EC
+#define RET_DEC_PIC_FRAME_NEED		0x1EC  /* dummy for mx6 */
+#define RET_DEC_PIC_VUI_INFO		0x1EC  /* MX6 platform */
 
 #define RET_DEC_PIC_CROP_LEFT_RIGHT	0x1E0
 #define RET_DEC_PIC_CROP_TOP_BOTTOM	0x1E4
