@@ -1,5 +1,6 @@
 CC ?=$(CROSS_COMPILE)gcc
 AR ?=$(CROSS_COMPILE)ar
+CFLAGS ?=-O2
 INC = $(INCLUDE) -I../ipu
 
 OBJS = ScreenLayer.o
@@ -24,13 +25,13 @@ all install:
 endif
 
 $(LIBNAME).so.$(SONAMEVERSION): $(OBJS)
-	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^ -L../ipu -lipu
+	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^ -L../ipu -lipu $(LDFLAGS)
 
 $(LIBNAME).so: $(LIBNAME).so.$(SONAMEVERSION)
 	ln -s $< $@
 
 %.o: %.c
-	$(CC) $(INC) -Wall -O2 -fPIC -c $^ -o $@
+	$(CC) $(INC) -Wall -fPIC $(CFLAGS) -c $^ -o $@
 
 .PHONY: clean
 clean:

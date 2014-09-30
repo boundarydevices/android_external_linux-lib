@@ -1,5 +1,6 @@
 CC ?=$(CROSS_COMPILE)gcc
 AR ?=$(CROSS_COMPILE)ar
+CFLAGS ?=-O2
 
 ifeq ($(PLATFORM), IMX6Q)
 OBJS = mxc_ipu_hl_lib_dummy.o
@@ -28,7 +29,7 @@ all install:
 endif
 
 $(LIBNAME).so.$(SONAMEVERSION): $(OBJS)
-	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^
+	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^ $(LDFLAGS)
 
 $(LIBNAME).so: $(LIBNAME).so.$(SONAMEVERSION)
 	ln -s $< $@
@@ -37,7 +38,7 @@ $(LIBNAME).so: $(LIBNAME).so.$(SONAMEVERSION)
 ifeq "$(PLATFORM)" ""
 	$(error "Unspecified PLATFORM variable")
 endif
-	$(CC) -D$(PLATFORM) $(INCLUDE) -Wall -O2 -fPIC -c $^ -o $@
+	$(CC) -D$(PLATFORM) $(INCLUDE) -Wall -fPIC $(CFLAGS) -c $^ -o $@
 
 .PHONY: clean
 clean:
