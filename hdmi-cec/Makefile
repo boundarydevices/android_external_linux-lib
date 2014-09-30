@@ -1,5 +1,6 @@
 CC ?=$(CROSS_COMPILE)gcc
 AR ?=$(CROSS_COMPILE)ar
+CFLAGS ?=-O2
 
 # list of platforms which want this test case
 INCLUDE_LIST:= IMX6Q
@@ -32,10 +33,10 @@ all install :
 endif
 
 %.o: %.c
-	$(CC) -D$(PLATFORM) -Wall -O2 -fPIC -c $^ -o $@
+	$(CC) -D$(PLATFORM) -Wall -fPIC $(CFLAGS) -c $^ -o $@
 
 $(LIBNAME).so.$(SONAMEVERSION): $(OBJ)
-	$(CC) -shared -nostartfiles -Wl,-soname,$@ $^ -o $@
+	$(CC) -shared -nostartfiles -Wl,-soname,$@ $^ -o $@ $(LDFLAGS)
 
 $(LIBNAME).so: $(LIBNAME).so.$(SONAMEVERSION)
 	ln -s $< $@
