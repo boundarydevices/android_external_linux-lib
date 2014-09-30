@@ -4,16 +4,17 @@ ifeq (,$(findstring $(PLATFORM), $(EXCLUDE_LIST)))
 AR = ar -crv
 RM = rm -f
 CC ?=$(CROSS_COMPILE)gcc
-LD=$(CROSS_COMPILE)ld
+LD ?=$(CROSS_COMPILE)ld
+CFLAGS ?=-g
 
 INC := $(INCLUDE)
 
 # Add compilation checks
-CFLAGS += -g -Wall -W -Wmissing-prototypes -Wstrict-prototypes -Wdeclaration-after-statement -fPIC
+override CFLAGS += -Wall -W -Wmissing-prototypes -Wstrict-prototypes -Wdeclaration-after-statement -fPIC
 
 # In absence of kernel CONFIG flags, set API library to build on
 # 'unknown' platform.
-CFLAGS += -DFSL_PLATFORM_OTHER -DFSL_HAVE_RNGC $(INC)
+override CFLAGS += -DFSL_PLATFORM_OTHER -DFSL_HAVE_RNGC $(INC)
 
 OBJS= fsl_shw_rand.o  fsl_shw_hash.o  fsl_shw_sym.o  fsl_shw_user.o         \
 		fsl_shw_keystore.o fsl_shw_auth.o  fsl_shw_hmac.o  fsl_shw_wrap.o
@@ -34,7 +35,7 @@ $(LIBNAME).a: $(OBJS)
 	$(AR) $@ $^
 
 $(LIBNAME).so.$(SONAMEVERSION): $(OBJS)
-	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^
+	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^ $(LDFLAGS)
 
 $(LIBNAME).so: $(LIBNAME).so.$(SONAMEVERSION)
 	ln -s $< $@

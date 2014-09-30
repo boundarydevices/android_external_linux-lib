@@ -1,9 +1,10 @@
 CC ?=$(CROSS_COMPILE)gcc
 AR ?=$(CROSS_COMPILE)ar
+CFLAGS ?=-O2
 
 OBJS = iso7816-3.o
 
-CFLAGS += $(INCLUDE)
+override CFLAGS += $(INCLUDE)
 
 LIBNAME=libsim
 SONAMEVERSION=0
@@ -21,13 +22,13 @@ install:
 	cp iso7816-3.h $(DEST_DIR)/usr/include
 
 $(LIBNAME).so.$(SONAMEVERSION): $(OBJS)
-	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^ -lpthread
+	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^ -lpthread $(LDFLAGS)
 
 $(LIBNAME).so: $(LIBNAME).so.$(SONAMEVERSION)
 	ln -s $< $@
 
 %.o: %.c
-	$(CC) -D$(PLATFORM) $(INCLUDE) -Wall -O2 -fPIC -c $^ -o $@
+	$(CC) -D$(PLATFORM) $(INCLUDE) -Wall -fPIC $(CFLAGS) -c $^ -o $@
 
 else
 all install :

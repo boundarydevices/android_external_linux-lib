@@ -4,7 +4,8 @@ ifeq (,$(findstring $(PLATFORM), $(EXCLUDE_LIST)))
 AR = ar -crv
 RM = rm -f
 CC ?=$(CROSS_COMPILE)gcc
-LD=$(CROSS_COMPILE)ld
+LD ?=$(CROSS_COMPILE)ld
+CFLAGS ?=-g
 
 INC := $(INCLUDE)
 
@@ -18,19 +19,19 @@ TARGET_ARCH=-DCONFIG_ARCH_MX5
 endif
 
 # Add compilation checks
-CFLAGS += -g -Wall -W -Wmissing-prototypes -Wstrict-prototypes -Wdeclaration-after-statement -fPIC
+override CFLAGS += -Wall -W -Wmissing-prototypes -Wstrict-prototypes -Wdeclaration-after-statement -fPIC
 
 OBJS= fsl_shw_rand.o  fsl_shw_hash.o  fsl_shw_sym.o  fsl_shw_user.o         \
       fsl_shw_auth.o  fsl_shw_hmac.o  fsl_shw_wrap.o  fsl_shw_keystore.o um_adaptor.o  sf_util.o
 
 
 #CFLAGS += -DSAHARA -DLINUX -I$(APIINCDIR)
-CFLAGS += -DSAHARA -DLINUX $(INC)
-CFLAGS += $(TARGET_ARCH)
+override CFLAGS += -DSAHARA -DLINUX $(INC)
+override CFLAGS += $(TARGET_ARCH)
 # Uncomment to debug Library's creation of structures for driver
-#CFLAGS +=  -DDIAG_SECURITY_FUNC
+#override CFLAGS +=  -DDIAG_SECURITY_FUNC
 # Uncomment to simulate memory allocation errors
-#CFLAGS += -DDIAG_MEM_ERRORS -DDIAG_MEM_CONST=5
+#override CFLAGS += -DDIAG_MEM_ERRORS -DDIAG_MEM_CONST=5
 
 LIBNAME=libsahara
 SONAMEVERSION=0
@@ -53,7 +54,7 @@ $(LIBNAME).a: $(OBJS)
 	$(AR) $@ $^
 
 $(LIBNAME).so.$(SONAMEVERSION): $(OBJS)
-	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^
+	$(CC) -shared -nostartfiles -Wl,-soname,$@ -o $@ $^ $(LDFLAGS)
 
 $(LIBNAME).so: $(LIBNAME).so.$(SONAMEVERSION)
 	ln -s $< $@
