@@ -40,6 +40,7 @@
 #ifdef USE_ION
 #include <linux/ion.h>
 #include <ion/ion.h>
+#include <linux/version.h>
 #elif USE_GPU
 #include "g2d.h"
 #else
@@ -381,7 +382,11 @@ int _IOGetPhyMem(int which, vpu_mem_desc *buff)
 	const size_t pagesize = getpagesize();
 	int err, fd;
 #ifdef USE_ION
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
+	ion_user_handle_t handle;
+#else
 	struct ion_handle *handle;
+#endif
 	int share_fd, ret = -1;
 	unsigned char *ptr;
 #elif USE_GPU
@@ -425,7 +430,11 @@ int _IOGetPhyMem(int which, vpu_mem_desc *buff)
 		return -1;
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
+	err = ion_alloc(fd, buff->size, pagesize, 1, 0, &handle);
+#else
 	err = ion_alloc(fd, buff->size, pagesize, 1, &handle);
+#endif
 	if (err) {
 		err_msg("ion allocation failed!\n");
 		goto error;
@@ -447,14 +456,21 @@ int _IOGetPhyMem(int which, vpu_mem_desc *buff)
 
 	buff->virt_uaddr = (unsigned long)ptr;
 	buff->phy_addr = (unsigned long)err;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
+	ion_free(fd, handle);
+	buff->cpu_addr = (unsigned long)share_fd;
+#else
 	buff->cpu_addr = (unsigned long)handle;
+#endif
 	memset((void*)buff->virt_uaddr, 0, buff->size);
 	ret = 0;
 	info_msg("<ion> alloc handle: 0x%x, paddr: 0x%x, vaddr: 0x%x",
 			(unsigned int)handle, (unsigned int)buff->phy_addr,
 			(unsigned int)buff->virt_uaddr);
 error:
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
 	close(share_fd);
+#endif
 	ion_close(fd);
 	return ret;
 #elif USE_GPU
@@ -552,7 +568,11 @@ int _IOFreePhyMem(int which, vpu_mem_desc * buff)
 {
 #ifdef BUILD_FOR_ANDROID
 #ifdef USE_ION
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
+	int shared_fd;
+#else
 	struct ion_handle *handle;
+#endif
 	int fd;
 
 	if (!buff || !(buff->size) || ((unsigned long)buff->cpu_addr == 0)) {
@@ -565,7 +585,11 @@ int _IOFreePhyMem(int which, vpu_mem_desc * buff)
 		return -1;
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
+	shared_fd = buff->cpu_addr;
+#else
 	handle = (struct ion_handle *)buff->cpu_addr;
+#endif
 
 	fd = ion_open();
 	if (fd <= 0) {
@@ -573,10 +597,17 @@ int _IOFreePhyMem(int which, vpu_mem_desc * buff)
 		return -1;
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
+	ion_close(shared_fd);
+	info_msg("<ion> free handle: 0x%x, paddr: 0x%x, vaddr: 0x%x",
+			(unsigned int)shared_fd, (unsigned int)buff->phy_addr,
+			(unsigned int)buff->virt_uaddr);
+#else
 	ion_free(fd, handle);
 	info_msg("<ion> free handle: 0x%x, paddr: 0x%x, vaddr: 0x%x",
 			(unsigned int)handle, (unsigned int)buff->phy_addr,
 			(unsigned int)buff->virt_uaddr);
+#endif
 	ion_close(fd);
 
 	munmap((void *)buff->virt_uaddr, buff->size);
