@@ -2251,6 +2251,46 @@ RetCode vpu_EncGiveCommand(EncHandle handle, CodecCommand cmd, void *param)
 			break;
 		}
 
+	case ENC_GET_VIDEO_HEADER:
+		{
+			int iNaluLen, iflagRot, iSliceNum;
+
+			EncHeaderParam *encHeaderParam;
+
+			if (param == 0) {
+				return RETCODE_INVALID_PARAM;
+			}
+			encHeaderParam = (EncHeaderParam *)param;
+
+			if (pCodecInst->codecMode == AVC_ENC) {
+				if (!((SPS_RBSP == encHeaderParam->headerType)
+						&& (pCodecInst->codecModeAux == AVC_AUX_AVC)
+						&& (pEncInfo->ringBufferEnable == 0))) {
+					return RETCODE_INVALID_PARAM;
+				}
+			}
+			else
+				return RETCODE_INVALID_PARAM;
+
+			iflagRot = 0;
+			iSliceNum = 0;
+			if (pEncInfo->openParam.slicemode.sliceMode == 1
+					&& pEncInfo->openParam.slicemode.sliceSizeMode == 1)
+				iSliceNum = pEncInfo->openParam.slicemode.sliceSize;
+
+			if (pEncInfo->rotationEnable) {
+				if (pEncInfo->rotationAngle == 90 || pEncInfo->rotationAngle == 270)
+					iflagRot = 1;
+			}
+			iNaluLen = (int)MakeSPS(encHeaderParam->pBuf, &pEncInfo->openParam,
+					iflagRot, pEncInfo->openParam.bitRate, iSliceNum);
+			if ((iNaluLen < 0) || (iNaluLen > encHeaderParam->size))
+				return RETCODE_INVALID_PARAM;
+			encHeaderParam->size = iNaluLen;
+
+			break;
+		}
+
 	case ENC_GET_VOS_HEADER:
 		{
 			if (pCodecInst->codecMode != MP4_ENC) {

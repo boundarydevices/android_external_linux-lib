@@ -21,6 +21,8 @@
 typedef unsigned char Uint8;
 typedef unsigned long Uint32;
 typedef unsigned short Uint16;
+typedef unsigned long long Uint64;
+typedef long long Int64;
 typedef Uint32 PhysicalAddress;
 typedef Uint32 VirtualAddress;
 
@@ -113,6 +115,7 @@ typedef enum {
 	ENC_PUT_MP4_HEADER,
 	ENC_PUT_AVC_HEADER,
 	ENC_SET_SEARCHRAM_PARAM,
+	ENC_GET_VIDEO_HEADER,
 	ENC_GET_VOS_HEADER,
 	ENC_GET_VO_HEADER,
 	ENC_GET_VOL_HEADER,
@@ -451,6 +454,20 @@ typedef struct {
 	int h263_annexTEnable;
 } EncH263Param;
 
+/**
+    \struct VuiParam
+    \brief  VUI parameters
+ */
+typedef struct {
+	int video_signal_type_pres_flag;
+	char video_format;
+	char video_full_range_flag;
+	int colour_descrip_pres_flag;
+	char colour_primaries;
+	char transfer_characteristics;
+	char matrix_coeff;
+} VuiParam;
+
 typedef struct {
 	int avc_constrainedIntraPredFlag;
 	int avc_disableDeblk;
@@ -472,6 +489,11 @@ typedef struct {
 	int interview_en;
 	int paraset_refresh_en;
 	int prefix_nal_en;
+
+	/* vui paramters */
+	int avc_vui_present_flag; /* vui_parameters_present_flag */
+	VuiParam avc_vui_param;
+	int avc_level;
 } EncAvcParam;
 
 typedef struct {
@@ -601,6 +623,7 @@ typedef struct {
 
 typedef struct {
 	PhysicalAddress buf;
+	Uint8 *pBuf;
 	int size;
 	int headerType;
 	int userProfileLevelEnable;
@@ -684,7 +707,7 @@ static const SocInfo soc_info[] = {
  * v4.2.2 [2008.09.03] support encoder on MX51
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 26)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 27)
 
 extern unsigned int system_rev;
 
