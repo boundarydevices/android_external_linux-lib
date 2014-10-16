@@ -72,6 +72,69 @@ const char *jfif = "JFIF";
 const char *jfxx = "JFXX";
 const char *exif = "Exif";
 
+#ifndef MIN
+#define MIN(a, b)       (((a) < (b)) ? (a) : (b))
+#endif
+#ifndef MAX
+#define MAX(a, b)       (((a) > (b)) ? (a) : (b))
+#endif
+
+#define MAX_LEVEL_IDX 16
+static const int g_anLevel[MAX_LEVEL_IDX] =
+{
+	10, 11, 11, 12, 13,
+	//10, 16, 11, 12, 13,
+	20, 21, 22,
+	30, 31, 32,
+	40, 41, 42,
+	50, 51
+};
+
+static const int g_anLevelMaxMBPS[MAX_LEVEL_IDX] =
+{
+	1485,   1485,   3000,   6000, 11880,
+	11880,  19800,  20250,
+	40500,  108000, 216000,
+	245760, 245760, 522240,
+	589824, 983040
+};
+
+static const int g_anLevelMaxFS[MAX_LEVEL_IDX] =
+{
+	99,    99,   396, 396, 396,
+	396,   792,  1620,
+	1620,  3600, 5120,
+	8192,  8192, 8704,
+	22080, 36864
+};
+
+static const int g_anLevelMaxBR[MAX_LEVEL_IDX] =
+{
+	64,     64,   192,  384, 768,
+	2000,   4000,  4000,
+	10000,  14000, 20000,
+	20000,  50000, 50000,
+	135000, 240000
+};
+
+static const int g_anLevelSliceRate[MAX_LEVEL_IDX] =
+{
+	0,  0,  0,  0,  0,
+	0,  0,  0,
+	22, 60, 60,
+	60, 24, 24,
+	24, 24
+};
+
+static const int g_anLevelMaxMbs[MAX_LEVEL_IDX] =
+{
+	28,   28,  56, 56, 56,
+	56,   79, 113,
+	113, 169, 202,
+	256, 256, 263,
+	420, 543
+};
+
 RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 {
 	FILE *fp;
@@ -3375,6 +3438,385 @@ proc_wrap:
 	}
 
 	return 1;
+}
+
+/* User QMAT requirement */
+static const int cInvZScan4x4[16] =
+{
+	0,  1,  4,  8,
+	5,  2,  3,  6,
+	9, 12, 13, 10,
+	7, 11, 14, 15
+};
+
+static const int cInvZScan8x8[64] =
+{
+	 0,  1,  8, 16,  9,  2,  3, 10,
+	17, 24, 32, 25, 18, 11,  4,  5,
+	12, 19, 26, 33, 40, 48, 41, 34,
+	27, 20, 13,  6,  7, 14, 21, 28,
+	35, 42, 49, 56, 57, 50, 43, 36,
+	29, 22, 15, 23, 30, 37, 44, 51,
+	58, 59, 52, 45, 38, 31, 39, 46,
+	53, 60, 61, 54, 47, 55, 62, 63
+};
+
+
+/*
+ * BITSTREAM GENERATION FUNCTION
+ */
+
+void Nal2RBSP(VlcPutBitstream* const pBitstream)
+{
+	unsigned int   uRBSPBytesUsed = MAX_RBSP_SIZE - pBitstream->uRBSPRemBytes;
+	unsigned char* pbyRBSP        = (unsigned char *)pBitstream->adwRBSPStart;
+	unsigned char* pbyCodedFrmNow = (unsigned char *)((unsigned int)pBitstream->pbyBitstreamStart
+					+ (unsigned int)pBitstream->uCodedBytes);
+	unsigned long  dwNext3Bytes   = (pBitstream->uRBSPLast2Bytes << 8);
+
+	do {
+		unsigned int uSingleByte = *pbyRBSP++;
+
+		dwNext3Bytes = dwNext3Bytes + uSingleByte;
+		dwNext3Bytes <<= 8;
+		if (dwNext3Bytes <= 0x0000000300L) {
+			*pbyCodedFrmNow++ = 0x03;
+			dwNext3Bytes |= 0xFF00;
+		}
+		*pbyCodedFrmNow++ = (unsigned char)uSingleByte;
+	} while (--uRBSPBytesUsed != 0);
+
+	pBitstream->uCodedBytes     = (unsigned int)pbyCodedFrmNow - (unsigned int)pBitstream->pbyBitstreamStart;
+	pBitstream->uRBSPLast2Bytes = (unsigned int)(dwNext3Bytes >> 8);
+	pBitstream->uRBSPRemBytes   = MAX_RBSP_SIZE;
+	pBitstream->pdwRBSPPtr      = pBitstream->adwRBSPStart;
+}
+
+void PutBits(VlcPutBitstream* const pBitstream, unsigned long dwValue, int iBitSize)
+{
+	int           iWordRemBits  = pBitstream->iWordRemBits - iBitSize;
+	unsigned long dwWordStorage = pBitstream->dwWordStorage;
+
+	if (iWordRemBits >= 0) {
+		dwWordStorage = dwWordStorage | (dwValue << iWordRemBits);
+	} else {
+		dwWordStorage = dwWordStorage | (dwValue >> (-iWordRemBits));
+		dwWordStorage = (dwWordStorage >> 24) + (dwWordStorage << 24)
+			+ ((dwWordStorage&0xFF0000) >> 8) + ((dwWordStorage&0xFF00) << 8);
+		*pBitstream->pdwRBSPPtr++ = dwWordStorage;
+
+		iWordRemBits  = iWordRemBits + 32;
+		dwWordStorage = dwValue << iWordRemBits;
+		pBitstream->uRBSPRemBytes -= 4;
+		if (pBitstream->uRBSPRemBytes == 0)
+			Nal2RBSP(pBitstream);
+	}
+	pBitstream->dwWordStorage = dwWordStorage;
+	pBitstream->iWordRemBits  = iWordRemBits;
+}
+
+void VLC_NaluInit(VlcPutBitstream *pBitstream, int iNalRefIdc, int iNaluType)
+{
+	unsigned char *pbyNalu = (unsigned char *)((unsigned int)pBitstream->pbyBitstreamStart);
+
+	pbyNalu[0] = 0;
+	pbyNalu[1] = 0;
+	pbyNalu[2] = 0;
+	pbyNalu[3] = 1;
+	pBitstream->uCodedBytes   = 4;
+
+	pBitstream->dwWordStorage = 0L;
+	pBitstream->iWordRemBits  = 32;
+
+	pBitstream->uRBSPRemBytes   = MAX_RBSP_SIZE;
+	pBitstream->pdwRBSPPtr      = pBitstream->adwRBSPStart;
+	pBitstream->uRBSPLast2Bytes = (unsigned int)-1;
+
+	PutBits(pBitstream, (0<<7) + (iNalRefIdc<<5) + iNaluType, 8); // forbidden_zero_bit | nal_ref_idc | nal_unit_type
+}
+
+unsigned int VCL_NaluClose(VlcPutBitstream *pBitstream)
+{
+	unsigned long dwWordStorage;
+	int iLenStuffing = ((pBitstream->iWordRemBits - 1) & 0x7);
+
+	PutBits(pBitstream, (1 << iLenStuffing), iLenStuffing + 1);   // rbsp_trailing_bits
+
+	//Flush WordStorage & RBSP buffer
+	dwWordStorage = pBitstream->dwWordStorage;
+	dwWordStorage = (dwWordStorage >> 24) + (dwWordStorage << 24)
+		+ ((dwWordStorage&0xFF0000) >> 8) + ((dwWordStorage&0xFF00) << 8);
+	*pBitstream->pdwRBSPPtr++ = dwWordStorage;
+	pBitstream->uRBSPRemBytes -= ((32 - pBitstream->iWordRemBits) >> 3);
+
+	if (pBitstream->uRBSPRemBytes != MAX_RBSP_SIZE)
+		Nal2RBSP(pBitstream);
+
+	return pBitstream->uCodedBytes;
+}
+
+void PutUE(VlcPutBitstream *pBitstream, int data)
+{
+	int zeroNum;
+	int codeNum;
+
+	zeroNum = 0;
+	codeNum = 1;
+	while (codeNum <= data + 1) {
+		codeNum = codeNum << 1;
+		zeroNum++;
+	}
+	zeroNum--;
+
+	if (zeroNum > 14)
+		zeroNum = zeroNum;
+
+	PutBits(pBitstream, 0, zeroNum);
+	codeNum = data + 1 - (1 << zeroNum);
+	PutBits(pBitstream, 1, 1);
+	PutBits(pBitstream, codeNum, zeroNum);
+
+}
+
+void PutSE(VlcPutBitstream *pBitstream, int data, int maxVal)
+{
+	int codeNum;
+
+	if (data > 0)
+		codeNum = data * 2 - 1; // (-1)^(codeNum + 1)
+	else
+		codeNum = -data * 2;
+
+	PutUE(pBitstream, codeNum);     // -maxVal ~ maxlVal
+}
+
+void PutUELong(VlcPutBitstream *pBitstream, int data)
+{
+	int zeroNum;
+	int codeNum;
+
+	if (data < 126) {
+		PutUE(pBitstream, data);
+		return;
+	}
+
+	zeroNum = 0;
+	codeNum = 1;
+	while (codeNum <= data + 1) {
+		codeNum = codeNum << 1;
+		zeroNum++;
+	}
+	zeroNum--;
+
+	PutBits(pBitstream, 0, zeroNum);
+	codeNum = data + 1 - (1 << zeroNum);
+
+	PutBits(pBitstream, 1, 1);
+	PutBits(pBitstream, codeNum, zeroNum);
+
+}
+
+void PutSELong(VlcPutBitstream *pBitstream, int data)
+{
+	int codeNum;
+
+	if (data > 0)
+		codeNum = data * 2 - 1; // (-1)^(codeNum + 1)
+	else
+		codeNum = -data * 2;
+	PutUELong(pBitstream, codeNum);
+}
+
+unsigned int MakeSPS(unsigned char *pbyStream, EncOpenParam *openParam, int RotFlag, int BitRate, int SliceNum)
+{
+	VlcPutBitstream Bitstream;
+	int MbNumX, MbNumY;
+	EncAvcParam *avcParam = &openParam->EncStdParam.avcParam;
+
+	Bitstream.pbyBitstreamStart = pbyStream;
+
+	MbNumX = (openParam->picWidth+15)/16;
+	MbNumY = (openParam->picHeight+15)/16;
+
+	VLC_NaluInit(&Bitstream, 3, 7);
+	PutBits(&Bitstream, 66, 8);                  ///< 8  : profile_idc
+	PutBits(&Bitstream, 0, 1);                   ///< 1  : constraint_set0_flag
+	PutBits(&Bitstream, 1, 1);                   ///< 1  : constraint_set1_flag
+	PutBits(&Bitstream, 0, 1);                   ///< 1  : constraint_set2_flag
+	PutBits(&Bitstream, 0, 5);                   ///< 5  : reserved_zero_5bits
+	if (!avcParam->avc_level) {
+		avcParam->avc_level = LevelCalculation(MbNumX, MbNumY, openParam->frameRateInfo, 0, BitRate, SliceNum);
+		if (avcParam->avc_level < 0)
+			return -1;
+	}
+	PutBits(&Bitstream, avcParam->avc_level, 8); ///< 8  : level_idc
+	PutUE(&Bitstream, 0);                        ///< ue : seq_parameter_set_id [0-31]
+	PutUE(&Bitstream, 1);                        ///< ue : log2_max_frame_num_minus4 [0-12]
+	PutUE(&Bitstream, 2);			     ///< ue : pic_order_cnt_type [0-2]
+
+	PutUE(&Bitstream, 1);                        ///< ue : num_ref_frames
+
+	PutBits(&Bitstream, 0, 1);                   ///< 1  : gaps_in_frame_num_value_allowed_flag
+
+	// MaxMbNumY should be MaxMbNumX for the case of rotation
+	if (RotFlag) {
+		PutUE(&Bitstream, MbNumY-1);         ///< ue : pic_width_in_mbs_minus1
+		PutUE(&Bitstream, MbNumX-1);         ///< ue : pic_height_in_map_units_minus1
+	}
+	else {
+		PutUE(&Bitstream, MbNumX-1);         ///< ue : pic_width_in_mbs_minus1
+		PutUE(&Bitstream, MbNumY-1);         ///< ue : pic_height_in_map_units_minus1
+	}
+	PutBits(&Bitstream, 1, 1);                   ///< 1  : frame_mbs_only_flag
+	PutBits(&Bitstream, 1, 1);                   ///< 1  : direct_8x8_inference_flag
+
+	if (avcParam->avc_frameCroppingFlag) {
+		PutBits(&Bitstream, 1, 1);                        ///< 1  : frame_cropping_flag
+		PutUE(&Bitstream, avcParam->avc_frameCropLeft);   ///< ue : frame_crop_left_offset
+		PutUE(&Bitstream, avcParam->avc_frameCropRight);  ///< ue : frame_crop_right_offset
+		PutUE(&Bitstream, avcParam->avc_frameCropTop);    ///< ue : frame_crop_top_offset
+		PutUE(&Bitstream, avcParam->avc_frameCropBottom); ///< ue : frame_crop_bottom_offset
+	}
+	else
+		PutBits(&Bitstream, 0, 1);                        ///< 1  : frame_cropping_flag
+	if (avcParam->avc_vui_present_flag)
+	{ // VUI PARAM
+		VuiParam *pVuiParam = &avcParam->avc_vui_param;
+		PutBits(&Bitstream, 1, 1);                        ///< 1  : vui_parameters_present_flag
+		//vui_parameters()
+		PutBits(&Bitstream, 0, 1);                        ///< 1  : aspect_ratio_info_present_flag
+		PutBits(&Bitstream, 0, 1);                        ///< 1  : overscan_info_present_flag
+
+		PutBits(&Bitstream, pVuiParam->video_signal_type_pres_flag, 1);              ///< 1  : video_signal_type_present_flag
+		if (pVuiParam->video_signal_type_pres_flag) {
+			PutBits(&Bitstream, pVuiParam->video_format, 3);                     ///< 3  : video_format
+			PutBits(&Bitstream, pVuiParam->video_full_range_flag, 1);            ///< 1  : video_full_range_flag
+			PutBits(&Bitstream, pVuiParam->colour_descrip_pres_flag, 1);	     ///< 1  : colour_description_present_flag
+			if (pVuiParam->colour_descrip_pres_flag) {
+				PutBits(&Bitstream, pVuiParam->colour_primaries, 8);         ///< 8  : colour_primaries
+				PutBits(&Bitstream, pVuiParam->transfer_characteristics, 8); ///< 8  : transfer_characteristics
+				PutBits(&Bitstream, pVuiParam->matrix_coeff, 8);             ///< 8  : matrix_coefficients
+			}
+		}
+
+		PutBits(&Bitstream, 0, 1); ///< 1  : chroma_loc_info_present_flag
+		PutBits(&Bitstream, 0, 1); ///< 1  : timing_info_present_flag
+		PutBits(&Bitstream, 0, 1); ///< 1  : nal_hrd_parameters_present_flag
+		PutBits(&Bitstream, 0, 1); ///< 1  : vcl_hrd_parameters_present_flag
+
+		PutBits(&Bitstream, 0, 1); ///< 1  : pic_struct_present_flag
+		PutBits(&Bitstream, 1, 1); ///< 1  : bitstream_restriction_flag
+		PutBits(&Bitstream, 1, 1); ///< 1  : motion_vectors_over_pic_boundaries_flag
+		PutUE(&Bitstream, 0);      ///< 1  : max_bytes_per_pic_denom (unlimited)
+		PutUE(&Bitstream, 0);      ///< 1  : max_bits_per_mb_denom (unlimited)
+		PutUE(&Bitstream, 8);      ///< 1  : log2_max_mv_length_horizontal
+		PutUE(&Bitstream, 8);      ///< 1  : log2_max_mv_length_vertical
+		PutUE(&Bitstream, 0);      ///< 1  : num_reoder_frames 0
+		PutUE(&Bitstream, 1);      ///< 1  : max_dec_frame_buffering 16
+	}
+	else
+		PutBits(&Bitstream, 0, 1);
+
+	return VCL_NaluClose(&Bitstream);
+}
+
+
+/* 32 bit / 16 bit ==> 32-n bit remainder, n bit quotient */
+static int fixDivRq(int a, int b, int n)
+{
+	Int64 c;
+	Int64 a_36bit;
+	Int64 mask, signBit, signExt;
+	int  i;
+
+	// DIVS emulation for BPU accumulator size
+	// For SunOS build
+	mask = 0x0F; mask <<= 32; mask |= 0x00FFFFFFFF; // mask = 0x0FFFFFFFFF;
+	signBit = 0x08; signBit <<= 32;                 // signBit = 0x0800000000;
+	signExt = 0xFFFFFFF0; signExt <<= 32;           // signExt = 0xFFFFFFF000000000;
+
+	a_36bit = (Int64) a;
+
+	for (i=0; i<n; i++) {
+		c =  a_36bit - (b << 15);
+		if (c >= 0)
+			a_36bit = (c << 1) + 1;
+		else
+			a_36bit = a_36bit << 1;
+
+		a_36bit = a_36bit & mask;
+		if (a_36bit & signBit)
+			a_36bit |= signExt;
+	}
+
+	a = (int) a_36bit;
+	return a;               // R = [31:n], Q = [n-1:0]
+}
+
+static int fixDivRnd(int a, int b)
+{
+	int  c;
+	c = fixDivRq(a, b, 17); // R = [31:17], Q = [16:0]
+	c = c & 0xFFFF;
+	c = (c + 1) >> 1;       // round
+	return (c & 0xFFFF);
+}
+
+int RcFixDivRnd(int res, int div)
+{
+	return fixDivRnd(res, div);
+}
+
+int LevelCalculation(int MbNumX, int MbNumY, int frameRateInfo, int interlaceFlag, int BitRate, int SliceNum)
+{
+	int mbps;
+	int frameRateDiv, frameRateRes, frameRate;
+	int mbPicNum = (MbNumX*MbNumY);
+	int mbFrmNum;
+	int MaxSliceNum;
+
+	int LevelIdc = 0;
+	int i, maxMbs;
+
+	if (interlaceFlag) {
+		mbFrmNum = mbPicNum * 2;
+		MbNumY   *= 2;
+	}
+	else mbFrmNum = mbPicNum;
+
+	frameRateDiv = (frameRateInfo >> 16) + 1;
+	frameRateRes = frameRateInfo & 0xFFFF;
+	frameRate = fixDivRnd(frameRateRes, frameRateDiv);
+	mbps = mbFrmNum * frameRate;
+
+	for(i=0; i<MAX_LEVEL_IDX; i++) {
+		maxMbs = g_anLevelMaxMbs[i];
+		if (mbps <= g_anLevelMaxMBPS[i]
+				&& mbFrmNum <= g_anLevelMaxFS[i]
+				&& MbNumX   <= maxMbs
+				&& MbNumY   <= maxMbs
+				&& BitRate  <= g_anLevelMaxBR[i])
+		{
+			LevelIdc = g_anLevel[i];
+			break;
+		}
+	}
+
+	if (i == MAX_LEVEL_IDX)
+		i = MAX_LEVEL_IDX - 1;
+
+	if (SliceNum) {
+		SliceNum = fixDivRnd(mbPicNum, SliceNum);
+
+		if (g_anLevelSliceRate[i]) {
+			MaxSliceNum = fixDivRnd(MAX(mbPicNum, g_anLevelMaxMBPS[i]/(172/(1+interlaceFlag))), g_anLevelSliceRate[i]);
+
+			if (SliceNum > MaxSliceNum)
+				return -1;
+		}
+	}
+
+	return LevelIdc;
 }
 
 #ifdef LOG_TIME
