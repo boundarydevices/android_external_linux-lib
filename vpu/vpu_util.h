@@ -555,6 +555,21 @@ typedef struct CodecInst {
 	} CodecParam;
 } CodecInst;
 
+#define MAX_RBSP_SIZE 128 /* 128*4 bytes */
+typedef struct {
+  unsigned long  dwWordStorage;
+  int            iWordRemBits; /* MAX 32 bit */
+
+  unsigned long* pdwRBSPPtr;
+  unsigned long  adwRBSPStart[MAX_RBSP_SIZE];
+  unsigned int   uRBSPRemBytes;
+
+  unsigned char* pbyBitstreamStart;
+  unsigned int   uCodedBytes;
+
+  unsigned int   uRBSPLast2Bytes;
+} VlcPutBitstream;
+
 #ifdef BUILD_FOR_ANDROID
 #undef FIFO_MUTEX
 #endif
@@ -680,6 +695,8 @@ int JpuGbuGetUsedBitCount(vpu_getbit_context_t *ctx);
 int JpuGbuGetLeftBitCount(vpu_getbit_context_t *ctx);
 unsigned int JpuGbuGetBit(vpu_getbit_context_t *ctx, int bit_num);
 unsigned int JpuGbuShowBit(vpu_getbit_context_t *ctx, int bit_num);
+unsigned int MakeSPS(unsigned char *pbyStream, EncOpenParam *openParam, int RotFlag, int BitRate, int SliceNum);
+int LevelCalculation(int MbNumX, int MbNumY, int frameRateInfo, int interlaceFlag, int BitRate, int SliceNum);
 
 #ifdef LOG_TIME
 int log_time(int inst, Event evt);
