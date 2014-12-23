@@ -1254,23 +1254,7 @@ static void *get_shared_buf(int size, int create) {
 			return NULL;
 		}
 
-		ret = close(fd_share);
-		if(-1 == ret) {
-			perror("close failed");
-			return NULL;
-		}
-
-		ret = unlink(FN_SHARE);
-		if(-1 == ret) {
-			perror("unlink failed");
-			return NULL;
-		}
-
-		fd_share = open(FN_SHARE, O_RDWR|O_CREAT, S_IRUSR|S_IWUSR);
-		if(-1 == (ret = fd_share)) {
-			perror("open failed");
-			return NULL;
-		}
+		chmod(FN_SHARE, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
 
 		ret = ftruncate(fd_share, size);
 		if(-1 == ret) {
@@ -1282,6 +1266,8 @@ static void *get_shared_buf(int size, int create) {
 				MAP_SHARED, fd_share, SEEK_SET);
 		if(NULL == buf)
 			perror("mmap failed");
+
+		memset(buf, 0, size);
 
 		return buf;
 	} else {
@@ -1309,12 +1295,6 @@ static void release_shared_buf(void *buf, int size, int destroy) {
 	ret = close(fd_share);
 	if(-1 == ret)
 		perror("close failed");
-
-	if (destroy) {
-		ret = unlink(FN_SHARE);
-		if(-1 == ret)
-			perror("unlink failed");
-	}
 }
 
 shared_mem_t *vpu_semaphore_open(void)
