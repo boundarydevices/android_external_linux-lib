@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2014 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2015 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -2118,6 +2118,11 @@ void JpgDecGramSetup(DecInfo * pDecInfo)
 
 	dMibStatus = 1;
 	dExtBitBufCurPos = dExtBitBufCurPos + 1;
+	if (pDecInfo->jpgInfo.lastRound
+			&& (dExtBitBufCurPos >= pDecInfo->jpgInfo.curPosStreamEnd)) {
+		pDecInfo->jpgInfo.bbcStreamCtl |= (1 << 28);
+		VpuWriteReg(MJPEG_BBC_STRM_CTRL_REG, pDecInfo->jpgInfo.bbcStreamCtl);
+	}
 
 	VpuWriteReg(MJPEG_BBC_CUR_POS_REG, dExtBitBufCurPos);
 	VpuWriteReg(MJPEG_BBC_CTRL_REG, 1);
@@ -3337,9 +3342,11 @@ proc_wrap:
 			val = wrOffset / 256;
 			if (wrOffset % 256)
 				val += 1;
+			pDecInfo->jpgInfo.curPosStreamEnd = val;
 			val = (1 << 31 | val);
 			pDecInfo->jpgInfo.bbcStreamCtl = val;
 			pDecInfo->jpgInfo.bbcEndAddr = pDecInfo->streamWrPtr+256;
+			pDecInfo->jpgInfo.lastRound = 1;
 		}
 		else
 			pDecInfo->jpgInfo.bbcEndAddr = pDecInfo->streamWrPtr & 0xFFFFFE00;
