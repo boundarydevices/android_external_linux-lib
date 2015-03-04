@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2014 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2015 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -480,6 +480,8 @@ typedef struct {
 	int wrappedHeader;
 	int header_status;
 	int inProcess;
+	int lastRound;
+	int curPosStreamEnd;
 } JpgDecInfo;
 
 typedef struct {

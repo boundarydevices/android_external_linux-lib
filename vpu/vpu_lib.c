@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2014 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2015 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -167,9 +167,11 @@ int vpu_WaitForInt(int timeout_in_ms)
 						dprintf(4, "wrap around in decoding\n");
 						VpuWriteReg(MJPEG_BBC_CUR_POS_REG, 0);
 						wrPtr = pDecInfo->streamWrPtr;
-						if (pDecInfo->streamEndflag)
+						if (pDecInfo->streamEndflag) {
 							/* set to unreachable position to disable BBC interrupt */
 							VpuWriteReg(MJPEG_BBC_END_ADDR_REG, wrPtr+256);
+							pDecInfo->jpgInfo.lastRound = 1;
+						}
 						else
 							VpuWriteReg(MJPEG_BBC_END_ADDR_REG,
 									wrPtr & 0xFFFFFE00);
@@ -3697,6 +3699,7 @@ RetCode vpu_DecUpdateBitstreamBuffer(DecHandle handle, Uint32 size)
 			val = wrOffset / 256;
 			if (wrOffset % 256)
 				val += 1;
+			pDecInfo->jpgInfo.curPosStreamEnd = val;
 			val = (1 << 31 | val);
 			pDecInfo->jpgInfo.bbcStreamCtl = val;
 			pDecInfo->streamEndflag = 1;
@@ -3717,8 +3720,10 @@ RetCode vpu_DecUpdateBitstreamBuffer(DecHandle handle, Uint32 size)
 
 		if (wrOffset < pDecInfo->jpgInfo.frameOffset)
 			pDecInfo->jpgInfo.bbcEndAddr = pDecInfo->streamBufEndAddr;
-		else if (pDecInfo->streamEndflag)
+		else if (pDecInfo->streamEndflag) {
 			pDecInfo->jpgInfo.bbcEndAddr = wrPtr+256;
+			pDecInfo->jpgInfo.lastRound = 1;
+		}
 		else
 			pDecInfo->jpgInfo.bbcEndAddr = wrPtr & 0xFFFFFE00;
 
