@@ -3,7 +3,7 @@ AR ?=$(CROSS_COMPILE)ar
 CFLAGS ?=-O2
 
 # list of platforms which want this test case
-INCLUDE_LIST:=IMX50 IMX51 IMX5 IMX6Q IMX6S
+INCLUDE_LIST:=IMX50 IMX51 IMX5 IMX6Q IMX6S IMX7
 
 OBJ = pxp_lib.o
 
