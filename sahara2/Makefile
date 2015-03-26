@@ -1,4 +1,4 @@
-EXCLUDE_LIST:= IMX6Q IMX6S
+EXCLUDE_LIST:= IMX6Q IMX6S IMX7
 
 ifeq (,$(findstring $(PLATFORM), $(EXCLUDE_LIST)))
 AR = ar -crv
