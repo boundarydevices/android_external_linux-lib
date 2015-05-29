@@ -673,7 +673,8 @@ typedef enum {
 	MX51,
 	MX53,
 	MX61,
-	MX63
+	MX63,
+	MX63P
 } SocIndex;
 
 typedef struct {
@@ -686,7 +687,8 @@ static const SocInfo soc_info[] = {
 	{0x51, "i.MX51"},
 	{0x53, "i.MX53"},
 	{0x61, "i.MX6DL"},
-	{0x63, "i.MX6Q"}
+	{0x63, "i.MX6Q"},
+	{0x63, "i.MX6QP"}
 };
 
 #define VPU_FW_VERSION(major, minor, release)	 \
@@ -707,7 +709,7 @@ static const SocInfo soc_info[] = {
  * v4.2.2 [2008.09.03] support encoder on MX51
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 29)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 30)
 
 extern unsigned int system_rev;
 
