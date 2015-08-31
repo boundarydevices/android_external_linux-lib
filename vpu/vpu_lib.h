@@ -198,6 +198,24 @@ typedef struct {
 typedef struct CodecInst DecInst;
 typedef DecInst *DecHandle;
 
+/* Not used on none mx6 */
+typedef struct {
+	int fixedFrameRateFlag;
+	int timingInfoPresent;
+	int chromaLocBotField;
+	int chromaLocTopField;
+	int chromaLocInfoPresent;
+	int colorPrimaries;
+	int colorDescPresent;
+	int isExtSAR;
+	int vidFullRange;
+	int vidFormat;
+	int vidSigTypePresent;
+	int vuiParamPresent;
+	int vuiPicStructPresent;
+	int vuiPicStruct;
+} AvcVuiInfo;
+
 typedef struct {
 	CodStd bitstreamFormat;
 	PhysicalAddress bitstreamBuffer;
@@ -273,6 +291,7 @@ typedef struct {
 	int mjpg_ecsPtr;
 
 	DecReportBufSize reportBufSize;
+	AvcVuiInfo avcVuiInfo; /* Not used on none mx6 */
 } DecInitialInfo;
 
 typedef struct {
@@ -424,6 +443,7 @@ typedef struct {
 	Vp8PicInfo vp8PicInfo;
 	MvcPicInfo mvcPicInfo;  /* Not used on none mx6 */
 	AvcFpaSei avcFpaSei;
+	AvcVuiInfo avcVuiInfo;  /* Not used on none mx6 */
 
 	int frameStartPos;   /* Not used on none mx6 */
 	int frameEndPos;     /* Not used on none mx6 */
@@ -709,7 +729,7 @@ static const SocInfo soc_info[] = {
  * v4.2.2 [2008.09.03] support encoder on MX51
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 31)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 32)
 
 extern unsigned int system_rev;
 
