@@ -1049,7 +1049,10 @@ void SetDecSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 
 	memset(psecAxiIramInfo, 0, sizeof(SecAxiUse));
 
-	IOGetIramBase(&iram);
+	if (IOGetIramBase(&iram)) {
+		iram.start = 0;
+		iram.end = 0;
+	}
 	size = iram.end - iram.start + 1;
 
 	mbNumX = (parm->width + 15 ) / 16;
@@ -1134,7 +1137,10 @@ void SetEncSecondAXIIRAM(SecAxiUse *psecAxiIramInfo, SetIramParam *parm)
 
 	memset(psecAxiIramInfo, 0, sizeof(SecAxiUse));
 
-	IOGetIramBase(&iram);
+	if (IOGetIramBase(&iram)) {
+		iram.start = 0;
+		iram.end = 0;
+	}
 	size = iram.end - iram.start + 1;
 
 	mbNumX = (parm->width + 15 ) / 16;
