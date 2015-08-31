@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2014 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2015 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -126,6 +126,7 @@
 #define CMD_DEC_SEQ_INIT_ESCAPE		0x114
 
 #define RET_DEC_SEQ_VUI_INFO            0x18C /* MX6 platform */
+#define RET_DEC_SEQ_VUI_PIC_STRUCT	0x1A8 /* MX6 platform */
 #define RET_DEC_SEQ_BIT_RATE            0x1B4 /* MX6 platform */
 
 #if defined(IMX6Q)
@@ -252,6 +253,7 @@
 #define RET_DEC_PIC_AVC_FPA_SEI0	0x19C
 #define RET_DEC_PIC_AVC_FPA_SEI1	0x1A0
 #define RET_DEC_PIC_AVC_FPA_SEI2	0x1A4
+#define RET_DEC_PIC_VUI_PIC_STRUCT	0x1A8 /* MX6 platform */
 
 #define RET_DEC_PIC_SIZE		0x1BC
 #define RET_DEC_PIC_FRAME_NUM		0x1C0

@@ -3242,6 +3242,26 @@ RetCode vpu_DecGetInitialInfo(DecHandle handle, DecInitialInfo * info)
 	val = VpuReadReg(RET_DEC_SEQ_ASPECT);
 	info->aspectRateInfo = val;
 
+	if (cpu_is_mx6x() && (pCodecInst->codecMode == AVC_DEC)) {
+		val = VpuReadReg(RET_DEC_SEQ_VUI_INFO);
+		info->avcVuiInfo.fixedFrameRateFlag    = val &1;
+		info->avcVuiInfo.timingInfoPresent     = (val>>1) & 0x01;
+		info->avcVuiInfo.chromaLocBotField     = (val>>2) & 0x07;
+		info->avcVuiInfo.chromaLocTopField     = (val>>5) & 0x07;
+		info->avcVuiInfo.chromaLocInfoPresent  = (val>>8) & 0x01;
+		info->avcVuiInfo.colorPrimaries        = (val>>16) & 0xff;
+		info->avcVuiInfo.colorDescPresent      = (val>>24) & 0x01;
+		info->avcVuiInfo.isExtSAR              = (val>>25) & 0x01;
+		info->avcVuiInfo.vidFullRange          = (val>>26) & 0x01;
+		info->avcVuiInfo.vidFormat             = (val>>27) & 0x07;
+		info->avcVuiInfo.vidSigTypePresent     = (val>>30) & 0x01;
+		info->avcVuiInfo.vuiParamPresent       = (val>>31) & 0x01;
+
+		val = VpuReadReg(RET_DEC_SEQ_VUI_PIC_STRUCT);
+		info->avcVuiInfo.vuiPicStructPresent = (val & 0x1);
+		info->avcVuiInfo.vuiPicStruct = (val>>1);
+	}
+
 	info->reportBufSize.frameBufStatBufSize = SIZE_FRAME_BUF_STAT;
 	info->reportBufSize.mbInfoBufSize = SIZE_MB_DATA;
 	info->reportBufSize.mvInfoBufSize = SIZE_MV_DATA;
@@ -4458,6 +4478,26 @@ RetCode vpu_DecGetOutputInfo(DecHandle handle, DecOutputInfo * info)
 		else
 			info->progressiveFrame = (val >> 23) & 0x0003;
 		info->fieldSequence = (val >> 25) & 0x0007;
+	}
+
+	if (cpu_is_mx6x() && (pCodecInst->codecMode == AVC_DEC)) {
+		val = VpuReadReg(RET_DEC_PIC_VUI_INFO);
+		info->avcVuiInfo.fixedFrameRateFlag    = val &1;
+		info->avcVuiInfo.timingInfoPresent     = (val>>1) & 0x01;
+		info->avcVuiInfo.chromaLocBotField     = (val>>2) & 0x07;
+		info->avcVuiInfo.chromaLocTopField     = (val>>5) & 0x07;
+		info->avcVuiInfo.chromaLocInfoPresent  = (val>>8) & 0x01;
+		info->avcVuiInfo.colorPrimaries        = (val>>16) & 0xff;
+		info->avcVuiInfo.colorDescPresent      = (val>>24) & 0x01;
+		info->avcVuiInfo.isExtSAR              = (val>>25) & 0x01;
+		info->avcVuiInfo.vidFullRange          = (val>>26) & 0x01;
+		info->avcVuiInfo.vidFormat             = (val>>27) & 0x07;
+		info->avcVuiInfo.vidSigTypePresent     = (val>>30) & 0x01;
+		info->avcVuiInfo.vuiParamPresent       = (val>>31) & 0x01;
+
+		val = VpuReadReg(RET_DEC_PIC_VUI_PIC_STRUCT);
+		info->avcVuiInfo.vuiPicStructPresent = (val & 0x1);
+		info->avcVuiInfo.vuiPicStruct = (val>>1);
 	}
 
 	if (cpu_is_mx6x()) {
