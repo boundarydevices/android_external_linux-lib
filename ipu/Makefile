@@ -2,12 +2,7 @@ CC ?=$(CROSS_COMPILE)gcc
 AR ?=$(CROSS_COMPILE)ar
 CFLAGS ?=-O2
 
-ifeq ($(PLATFORM), IMX6Q)
 OBJS = mxc_ipu_hl_lib_dummy.o
-else
-OBJS = mxc_ipu_hl_lib.o mxc_ipu_lib.o
-endif
-
 
 LIBNAME=libipu
 SONAMEVERSION=0
