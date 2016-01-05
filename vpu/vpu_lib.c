@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2015 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2016 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -333,9 +333,22 @@ RetCode vpu_Init(void *cb)
 		VpuWriteReg(BIT_CODE_RUN, 0);
 
 		/* Download BIT Microcode to Program Memory */
-		for (i = 0; i < 2048; ++i) {
-			data = bit_code[i];
-			VpuWriteReg(BIT_CODE_DOWN, (i << 16) | data);
+		if (cpu_is_mx6x()) {
+			for (i = 0; i < 2048; i += 4) {
+				data = bit_code[i+3];
+				VpuWriteReg(BIT_CODE_DOWN, (i << 16) | data);
+				data = bit_code[i+2];
+				VpuWriteReg(BIT_CODE_DOWN, ((i+1) << 16) | data);
+				data = bit_code[i+1];
+				VpuWriteReg(BIT_CODE_DOWN, ((i+2) << 16) | data);
+				data = bit_code[i];
+				VpuWriteReg(BIT_CODE_DOWN, ((i+3) << 16) | data);
+			}
+		} else {
+			for (i = 0; i < 2048; ++i) {
+				data = bit_code[i];
+				VpuWriteReg(BIT_CODE_DOWN, (i << 16) | data);
+			}
 		}
 
 		data =

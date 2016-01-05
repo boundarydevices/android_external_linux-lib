@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2015 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2016 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -175,34 +175,42 @@ RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 		return RETCODE_FAILURE;
 	}
 
-	ret = fread(&info, sizeof(headerInfo), 1, fp);
+	if (cpu_is_mx6x()) {
+		ret = fread(pBitCode, sizeof(Uint16), MAX_FW_BINARY_LEN, fp);
+		fclose(fp);
 
-	if (info.size > MAX_FW_BINARY_LEN) {
-		err_msg("Size in VPU header is too large.Size: %d\n",
-			(Uint16) info.size);
-		goto err;
+		*size = ret;
 	}
+	else {
+		ret = fread(&info, sizeof(headerInfo), 1, fp);
 
-	ret = fread(pBitCode, sizeof(Uint16), info.size, fp);
-	if (ret < (int)info.size) {
-		err_msg("VPU firmware binary file is wrong or corrupted.\n");
-		goto err;
+		if (info.size > MAX_FW_BINARY_LEN) {
+			err_msg("Size in VPU header is too large.Size: %d\n",
+					(Uint16) info.size);
+			goto err;
+		}
+
+		ret = fread(pBitCode, sizeof(Uint16), info.size, fp);
+		if (ret < (int)info.size) {
+			err_msg("VPU firmware binary file is wrong or corrupted.\n");
+			goto err;
+		}
+		fclose(fp);
+
+		memset(temp_str, 0, 64);
+		sprintf(temp_str, "%2x", mxc_cpu());
+		if (strcmp(temp_str, "63") == 0)
+			strcpy(temp_str, "6Q");
+		else if (strcmp(temp_str, "61") == 0)
+			strcpy(temp_str, "6D");
+
+		if (strstr((char *)info.platform, temp_str) == NULL) {
+			err_msg("VPU firmware platform version isn't matched\n");
+			goto err;
+		}
+
+		*size = (int)info.size;
 	}
-	fclose(fp);
-
-	memset(temp_str, 0, 64);
-	sprintf(temp_str, "%2x", mxc_cpu());
-	if (strcmp(temp_str, "63") == 0)
-		strcpy(temp_str, "6Q");
-	else if (strcmp(temp_str, "61") == 0)
-		strcpy(temp_str, "6D");
-
-	if (strstr((char *)info.platform, temp_str) == NULL) {
-		err_msg("VPU firmware platform version isn't matched\n");
-		goto err;
-	}
-
-	*size = (int)info.size;
 	return RETCODE_SUCCESS;
 
       err:
@@ -228,21 +236,25 @@ RetCode DownloadBitCodeTable(unsigned long *virtCodeBuf, Uint16 *bit_code)
 
 	virt_codeBuf = virtCodeBuf;
 	/* Copy full Microcode to Code Buffer allocated on SDRAM */
-	if (!cpu_is_mx27()) {
-		for (i = 0; i < size; i += 4) {
-			data =
-			    (bit_code[i + 0] << 16) | bit_code[i + 1];
-			((unsigned int *)virt_codeBuf)[i / 2 + 1] =
-			    data;
-			data =
-			    (bit_code[i + 2] << 16) | bit_code[i + 3];
-			((unsigned int *)virt_codeBuf)[i / 2] = data;
-		}
+	if (cpu_is_mx6x()) {
+		memcpy(virt_codeBuf, bit_code, size*2);
 	} else {
-		for (i = 0; i < size; i += 2) {
-			data = (unsigned int)((bit_code[i] << 16) |
-					      bit_code[i + 1]);
-			((unsigned int *)virt_codeBuf)[i / 2] = data;
+		if (!cpu_is_mx27()) {
+			for (i = 0; i < size; i += 4) {
+				data =
+					(bit_code[i + 0] << 16) | bit_code[i + 1];
+				((unsigned int *)virt_codeBuf)[i / 2 + 1] =
+					data;
+				data =
+					(bit_code[i + 2] << 16) | bit_code[i + 3];
+				((unsigned int *)virt_codeBuf)[i / 2] = data;
+			}
+		} else {
+			for (i = 0; i < size; i += 2) {
+				data = (unsigned int)((bit_code[i] << 16) |
+						bit_code[i + 1]);
+				((unsigned int *)virt_codeBuf)[i / 2] = data;
+			}
 		}
 	}
 
