@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2015 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2016 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -729,7 +729,7 @@ static const SocInfo soc_info[] = {
  * v4.2.2 [2008.09.03] support encoder on MX51
  * v4.0.2 [2008.08.21] add the IOClkGateSet() for power saving.
  */
-#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 32)
+#define VPU_LIB_VERSION_CODE	VPU_LIB_VERSION(5, 4, 33)
 
 extern unsigned int system_rev;
 
