@@ -325,6 +325,7 @@ RetCode vpu_Init(void *cb)
 				/* IRQ is disabled during shutdown */
 				VpuWriteReg(BIT_INT_ENABLE, 1 << INT_BIT_PIC_RUN);
 				IOClkGateSet(false);
+				free(bit_code);
 				UnlockVpu(vpu_semap);
 				return RETCODE_SUCCESS;
 			}
