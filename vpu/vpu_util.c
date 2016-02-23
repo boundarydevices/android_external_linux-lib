@@ -204,6 +204,7 @@ RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 		else if (strcmp(temp_str, "61") == 0)
 			strcpy(temp_str, "6D");
 
+		info.platform[sizeof(info.platform) - 1] = '\0';
 		if (strstr((char *)info.platform, temp_str) == NULL) {
 			err_msg("VPU firmware platform version isn't matched\n");
 			goto err;
