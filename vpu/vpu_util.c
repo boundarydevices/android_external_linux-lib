@@ -177,8 +177,6 @@ RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 
 	if (cpu_is_mx6x()) {
 		ret = fread(pBitCode, sizeof(Uint16), MAX_FW_BINARY_LEN, fp);
-		fclose(fp);
-
 		*size = ret;
 	}
 	else {
@@ -195,7 +193,6 @@ RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 			err_msg("VPU firmware binary file is wrong or corrupted.\n");
 			goto err;
 		}
-		fclose(fp);
 
 		memset(temp_str, 0, 64);
 		sprintf(temp_str, "%2x", mxc_cpu());
@@ -212,6 +209,7 @@ RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 
 		*size = (int)info.size;
 	}
+	fclose(fp);
 	return RETCODE_SUCCESS;
 
       err:
