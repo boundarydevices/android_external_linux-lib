@@ -150,7 +150,10 @@ RetCode LoadBitCodeTable(Uint16 * pBitCode, int *size)
 #else
 		strcpy(fw_name, "/lib/firmware/vpu");	/* default path */
 #endif
-	else
+	else if (strlen(fw_path) > 200) {
+		err_msg("VPU_FW_PATH can have at most 200 characters\n");
+		return RETCODE_FAILURE;
+	} else
 		strcpy(fw_name, fw_path);
 
 	strcat(fw_name, "/");
