@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2014 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2014, 2016 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -130,7 +130,7 @@ static int get_system_rev(void)
 			return ret;
 		}
 
-		if (fscanf(fp, "%s", soc_name) != 1) {
+		if (fscanf(fp, "%254s", soc_name) != 1) {
 			perror("fscanf");
 			fclose(fp);
 			return ret;
