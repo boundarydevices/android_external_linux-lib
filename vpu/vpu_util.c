@@ -3342,8 +3342,10 @@ proc_wrap:
 			temp_size = pDecInfo->streamWrPtr - pDecInfo->streamBufStartAddr;
 			if (temp_size) {
 				temp_buf = malloc(temp_size);
-				if (!temp_buf)
+				if (!temp_buf) {
 					err_msg("Allocate memory failure\n");
+					return 0;
+				}
 				else
 					memcpy(temp_buf, (void *)jpg->pVirtBitStream, temp_size);
 			}
