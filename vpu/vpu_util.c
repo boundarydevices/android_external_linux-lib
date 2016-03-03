@@ -3581,9 +3581,6 @@ void PutUE(VlcPutBitstream *pBitstream, int data)
 	}
 	zeroNum--;
 
-	if (zeroNum > 14)
-		zeroNum = zeroNum;
-
 	PutBits(pBitstream, 0, zeroNum);
 	codeNum = data + 1 - (1 << zeroNum);
 	PutBits(pBitstream, 1, 1);
