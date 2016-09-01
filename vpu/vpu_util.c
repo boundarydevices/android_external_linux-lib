@@ -1277,7 +1277,6 @@ static void *get_shared_buf(int size, int create) {
 		ret = chmod(FN_SHARE, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
 		if(-1 == ret) {
 			perror("chmod failed");
-			return NULL;
 		}
 
 		ret = ftruncate(fd_share, size);
