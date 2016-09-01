@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, Chips & Media.  All rights reserved.
  *
- * Copyright (C) 2004-2013 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2013,2016 Freescale Semiconductor, Inc.
  */
 
 /* The following programs are the sole property of Freescale Semiconductor Inc.,
@@ -43,6 +43,7 @@ extern int vpu_lib_dbg_level;
 #define err_msg		ALOGE
 #define info_msg	ALOGI
 #define warn_msg	ALOGW
+#define perror 	ALOGE
 #else
 #define err_msg(fmt, arg...) do { if (vpu_lib_dbg_level >= 1)		\
 	printf("[ERR]\t%s:%d " fmt,  __FILE__, __LINE__, ## arg); else \
