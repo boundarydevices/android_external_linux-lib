@@ -3681,10 +3681,10 @@ unsigned int MakeSPS(unsigned char *pbyStream, EncOpenParam *openParam, int RotF
 
 	if (avcParam->avc_frameCroppingFlag) {
 		PutBits(&Bitstream, 1, 1);                        ///< 1  : frame_cropping_flag
-		PutUE(&Bitstream, avcParam->avc_frameCropLeft);   ///< ue : frame_crop_left_offset
-		PutUE(&Bitstream, avcParam->avc_frameCropRight);  ///< ue : frame_crop_right_offset
-		PutUE(&Bitstream, avcParam->avc_frameCropTop);    ///< ue : frame_crop_top_offset
-		PutUE(&Bitstream, avcParam->avc_frameCropBottom); ///< ue : frame_crop_bottom_offset
+		PutUE(&Bitstream, avcParam->avc_frameCropLeft >> 1);   ///< ue : frame_crop_left_offset
+		PutUE(&Bitstream, avcParam->avc_frameCropRight >> 1);  ///< ue : frame_crop_right_offset
+		PutUE(&Bitstream, avcParam->avc_frameCropTop >> 1);    ///< ue : frame_crop_top_offset
+		PutUE(&Bitstream, avcParam->avc_frameCropBottom >> 1); ///< ue : frame_crop_bottom_offset
 	}
 	else
 		PutBits(&Bitstream, 0, 1);                        ///< 1  : frame_cropping_flag

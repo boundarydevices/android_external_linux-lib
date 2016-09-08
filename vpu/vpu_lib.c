@@ -4153,6 +4153,9 @@ RetCode vpu_DecStartOneFrame(DecHandle handle, DecParam * param)
 
 		VpuWriteReg(CMD_DEC_PIC_USER_DATA_BASE_ADDR, pDecInfo->userDataBufMem.phy_addr);
 		VpuWriteReg(CMD_DEC_PIC_USER_DATA_BUF_SIZE, pDecInfo->decReportUserData.size);
+	} else if (pDecInfo->decReportUserData.enable && pDecInfo->userDataBufMem.phy_addr) {
+		VpuWriteReg(CMD_DEC_PIC_USER_DATA_BASE_ADDR, pDecInfo->userDataBufMem.phy_addr);
+		VpuWriteReg(CMD_DEC_PIC_USER_DATA_BUF_SIZE, pDecInfo->decReportUserData.size);
 	}
 
 	if (!cpu_is_mx27()) {
