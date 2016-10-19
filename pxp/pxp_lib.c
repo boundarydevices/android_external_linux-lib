@@ -185,7 +185,7 @@ int pxp_get_virtmem(struct pxp_mem_desc *mem)
 int pxp_put_virtmem(struct pxp_mem_desc *mem)
 {
 	if (mem->virt_uaddr != 0) {
-		if (munmap((void *)mem->virt_uaddr, mem->size) != 0)
+		if (munmap((void*)(intptr_t)mem->virt_uaddr, mem->size) != 0)
 			dbg(DBG_ERR, "UNMAP_FAILED.\n");
 	}
 
