@@ -1,3 +1,5 @@
+ifeq ($(HAVE_FSL_IMX_PXP),true)
+
 LOCAL_PATH := $(call my-dir)
 
 # Share library
@@ -14,3 +16,4 @@ LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE_TAGS := eng
 include $(BUILD_SHARED_LIBRARY)
 
+endif
